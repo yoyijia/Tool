@@ -11,7 +11,7 @@ import type {
   GeneratedAnimation,
   RGB,
 } from '../types'
-import { ANIMATION_LABELS } from '../types'
+import { ANIMATION_LABELS, FRAME_SIZES } from '../types'
 import { AnimationPreview } from './AnimationPreview'
 import { UploadZone } from './UploadZone'
 
@@ -39,7 +39,7 @@ export function CharacterStudio({
   onRemove,
 }: CharacterStudioProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [frameSize, setFrameSize] = useState<FrameSize>(32)
+  const [frameSize, setFrameSize] = useState<FrameSize>(128)
   const [selectedAnims, setSelectedAnims] = useState<AnimationType[]>([
     'idle',
     'walk',
@@ -57,6 +57,9 @@ export function CharacterStudio({
 
   const preview = generated.find((g) => g.type === previewType) ?? generated[0] ?? null
 
+  const previewScale = frameSize === 512 ? 1 : frameSize === 128 ? 2.5 : 3.5
+  const thumbScale = frameSize === 512 ? 0.35 : frameSize === 128 ? 0.7 : 1.2
+
   const toggleAnim = (type: AnimationType) => {
     setSelectedAnims((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
@@ -66,28 +69,31 @@ export function CharacterStudio({
   const handleGenerate = () => {
     if (!selected || !selectedAnims.length) return
     setBusy(true)
-    // Yield so UI can paint busy state
+    // Larger sizes need a frame for UI paint + avoid blocking
     requestAnimationFrame(() => {
-      const results = generateAllAnimations(
-        selected.image,
-        selectedAnims,
-        frameSize,
-        palette,
-      )
-      setGenerated(results)
-      setPreviewType(results[0]?.type ?? 'idle')
-      setBusy(false)
+      setTimeout(() => {
+        const results = generateAllAnimations(
+          selected.image,
+          selectedAnims,
+          frameSize,
+          palette,
+        )
+        setGenerated(results)
+        setPreviewType(results[0]?.type ?? 'idle')
+        setBusy(false)
+      }, 30)
     })
   }
 
   const handleExportSheet = () => {
     if (!generated.length || !selected) return
     const { canvas, meta } = packMultiAnimationSheet(generated)
-    downloadCanvas(canvas, `${slug(selected.name)}-spritesheet.png`)
+    downloadCanvas(canvas, `${slug(selected.name)}-spritesheet-${frameSize}.png`)
     downloadJson(
       {
         character: selected.name,
-        style: 'nintendo-inspired-pixel',
+        style: 'nintendo-clean-vector',
+        frameSize,
         ...meta,
         animations: Object.fromEntries(
           generated.map((g, row) => [
@@ -102,7 +108,7 @@ export function CharacterStudio({
           ]),
         ),
       },
-      `${slug(selected.name)}-spritesheet.json`,
+      `${slug(selected.name)}-spritesheet-${frameSize}.json`,
     )
   }
 
@@ -110,7 +116,7 @@ export function CharacterStudio({
     if (!selected) return
     downloadCanvas(
       anim.sheetCanvas,
-      `${slug(selected.name)}-${anim.type}.png`,
+      `${slug(selected.name)}-${anim.type}-${frameSize}.png`,
     )
   }
 
@@ -118,12 +124,15 @@ export function CharacterStudio({
     <section className="panel">
       <header className="panel-header">
         <h2>Character Animations</h2>
-        <p>Upload a character, then generate idle, walk, and more as sprite sheets.</p>
+        <p>
+          Upload your clean vector character sprites. Output stays flat-color,
+          chibi, and Nintendo-soft — at 64, 128, or 512px.
+        </p>
       </header>
 
       <UploadZone
-        label="Upload character art"
-        hint="Single pose works best — front or side facing"
+        label="Upload character sprites"
+        hint="Single pose or sheet — clean vector / chibi works best"
         multiple
         onFiles={onAdd}
       />
@@ -163,7 +172,7 @@ export function CharacterStudio({
             value={frameSize}
             onChange={(e) => setFrameSize(Number(e.target.value) as FrameSize)}
           >
-            {[16, 24, 32, 48, 64].map((s) => (
+            {FRAME_SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}×{s}px
               </option>
@@ -222,11 +231,11 @@ export function CharacterStudio({
                 </button>
               ))}
             </div>
-            <AnimationPreview animation={preview} scale={frameSize <= 32 ? 5 : 3} />
+            <AnimationPreview animation={preview} scale={previewScale} />
           </div>
 
           <div className="sheet-column">
-            <h3>Frames</h3>
+            <h3>Frames · {frameSize}px clean vector</h3>
             {generated.map((g) => (
               <div key={g.type} className="sheet-block">
                 <div className="sheet-block-head">
@@ -248,13 +257,13 @@ export function CharacterStudio({
                       ref={(node) => {
                         if (!node) return
                         const ctx = node.getContext('2d')!
-                        ctx.imageSmoothingEnabled = false
+                        ctx.imageSmoothingEnabled = true
                         ctx.clearRect(0, 0, g.frameSize, g.frameSize)
                         ctx.drawImage(f.canvas, 0, 0)
                       }}
                       style={{
-                        width: Math.max(40, g.frameSize * 2),
-                        height: Math.max(40, g.frameSize * 2),
+                        width: Math.max(48, g.frameSize * thumbScale),
+                        height: Math.max(48, g.frameSize * thumbScale),
                       }}
                     />
                   ))}

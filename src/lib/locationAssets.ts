@@ -1,37 +1,11 @@
 import type { LocationAsset, LocationCategory, LocationTheme, RGB } from '../types'
-import { getThemePalette } from './palette'
-import { applyPixelOutline, createCanvas, getCtx } from './pixelate'
+import { getThemePalette, rgbToHex } from './palette'
+import { createCanvas, getCtx } from './pixelate'
 
 type DrawFn = (ctx: CanvasRenderingContext2D, size: number, pal: RGB[], seed: number) => void
 
-function p(pal: RGB[], i: number): string {
-  const c = pal[i % pal.length]
-  return `rgb(${c.r},${c.g},${c.b})`
-}
-
-function fill(ctx: CanvasRenderingContext2D, color: string): void {
-  ctx.fillStyle = color
-}
-
-function rect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  color: string,
-): void {
-  fill(ctx, color)
-  ctx.fillRect(x, y, w, h)
-}
-
-function px(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  color: string,
-): void {
-  rect(ctx, x, y, 1, 1, color)
+function c(pal: RGB[], i: number): string {
+  return rgbToHex(pal[i % pal.length])
 }
 
 function hash(n: number): number {
@@ -39,264 +13,489 @@ function hash(n: number): number {
   return x - Math.floor(x)
 }
 
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const radius = Math.min(r, w / 2, h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
+}
+
+function softShade(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  color: string,
+  alpha = 0.12,
+): void {
+  ctx.fillStyle = color
+  ctx.globalAlpha = alpha
+  ctx.fillRect(0, size * 0.55, size, size * 0.45)
+  ctx.globalAlpha = 1
+}
+
 const drawGrass: DrawFn = (ctx, size, pal, seed) => {
-  rect(ctx, 0, 0, size, size, p(pal, 0))
-  for (let i = 0; i < size * 2; i++) {
-    const x = Math.floor(hash(seed + i) * size)
-    const y = Math.floor(hash(seed + i + 50) * size)
-    px(ctx, x, y, p(pal, 1 + (i % 2)))
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  softShade(ctx, size, c(pal, 2), 0.18)
+  // Soft tufts
+  ctx.fillStyle = c(pal, 1)
+  for (let i = 0; i < 7; i++) {
+    const x = hash(seed + i) * size
+    const y = hash(seed + i + 20) * size
+    ctx.beginPath()
+    ctx.ellipse(x, y, size * 0.06, size * 0.035, 0, 0, Math.PI * 2)
+    ctx.fill()
   }
-  // Soft highlight edge
-  for (let x = 0; x < size; x++) {
-    if (hash(seed + x + 200) > 0.6) px(ctx, x, 0, p(pal, 2))
+  ctx.fillStyle = c(pal, 2)
+  for (let i = 0; i < 4; i++) {
+    const x = hash(seed + i + 40) * size
+    const y = hash(seed + i + 60) * size
+    ctx.beginPath()
+    ctx.ellipse(x, y, size * 0.04, size * 0.025, 0, 0, Math.PI * 2)
+    ctx.fill()
   }
 }
 
 const drawDirt: DrawFn = (ctx, size, pal, seed) => {
-  rect(ctx, 0, 0, size, size, p(pal, 3))
-  for (let i = 0; i < size; i++) {
-    const x = Math.floor(hash(seed + i) * size)
-    const y = Math.floor(hash(seed + i + 9) * size)
-    px(ctx, x, y, p(pal, 4))
+  ctx.fillStyle = c(pal, 3)
+  ctx.fillRect(0, 0, size, size)
+  softShade(ctx, size, c(pal, 4), 0.2)
+  ctx.fillStyle = c(pal, 4)
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath()
+    ctx.ellipse(
+      hash(seed + i) * size,
+      hash(seed + i + 9) * size,
+      size * 0.05,
+      size * 0.035,
+      0,
+      0,
+      Math.PI * 2,
+    )
+    ctx.fill()
   }
 }
 
 const drawSand: DrawFn = (ctx, size, pal, seed) => {
-  rect(ctx, 0, 0, size, size, p(pal, 0))
-  for (let i = 0; i < size * 1.5; i++) {
-    px(
-      ctx,
-      Math.floor(hash(seed + i) * size),
-      Math.floor(hash(seed + i + 3) * size),
-      p(pal, 1),
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  ctx.fillStyle = c(pal, 1)
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath()
+    ctx.ellipse(
+      hash(seed + i) * size,
+      hash(seed + i + 3) * size,
+      size * 0.045,
+      size * 0.03,
+      0,
+      0,
+      Math.PI * 2,
     )
+    ctx.fill()
   }
 }
 
 const drawStone: DrawFn = (ctx, size, pal) => {
-  rect(ctx, 0, 0, size, size, p(pal, 0))
-  const crack = Math.floor(size * 0.45)
-  rect(ctx, 1, 1, size - 2, size - 2, p(pal, 1))
-  // Brick-ish seams
-  rect(ctx, 0, crack, size, 1, p(pal, 2))
-  rect(ctx, crack, 0, 1, crack, p(pal, 2))
-  rect(ctx, Math.floor(size * 0.7), crack, 1, size - crack, p(pal, 2))
-  px(ctx, 2, 2, p(pal, 3))
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  ctx.fillStyle = c(pal, 1)
+  roundRect(ctx, size * 0.06, size * 0.06, size * 0.88, size * 0.88, size * 0.08)
+  ctx.fill()
+  ctx.strokeStyle = c(pal, 2)
+  ctx.lineWidth = Math.max(2, size * 0.03)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.08, size * 0.5)
+  ctx.lineTo(size * 0.92, size * 0.5)
+  ctx.moveTo(size * 0.5, size * 0.08)
+  ctx.lineTo(size * 0.5, size * 0.5)
+  ctx.moveTo(size * 0.7, size * 0.5)
+  ctx.lineTo(size * 0.7, size * 0.92)
+  ctx.stroke()
+  // Soft highlight
+  ctx.fillStyle = c(pal, 3)
+  ctx.globalAlpha = 0.35
+  ctx.beginPath()
+  ctx.ellipse(size * 0.28, size * 0.28, size * 0.08, size * 0.05, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = 1
 }
 
 const drawPath: DrawFn = (ctx, size, pal, seed) => {
-  rect(ctx, 0, 0, size, size, p(pal, 3))
-  for (let y = 2; y < size - 2; y += 3) {
-    for (let x = 2; x < size - 2; x += 3) {
-      if (hash(seed + x * 7 + y) > 0.35) {
-        rect(ctx, x, y, 2, 2, p(pal, 4))
+  ctx.fillStyle = c(pal, 3)
+  ctx.fillRect(0, 0, size, size)
+  softShade(ctx, size, c(pal, 4), 0.15)
+  ctx.fillStyle = c(pal, 4)
+  for (let y = size * 0.12; y < size * 0.9; y += size * 0.22) {
+    for (let x = size * 0.12; x < size * 0.9; x += size * 0.22) {
+      if (hash(seed + x + y) > 0.3) {
+        roundRect(ctx, x, y, size * 0.14, size * 0.12, size * 0.03)
+        ctx.fill()
       }
     }
   }
 }
 
 const drawWater: DrawFn = (ctx, size, pal, seed) => {
-  rect(ctx, 0, 0, size, size, p(pal, 2))
-  const waveY = Math.floor(size * 0.35 + hash(seed) * size * 0.15)
-  for (let x = 0; x < size; x++) {
-    const y = waveY + Math.floor(Math.sin((x + seed) * 0.8) * 1.5)
-    px(ctx, x, y, p(pal, 5) || p(pal, 3))
-    if (x % 3 === 0) px(ctx, x, y + 2, p(pal, 3))
+  ctx.fillStyle = c(pal, 2)
+  ctx.fillRect(0, 0, size, size)
+  const waveY = size * (0.35 + hash(seed) * 0.1)
+  ctx.strokeStyle = c(pal, 5) || '#ffffff'
+  ctx.globalAlpha = 0.55
+  ctx.lineWidth = Math.max(2, size * 0.035)
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  for (let x = 0; x <= size; x += size * 0.08) {
+    const y = waveY + Math.sin((x / size) * Math.PI * 3 + seed) * size * 0.04
+    if (x === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
   }
-  // Sparkle
-  px(ctx, Math.floor(size * 0.2), Math.floor(size * 0.6), p(pal, 5) || '#fff')
-  px(ctx, Math.floor(size * 0.7), Math.floor(size * 0.3), p(pal, 5) || '#fff')
+  ctx.stroke()
+  ctx.beginPath()
+  for (let x = 0; x <= size; x += size * 0.08) {
+    const y = waveY + size * 0.18 + Math.sin((x / size) * Math.PI * 3 + seed + 1) * size * 0.03
+    if (x === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  }
+  ctx.stroke()
+  // Sparkles
+  ctx.globalAlpha = 0.8
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(size * 0.25, size * 0.6, size * 0.025, 0, Math.PI * 2)
+  ctx.arc(size * 0.7, size * 0.35, size * 0.02, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = 1
 }
 
 const drawWaterEdge: DrawFn = (ctx, size, pal, seed) => {
   drawGrass(ctx, size, pal, seed)
-  const shore = Math.floor(size * 0.55)
-  rect(ctx, 0, shore, size, size - shore, p(pal, 2))
-  for (let x = 0; x < size; x++) {
-    const y = shore + Math.floor(Math.sin(x + seed) * 1.2)
-    px(ctx, x, y, p(pal, 1))
-    px(ctx, x, y + 1, p(pal, 3))
+  const shore = size * 0.52
+  ctx.fillStyle = c(pal, 2)
+  ctx.beginPath()
+  ctx.moveTo(0, shore)
+  for (let x = 0; x <= size; x += size * 0.1) {
+    ctx.lineTo(x, shore + Math.sin(x * 0.2 + seed) * size * 0.04)
   }
+  ctx.lineTo(size, size)
+  ctx.lineTo(0, size)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = c(pal, 1)
+  ctx.globalAlpha = 0.5
+  ctx.beginPath()
+  ctx.moveTo(0, shore - size * 0.04)
+  for (let x = 0; x <= size; x += size * 0.1) {
+    ctx.lineTo(x, shore - size * 0.04 + Math.sin(x * 0.2 + seed) * size * 0.03)
+  }
+  ctx.lineTo(size, shore + size * 0.08)
+  ctx.lineTo(0, shore + size * 0.08)
+  ctx.closePath()
+  ctx.fill()
+  ctx.globalAlpha = 1
 }
 
 const drawTree: DrawFn = (ctx, size, pal) => {
-  const trunkW = Math.max(2, Math.floor(size * 0.18))
-  const trunkX = Math.floor((size - trunkW) / 2)
-  const trunkTop = Math.floor(size * 0.55)
-  rect(ctx, trunkX, trunkTop, trunkW, size - trunkTop - 1, p(pal, 4))
-  // Canopy blobs
-  const cx = size / 2
-  const canopyR = size * 0.32
-  fill(ctx, p(pal, 1))
-  ctx.beginPath()
-  ctx.arc(cx, size * 0.38, canopyR, 0, Math.PI * 2)
+  // Trunk
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.42, size * 0.55, size * 0.16, size * 0.38, size * 0.04)
   ctx.fill()
-  fill(ctx, p(pal, 0))
+  // Canopy blobs — clean vector
+  const layers = [
+    { x: 0.5, y: 0.38, r: 0.28, col: 1 },
+    { x: 0.35, y: 0.44, r: 0.2, col: 0 },
+    { x: 0.65, y: 0.42, r: 0.2, col: 2 },
+    { x: 0.5, y: 0.28, r: 0.18, col: 1 },
+  ]
+  for (const L of layers) {
+    ctx.fillStyle = c(pal, L.col)
+    ctx.beginPath()
+    ctx.arc(size * L.x, size * L.y, size * L.r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  // Soft highlight
+  ctx.fillStyle = '#ffffff'
+  ctx.globalAlpha = 0.25
   ctx.beginPath()
-  ctx.arc(cx - size * 0.12, size * 0.42, canopyR * 0.7, 0, Math.PI * 2)
+  ctx.arc(size * 0.42, size * 0.28, size * 0.07, 0, Math.PI * 2)
   ctx.fill()
-  fill(ctx, p(pal, 2))
-  ctx.beginPath()
-  ctx.arc(cx + size * 0.1, size * 0.32, canopyR * 0.55, 0, Math.PI * 2)
-  ctx.fill()
-  // Highlight
-  px(ctx, Math.floor(cx - 2), Math.floor(size * 0.28), p(pal, 8) || '#fff')
+  ctx.globalAlpha = 1
 }
 
 const drawBush: DrawFn = (ctx, size, pal, seed) => {
-  const baseY = Math.floor(size * 0.7)
-  fill(ctx, p(pal, 1))
-  ctx.beginPath()
-  ctx.ellipse(size * 0.5, baseY, size * 0.38, size * 0.22, 0, 0, Math.PI * 2)
-  ctx.fill()
-  fill(ctx, p(pal, 0))
-  ctx.beginPath()
-  ctx.ellipse(size * 0.35, baseY - 2, size * 0.22, size * 0.18, 0, 0, Math.PI * 2)
-  ctx.fill()
-  fill(ctx, p(pal, 2))
-  ctx.beginPath()
-  ctx.ellipse(size * 0.62, baseY - 1, size * 0.2, size * 0.16, 0, 0, Math.PI * 2)
-  ctx.fill()
-  if (hash(seed) > 0.5) {
-    px(ctx, Math.floor(size * 0.4), Math.floor(size * 0.55), p(pal, 6))
-    px(ctx, Math.floor(size * 0.55), Math.floor(size * 0.58), p(pal, 7))
+  const baseY = size * 0.72
+  const blobs = [
+    { x: 0.5, y: baseY, rx: 0.34, ry: 0.2, col: 1 },
+    { x: 0.32, y: baseY - size * 0.04, rx: 0.2, ry: 0.16, col: 0 },
+    { x: 0.68, y: baseY - size * 0.03, rx: 0.18, ry: 0.15, col: 2 },
+  ]
+  for (const b of blobs) {
+    ctx.fillStyle = c(pal, b.col)
+    ctx.beginPath()
+    ctx.ellipse(size * b.x, b.y, size * b.rx, size * b.ry, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  if (hash(seed) > 0.4) {
+    ctx.fillStyle = c(pal, 6)
+    ctx.beginPath()
+    ctx.arc(size * 0.4, size * 0.6, size * 0.035, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = c(pal, 7)
+    ctx.beginPath()
+    ctx.arc(size * 0.58, size * 0.62, size * 0.03, 0, Math.PI * 2)
+    ctx.fill()
   }
 }
 
 const drawRock: DrawFn = (ctx, size, pal) => {
-  fill(ctx, p(pal, 0))
+  ctx.fillStyle = c(pal, 0)
   ctx.beginPath()
   ctx.moveTo(size * 0.2, size * 0.75)
-  ctx.lineTo(size * 0.35, size * 0.35)
-  ctx.lineTo(size * 0.7, size * 0.3)
-  ctx.lineTo(size * 0.85, size * 0.7)
-  ctx.lineTo(size * 0.55, size * 0.85)
-  ctx.closePath()
+  ctx.quadraticCurveTo(size * 0.15, size * 0.45, size * 0.38, size * 0.32)
+  ctx.quadraticCurveTo(size * 0.6, size * 0.22, size * 0.78, size * 0.4)
+  ctx.quadraticCurveTo(size * 0.92, size * 0.6, size * 0.82, size * 0.78)
+  ctx.quadraticCurveTo(size * 0.55, size * 0.9, size * 0.2, size * 0.75)
   ctx.fill()
-  fill(ctx, p(pal, 3))
+  ctx.fillStyle = c(pal, 3)
+  ctx.globalAlpha = 0.45
   ctx.beginPath()
-  ctx.moveTo(size * 0.4, size * 0.4)
-  ctx.lineTo(size * 0.65, size * 0.35)
-  ctx.lineTo(size * 0.55, size * 0.55)
-  ctx.closePath()
+  ctx.ellipse(size * 0.48, size * 0.42, size * 0.12, size * 0.07, -0.4, 0, Math.PI * 2)
   ctx.fill()
+  ctx.globalAlpha = 1
 }
 
 const drawFlower: DrawFn = (ctx, size, pal, seed) => {
-  const stemX = Math.floor(size / 2)
-  rect(ctx, stemX, Math.floor(size * 0.45), 1, Math.floor(size * 0.4), p(pal, 1))
-  const petal = p(pal, 6 + Math.floor(hash(seed) * 2))
-  const cy = Math.floor(size * 0.4)
-  px(ctx, stemX - 1, cy, petal)
-  px(ctx, stemX + 1, cy, petal)
-  px(ctx, stemX, cy - 1, petal)
-  px(ctx, stemX, cy + 1, petal)
-  px(ctx, stemX, cy, p(pal, 7))
+  ctx.strokeStyle = c(pal, 1)
+  ctx.lineWidth = Math.max(2, size * 0.04)
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(size * 0.5, size * 0.85)
+  ctx.quadraticCurveTo(size * 0.52, size * 0.65, size * 0.5, size * 0.48)
+  ctx.stroke()
+  const petal = c(pal, 6 + Math.floor(hash(seed) * 2))
+  const cy = size * 0.42
+  const pr = size * 0.08
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+    ctx.fillStyle = petal
+    ctx.beginPath()
+    ctx.ellipse(
+      size * 0.5 + Math.cos(a) * size * 0.1,
+      cy + Math.sin(a) * size * 0.1,
+      pr,
+      pr * 0.75,
+      a,
+      0,
+      Math.PI * 2,
+    )
+    ctx.fill()
+  }
+  ctx.fillStyle = c(pal, 7)
+  ctx.beginPath()
+  ctx.arc(size * 0.5, cy, size * 0.055, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 const drawHouseWall: DrawFn = (ctx, size, pal) => {
-  rect(ctx, 0, 0, size, size, p(pal, 0))
-  // Plank lines
-  for (let y = 3; y < size; y += 4) {
-    rect(ctx, 0, y, size, 1, p(pal, 1))
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  ctx.strokeStyle = c(pal, 1)
+  ctx.lineWidth = Math.max(1.5, size * 0.02)
+  for (let y = size * 0.18; y < size; y += size * 0.18) {
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(size, y)
+    ctx.stroke()
   }
-  px(ctx, 2, 2, p(pal, 2))
+  ctx.fillStyle = c(pal, 2)
+  ctx.globalAlpha = 0.2
+  ctx.fillRect(0, 0, size * 0.2, size)
+  ctx.globalAlpha = 1
 }
 
 const drawHouseRoof: DrawFn = (ctx, size, pal) => {
-  // Transparent base, triangular roof
-  for (let y = 0; y < size; y++) {
-    const inset = Math.floor((y / size) * (size / 2))
-    const left = Math.floor(size / 2) - inset
-    const right = Math.ceil(size / 2) + inset
-    for (let x = left; x < right; x++) {
-      px(ctx, x, y, y % 3 === 0 ? p(pal, 3) : p(pal, 4))
-    }
-  }
+  ctx.fillStyle = c(pal, 3)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.5, size * 0.08)
+  ctx.lineTo(size * 0.95, size * 0.78)
+  ctx.lineTo(size * 0.05, size * 0.78)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = c(pal, 4)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.5, size * 0.18)
+  ctx.lineTo(size * 0.82, size * 0.7)
+  ctx.lineTo(size * 0.5, size * 0.7)
+  ctx.closePath()
+  ctx.fill()
+  // Soft ridge highlight
+  ctx.strokeStyle = '#ffffff'
+  ctx.globalAlpha = 0.3
+  ctx.lineWidth = Math.max(2, size * 0.03)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.5, size * 0.12)
+  ctx.lineTo(size * 0.5, size * 0.7)
+  ctx.stroke()
+  ctx.globalAlpha = 1
 }
 
 const drawDoor: DrawFn = (ctx, size, pal) => {
-  rect(ctx, Math.floor(size * 0.25), Math.floor(size * 0.2), Math.floor(size * 0.5), Math.floor(size * 0.8), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.3), Math.floor(size * 0.25), Math.floor(size * 0.4), Math.floor(size * 0.7), p(pal, 1))
-  px(ctx, Math.floor(size * 0.6), Math.floor(size * 0.55), p(pal, 7))
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.22, size * 0.12, size * 0.56, size * 0.8, size * 0.08)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 1)
+  roundRect(ctx, size * 0.28, size * 0.18, size * 0.44, size * 0.68, size * 0.06)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 7)
+  ctx.beginPath()
+  ctx.arc(size * 0.62, size * 0.55, size * 0.045, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 const drawWindow: DrawFn = (ctx, size, pal) => {
-  rect(ctx, Math.floor(size * 0.2), Math.floor(size * 0.2), Math.floor(size * 0.6), Math.floor(size * 0.6), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.28), Math.floor(size * 0.28), Math.floor(size * 0.44), Math.floor(size * 0.44), p(pal, 6))
-  rect(ctx, Math.floor(size * 0.48), Math.floor(size * 0.2), 1, Math.floor(size * 0.6), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.2), Math.floor(size * 0.48), Math.floor(size * 0.6), 1, p(pal, 4))
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.16, size * 0.16, size * 0.68, size * 0.68, size * 0.08)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 6)
+  roundRect(ctx, size * 0.24, size * 0.24, size * 0.52, size * 0.52, size * 0.05)
+  ctx.fill()
+  ctx.strokeStyle = c(pal, 4)
+  ctx.lineWidth = Math.max(2, size * 0.04)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.5, size * 0.24)
+  ctx.lineTo(size * 0.5, size * 0.76)
+  ctx.moveTo(size * 0.24, size * 0.5)
+  ctx.lineTo(size * 0.76, size * 0.5)
+  ctx.stroke()
 }
 
 const drawFence: DrawFn = (ctx, size, pal) => {
-  const postW = Math.max(2, Math.floor(size * 0.12))
-  rect(ctx, Math.floor(size * 0.15), Math.floor(size * 0.25), postW, Math.floor(size * 0.65), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.7), Math.floor(size * 0.25), postW, Math.floor(size * 0.65), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.1), Math.floor(size * 0.4), Math.floor(size * 0.8), 2, p(pal, 3))
-  rect(ctx, Math.floor(size * 0.1), Math.floor(size * 0.6), Math.floor(size * 0.8), 2, p(pal, 3))
+  const postW = size * 0.12
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.18, size * 0.22, postW, size * 0.6, size * 0.03)
+  ctx.fill()
+  roundRect(ctx, size * 0.7, size * 0.22, postW, size * 0.6, size * 0.03)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 3)
+  roundRect(ctx, size * 0.12, size * 0.38, size * 0.76, size * 0.08, size * 0.03)
+  ctx.fill()
+  roundRect(ctx, size * 0.12, size * 0.58, size * 0.76, size * 0.08, size * 0.03)
+  ctx.fill()
 }
 
 const drawChest: DrawFn = (ctx, size, pal) => {
-  const x = Math.floor(size * 0.15)
-  const y = Math.floor(size * 0.35)
-  const w = Math.floor(size * 0.7)
-  const h = Math.floor(size * 0.5)
-  rect(ctx, x, y, w, h, p(pal, 3))
-  rect(ctx, x, y, w, Math.floor(h * 0.4), p(pal, 4))
-  rect(ctx, x, y + Math.floor(h * 0.35), w, 2, p(pal, 7))
-  px(ctx, Math.floor(size * 0.48), y + Math.floor(h * 0.5), p(pal, 7))
+  const x = size * 0.14
+  const y = size * 0.32
+  const w = size * 0.72
+  const h = size * 0.52
+  ctx.fillStyle = c(pal, 3)
+  roundRect(ctx, x, y, w, h, size * 0.06)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, x, y, w, h * 0.42, size * 0.06)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 7)
+  roundRect(ctx, x, y + h * 0.36, w, size * 0.05, size * 0.02)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(size * 0.5, y + h * 0.58, size * 0.05, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 const drawSign: DrawFn = (ctx, size, pal) => {
-  const post = Math.max(1, Math.floor(size * 0.1))
-  rect(ctx, Math.floor(size / 2) - Math.floor(post / 2), Math.floor(size * 0.35), post, Math.floor(size * 0.55), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.2), Math.floor(size * 0.15), Math.floor(size * 0.6), Math.floor(size * 0.35), p(pal, 3))
-  rect(ctx, Math.floor(size * 0.28), Math.floor(size * 0.22), Math.floor(size * 0.44), Math.floor(size * 0.08), p(pal, 4))
-  rect(ctx, Math.floor(size * 0.28), Math.floor(size * 0.35), Math.floor(size * 0.3), Math.floor(size * 0.06), p(pal, 4))
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.45, size * 0.4, size * 0.1, size * 0.5, size * 0.03)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 3)
+  roundRect(ctx, size * 0.18, size * 0.12, size * 0.64, size * 0.38, size * 0.06)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.28, size * 0.2, size * 0.44, size * 0.07, size * 0.02)
+  ctx.fill()
+  roundRect(ctx, size * 0.28, size * 0.32, size * 0.3, size * 0.06, size * 0.02)
+  ctx.fill()
 }
 
 const drawBridge: DrawFn = (ctx, size, pal) => {
-  rect(ctx, 0, Math.floor(size * 0.4), size, Math.floor(size * 0.35), p(pal, 3))
-  for (let x = 2; x < size; x += 4) {
-    rect(ctx, x, Math.floor(size * 0.4), 1, Math.floor(size * 0.35), p(pal, 4))
+  ctx.fillStyle = c(pal, 3)
+  roundRect(ctx, 0, size * 0.38, size, size * 0.34, size * 0.04)
+  ctx.fill()
+  ctx.strokeStyle = c(pal, 4)
+  ctx.lineWidth = Math.max(2, size * 0.025)
+  for (let x = size * 0.1; x < size; x += size * 0.14) {
+    ctx.beginPath()
+    ctx.moveTo(x, size * 0.4)
+    ctx.lineTo(x, size * 0.7)
+    ctx.stroke()
   }
-  rect(ctx, 0, Math.floor(size * 0.35), size, 2, p(pal, 1))
-  rect(ctx, 0, Math.floor(size * 0.72), size, 2, p(pal, 1))
+  ctx.fillStyle = c(pal, 1)
+  roundRect(ctx, 0, size * 0.32, size, size * 0.08, size * 0.03)
+  ctx.fill()
+  roundRect(ctx, 0, size * 0.7, size, size * 0.08, size * 0.03)
+  ctx.fill()
 }
 
 const drawTorch: DrawFn = (ctx, size, pal, seed) => {
-  const px0 = Math.floor(size / 2)
-  rect(ctx, px0, Math.floor(size * 0.4), 2, Math.floor(size * 0.5), p(pal, 4))
-  const flame = hash(seed) > 0.5 ? p(pal, 5) : p(pal, 4)
-  px(ctx, px0, Math.floor(size * 0.25), flame)
-  px(ctx, px0 + 1, Math.floor(size * 0.28), p(pal, 7))
-  px(ctx, px0 - 1, Math.floor(size * 0.3), flame)
-  px(ctx, px0, Math.floor(size * 0.2), p(pal, 7))
+  ctx.fillStyle = c(pal, 4)
+  roundRect(ctx, size * 0.44, size * 0.42, size * 0.12, size * 0.48, size * 0.04)
+  ctx.fill()
+  const flicker = 0.9 + hash(seed) * 0.2
+  ctx.fillStyle = c(pal, 5)
+  ctx.beginPath()
+  ctx.ellipse(size * 0.5, size * 0.3, size * 0.1 * flicker, size * 0.16 * flicker, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 7) || '#fff'
+  ctx.beginPath()
+  ctx.ellipse(size * 0.5, size * 0.28, size * 0.045, size * 0.08, 0, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 const drawDungeonFloor: DrawFn = (ctx, size, pal) => {
-  rect(ctx, 0, 0, size, size, p(pal, 0))
-  rect(ctx, 1, 1, size - 2, size - 2, p(pal, 1))
-  rect(ctx, 0, Math.floor(size / 2), size, 1, p(pal, 2))
-  rect(ctx, Math.floor(size / 2), 0, 1, size, p(pal, 2))
-  px(ctx, 2, 2, p(pal, 3))
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  ctx.fillStyle = c(pal, 1)
+  roundRect(ctx, size * 0.05, size * 0.05, size * 0.9, size * 0.9, size * 0.06)
+  ctx.fill()
+  ctx.strokeStyle = c(pal, 2)
+  ctx.lineWidth = Math.max(2, size * 0.03)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.05, size * 0.5)
+  ctx.lineTo(size * 0.95, size * 0.5)
+  ctx.moveTo(size * 0.5, size * 0.05)
+  ctx.lineTo(size * 0.5, size * 0.95)
+  ctx.stroke()
 }
 
 const drawCliff: DrawFn = (ctx, size, pal) => {
-  rect(ctx, 0, 0, size, size, p(pal, 1))
-  for (let y = 0; y < size; y++) {
-    const jagged = Math.floor(Math.sin(y * 0.7) * 2 + 2)
-    rect(ctx, 0, y, jagged, 1, p(pal, 2))
-    rect(ctx, size - jagged - 1, y, jagged, 1, p(pal, 0))
+  ctx.fillStyle = c(pal, 1)
+  ctx.fillRect(0, 0, size, size)
+  ctx.fillStyle = c(pal, 0)
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  for (let y = 0; y <= size; y += size * 0.15) {
+    ctx.lineTo(size * (0.12 + Math.sin(y * 0.1) * 0.04), y)
   }
-  rect(ctx, 0, 0, size, 3, p(pal, 3))
+  ctx.lineTo(0, size)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = c(pal, 3)
+  roundRect(ctx, 0, 0, size, size * 0.14, size * 0.04)
+  ctx.fill()
 }
 
 interface AssetDef {
   name: string
   category: LocationCategory
   draw: DrawFn
-  outline?: boolean
   themes?: LocationTheme[]
 }
 
@@ -309,20 +508,20 @@ const ASSET_DEFS: AssetDef[] = [
   { name: 'Dungeon Tile', category: 'ground', draw: drawDungeonFloor, themes: ['dungeon'] },
   { name: 'Water', category: 'water', draw: drawWater },
   { name: 'Shore', category: 'water', draw: drawWaterEdge },
-  { name: 'Tree', category: 'nature', draw: drawTree, outline: true },
-  { name: 'Bush', category: 'nature', draw: drawBush, outline: true },
-  { name: 'Rock', category: 'nature', draw: drawRock, outline: true },
-  { name: 'Flower', category: 'decor', draw: drawFlower, outline: true },
+  { name: 'Tree', category: 'nature', draw: drawTree },
+  { name: 'Bush', category: 'nature', draw: drawBush },
+  { name: 'Rock', category: 'nature', draw: drawRock },
+  { name: 'Flower', category: 'decor', draw: drawFlower },
   { name: 'Cliff', category: 'nature', draw: drawCliff, themes: ['mountain'] },
   { name: 'Wall', category: 'structure', draw: drawHouseWall, themes: ['village', 'overworld'] },
-  { name: 'Roof', category: 'structure', draw: drawHouseRoof, outline: true, themes: ['village', 'overworld'] },
-  { name: 'Door', category: 'structure', draw: drawDoor, outline: true, themes: ['village'] },
-  { name: 'Window', category: 'structure', draw: drawWindow, outline: true, themes: ['village'] },
-  { name: 'Fence', category: 'props', draw: drawFence, outline: true },
-  { name: 'Chest', category: 'props', draw: drawChest, outline: true },
-  { name: 'Sign', category: 'props', draw: drawSign, outline: true },
+  { name: 'Roof', category: 'structure', draw: drawHouseRoof, themes: ['village', 'overworld'] },
+  { name: 'Door', category: 'structure', draw: drawDoor, themes: ['village'] },
+  { name: 'Window', category: 'structure', draw: drawWindow, themes: ['village'] },
+  { name: 'Fence', category: 'props', draw: drawFence },
+  { name: 'Chest', category: 'props', draw: drawChest },
+  { name: 'Sign', category: 'props', draw: drawSign },
   { name: 'Bridge', category: 'props', draw: drawBridge },
-  { name: 'Torch', category: 'decor', draw: drawTorch, outline: true, themes: ['dungeon', 'village'] },
+  { name: 'Torch', category: 'decor', draw: drawTorch, themes: ['dungeon', 'village'] },
 ]
 
 export function generateLocationAssets(
@@ -331,25 +530,15 @@ export function generateLocationAssets(
   customPalette?: RGB[],
   seed = Date.now() % 10000,
 ): LocationAsset[] {
-  const pal = customPalette?.length
-    ? customPalette
-    : getThemePalette(theme)
+  const pal = customPalette?.length ? customPalette : getThemePalette(theme)
 
   return ASSET_DEFS.filter(
     (def) => !def.themes || def.themes.includes(theme),
   ).map((def, i) => {
     const canvas = createCanvas(tileSize, tileSize)
-    const ctx = getCtx(canvas)
+    const ctx = getCtx(canvas, true)
     ctx.clearRect(0, 0, tileSize, tileSize)
     def.draw(ctx, tileSize, pal, seed + i * 17)
-
-    // Pixelate soft shapes: redraw via image data nearest-neighbor already at tile size
-    // Quantize non-integer draws
-    quantizeCanvas(canvas, pal)
-
-    if (def.outline !== false && (def.category === 'nature' || def.category === 'props' || def.category === 'structure' || def.category === 'decor')) {
-      if (def.outline) applyPixelOutline(canvas, { r: 0, g: 0, b: 0 })
-    }
 
     return {
       id: `${theme}-${def.name.toLowerCase().replace(/\s+/g, '-')}-${seed}-${i}`,
@@ -363,37 +552,6 @@ export function generateLocationAssets(
   })
 }
 
-function quantizeCanvas(canvas: HTMLCanvasElement, palette: RGB[]): void {
-  const ctx = getCtx(canvas)
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const { data } = img
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] < 40) {
-      data[i + 3] = 0
-      continue
-    }
-    let best = 0
-    let bestD = Infinity
-    for (let pi = 0; pi < palette.length; pi++) {
-      const c = palette[pi]
-      const dr = data[i] - c.r
-      const dg = data[i + 1] - c.g
-      const db = data[i + 2] - c.b
-      const d = dr * dr + dg * dg + db * db
-      if (d < bestD) {
-        bestD = d
-        best = pi
-      }
-    }
-    const c = palette[best]
-    data[i] = c.r
-    data[i + 1] = c.g
-    data[i + 2] = c.b
-    data[i + 3] = 255
-  }
-  ctx.putImageData(img, 0, 0)
-}
-
 export function packLocationSheet(
   assets: LocationAsset[],
   columns = 8,
@@ -403,7 +561,7 @@ export function packLocationSheet(
   const cols = Math.min(columns, assets.length)
   const rows = Math.ceil(assets.length / cols)
   const sheet = createCanvas(cols * tileSize, rows * tileSize)
-  const ctx = getCtx(sheet)
+  const ctx = getCtx(sheet, true)
   assets.forEach((asset, i) => {
     const x = (i % cols) * tileSize
     const y = Math.floor(i / cols) * tileSize
@@ -414,11 +572,14 @@ export function packLocationSheet(
 
 export function buildPreviewMap(
   assets: LocationAsset[],
-  mapSize = 12,
-  tileSize = 16,
+  mapSize = 10,
+  tileSize = 64,
 ): HTMLCanvasElement {
-  const canvas = createCanvas(mapSize * tileSize, mapSize * tileSize)
-  const ctx = getCtx(canvas)
+  // Cap preview canvas so 512px tiles don't explode memory
+  const previewTile = Math.min(tileSize, 64)
+  const scale = previewTile / tileSize
+  const canvas = createCanvas(mapSize * previewTile, mapSize * previewTile)
+  const ctx = getCtx(canvas, true)
   const byName = Object.fromEntries(assets.map((a) => [a.name, a]))
   const grass = byName['Grass'] ?? byName['Dirt'] ?? byName['Dungeon Tile'] ?? assets[0]
   const water = byName['Water']
@@ -431,53 +592,55 @@ export function buildPreviewMap(
   const roof = byName['Roof']
   const shore = byName['Shore']
 
+  const draw = (asset: LocationAsset | undefined, x: number, y: number) => {
+    if (!asset) return
+    ctx.drawImage(
+      asset.canvas,
+      x * previewTile,
+      y * previewTile,
+      previewTile,
+      previewTile,
+    )
+  }
+
+  void scale
+
   for (let y = 0; y < mapSize; y++) {
     for (let x = 0; x < mapSize; x++) {
-      const tile = grass
-      if (tile) ctx.drawImage(tile.canvas, x * tileSize, y * tileSize)
+      draw(grass, x, y)
     }
   }
 
-  // Path strip
   if (path) {
     for (let x = 2; x < mapSize - 2; x++) {
-      ctx.drawImage(path.canvas, x * tileSize, Math.floor(mapSize / 2) * tileSize)
+      draw(path, x, Math.floor(mapSize / 2))
     }
   }
 
-  // Water corner
   if (water) {
     for (let y = mapSize - 3; y < mapSize; y++) {
       for (let x = 0; x < 4; x++) {
-        if (shore && y === mapSize - 3) {
-          ctx.drawImage(shore.canvas, x * tileSize, y * tileSize)
-        } else {
-          ctx.drawImage(water.canvas, x * tileSize, y * tileSize)
-        }
+        if (shore && y === mapSize - 3) draw(shore, x, y)
+        else draw(water, x, y)
       }
     }
   }
 
-  // Nature scatter
-  const place = (asset: LocationAsset | undefined, x: number, y: number) => {
-    if (asset) ctx.drawImage(asset.canvas, x * tileSize, y * tileSize)
-  }
-  place(tree, 3, 2)
-  place(tree, 8, 1)
-  place(bush, 5, 3)
-  place(bush, 9, 4)
-  place(rock, 1, 4)
-  place(flower, 6, 3)
-  place(flower, 7, 5)
+  draw(tree, 3, 2)
+  draw(tree, 8, 1)
+  draw(bush, 5, 3)
+  draw(bush, 9, 4)
+  draw(rock, 1, 4)
+  draw(flower, 6, 3)
+  draw(flower, 7, 5)
 
-  // Mini house
   if (houseWall && roof) {
-    place(houseWall, 9, 7)
-    place(houseWall, 10, 7)
-    place(roof, 9, 6)
-    place(roof, 10, 6)
-    place(byName['Door'], 9, 7)
-    place(byName['Window'], 10, 7)
+    draw(houseWall, 9, 7)
+    draw(houseWall, 10, 7)
+    draw(roof, 9, 6)
+    draw(roof, 10, 6)
+    draw(byName['Door'], 9, 7)
+    draw(byName['Window'], 10, 7)
   }
 
   return canvas

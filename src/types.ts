@@ -7,7 +7,11 @@ export type AnimationType =
   | 'hurt'
   | 'celebrate'
 
-export type FrameSize = 16 | 24 | 32 | 48 | 64
+/** Output sizes for character frames and location tiles. */
+export type FrameSize = 64 | 128 | 512
+export type TileSize = 64 | 128 | 512
+
+export type ArtStyle = 'clean-vector'
 
 export type LocationCategory =
   | 'ground'
@@ -79,6 +83,9 @@ export interface SpriteSheetMeta {
     { start: number; end: number; fps: number }
   >
 }
+
+export const FRAME_SIZES: FrameSize[] = [64, 128, 512]
+export const TILE_SIZES: TileSize[] = [64, 128, 512]
 
 export const ANIMATION_LABELS: Record<AnimationType, string> = {
   idle: 'Idle',

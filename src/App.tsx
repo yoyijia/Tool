@@ -98,10 +98,11 @@ export default function App() {
       <header className="hero">
         <div className="brand-block">
           <p className="brand-mark">SpriteNest</p>
-          <h1>Nintendo-style sprite studio</h1>
+          <h1>Clean vector Nintendo sprite studio</h1>
           <p className="hero-lead">
-            Upload your console-inspired art and characters. Generate walk cycles,
-            idle loops, and modular location tilesets — all in a classic Nintendo look.
+            Upload your chibi character sheets and generate walk, idle, and more
+            in the same flat, friendly Nintendo feel — plus modular location
+            tiles at 64, 128, and 512px.
           </p>
         </div>
         <div className="hero-actions">
@@ -164,8 +165,9 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          SpriteNest creates Nintendo-<em>inspired</em> pixel art for your games.
-          Export PNG sprite sheets + JSON metadata ready for engines.
+          SpriteNest keeps a clean Nintendo-<em>inspired</em> vector look: flat
+          colors, soft shapes, chibi proportions. Export PNG sheets + JSON at
+          64 / 128 / 512px.
         </p>
       </footer>
     </div>

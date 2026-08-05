@@ -330,7 +330,7 @@ button {
 }
 
 .asset-card canvas {
-  image-rendering: pixelated;
+  image-rendering: auto;
   background:
     linear-gradient(45deg, #ddd 25%, transparent 25%),
     linear-gradient(-45deg, #ddd 25%, transparent 25%),
@@ -404,7 +404,7 @@ button {
   width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
-  image-rendering: pixelated;
+  image-rendering: auto;
   background: #eef6ff;
   border-radius: 8px;
 }
@@ -520,8 +520,7 @@ button {
 }
 
 .preview-canvas {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto;
 }
 
 .preview-meta {
@@ -568,7 +567,7 @@ button {
 }
 
 .frame-strip canvas {
-  image-rendering: pixelated;
+  image-rendering: auto;
   background: #eef6ff;
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -625,7 +624,7 @@ button {
 }
 
 .map-preview canvas {
-  image-rendering: pixelated;
+  image-rendering: auto;
   border-radius: 8px;
   border: 2px solid var(--line);
 }

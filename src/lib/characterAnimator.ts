@@ -6,7 +6,7 @@ import type {
   RGB,
   SpriteSheetMeta,
 } from '../types'
-import { cloneCanvas, createCanvas, getCtx, pixelateToStyle } from './pixelate'
+import { cloneCanvas, createCanvas, getCtx, renderCleanVectorFrame } from './pixelate'
 
 interface AnimConfig {
   frames: number
@@ -22,7 +22,6 @@ interface FrameTransform {
   shearX?: number
   rotate?: number
   flash?: RGB | null
-  squashBottom?: number
   legPhase?: number
 }
 
@@ -31,22 +30,22 @@ const ANIMATIONS: Record<AnimationType, AnimConfig> = {
     frames: 4,
     fps: 6,
     transform: (t, size) => ({
-      dy: Math.sin(t * Math.PI * 2) * Math.max(1, size * 0.04),
-      sy: 1 + Math.sin(t * Math.PI * 2) * 0.03,
-      sx: 1 - Math.sin(t * Math.PI * 2) * 0.02,
+      dy: Math.sin(t * Math.PI * 2) * Math.max(2, size * 0.025),
+      sy: 1 + Math.sin(t * Math.PI * 2) * 0.025,
+      sx: 1 - Math.sin(t * Math.PI * 2) * 0.015,
     }),
   },
   walk: {
     frames: 6,
     fps: 10,
     transform: (t, size) => {
-      const bob = Math.abs(Math.sin(t * Math.PI * 2)) * Math.max(1, size * 0.06)
+      const bob = Math.abs(Math.sin(t * Math.PI * 2)) * Math.max(2, size * 0.04)
       return {
         dy: -bob,
-        dx: Math.sin(t * Math.PI * 2) * Math.max(1, size * 0.03),
+        dx: Math.sin(t * Math.PI * 2) * Math.max(1, size * 0.02),
         legPhase: t,
-        sx: 1 + Math.sin(t * Math.PI * 2) * 0.02,
-        sy: 1 - Math.abs(Math.sin(t * Math.PI * 2)) * 0.04,
+        sx: 1 + Math.sin(t * Math.PI * 2) * 0.015,
+        sy: 1 - Math.abs(Math.sin(t * Math.PI * 2)) * 0.03,
       }
     },
   },
@@ -54,14 +53,14 @@ const ANIMATIONS: Record<AnimationType, AnimConfig> = {
     frames: 6,
     fps: 14,
     transform: (t, size) => {
-      const bob = Math.abs(Math.sin(t * Math.PI * 2)) * Math.max(1, size * 0.1)
+      const bob = Math.abs(Math.sin(t * Math.PI * 2)) * Math.max(3, size * 0.07)
       return {
         dy: -bob,
-        dx: Math.sin(t * Math.PI * 2) * Math.max(1, size * 0.05),
-        shearX: 0.12,
+        dx: Math.sin(t * Math.PI * 2) * Math.max(2, size * 0.035),
+        shearX: 0.1,
         legPhase: t,
-        sx: 1.05,
-        sy: 0.92 + Math.abs(Math.sin(t * Math.PI * 2)) * 0.06,
+        sx: 1.04,
+        sy: 0.94 + Math.abs(Math.sin(t * Math.PI * 2)) * 0.05,
       }
     },
   },
@@ -69,52 +68,51 @@ const ANIMATIONS: Record<AnimationType, AnimConfig> = {
     frames: 6,
     fps: 10,
     transform: (t, size) => {
-      // Anticipation → air → land
       if (t < 0.2) {
-        return { sy: 0.85, sx: 1.15, dy: size * 0.05 }
+        return { sy: 0.88, sx: 1.12, dy: size * 0.04 }
       }
       if (t < 0.7) {
         const air = (t - 0.2) / 0.5
-        const arc = Math.sin(air * Math.PI) * size * 0.35
-        return { dy: -arc, sy: 1.08, sx: 0.92 }
+        const arc = Math.sin(air * Math.PI) * size * 0.28
+        return { dy: -arc, sy: 1.06, sx: 0.94 }
       }
-      return { sy: 0.88, sx: 1.12, dy: size * 0.04 }
+      return { sy: 0.9, sx: 1.1, dy: size * 0.03 }
     },
   },
   attack: {
     frames: 5,
     fps: 12,
     transform: (t, size) => {
-      if (t < 0.25) return { dx: -size * 0.08, sx: 0.95 }
+      if (t < 0.25) return { dx: -size * 0.06, sx: 0.96 }
       if (t < 0.55) {
         return {
-          dx: size * 0.18,
-          shearX: 0.2,
-          flash: { r: 255, g: 240, b: 180 },
+          dx: size * 0.14,
+          shearX: 0.16,
+          flash: { r: 255, g: 240, b: 200 },
         }
       }
-      return { dx: size * 0.05, shearX: 0.05 }
+      return { dx: size * 0.04, shearX: 0.04 }
     },
   },
   hurt: {
     frames: 4,
     fps: 10,
     transform: (t, size) => ({
-      dx: Math.sin(t * Math.PI * 6) * size * 0.08,
-      flash: t % 0.5 < 0.25 ? { r: 255, g: 80, b: 80 } : null,
-      sy: 0.95,
+      dx: Math.sin(t * Math.PI * 6) * size * 0.06,
+      flash: t % 0.5 < 0.25 ? { r: 255, g: 120, b: 130 } : null,
+      sy: 0.96,
     }),
   },
   celebrate: {
     frames: 6,
     fps: 10,
     transform: (t, size) => {
-      const bounce = Math.abs(Math.sin(t * Math.PI * 2)) * size * 0.2
+      const bounce = Math.abs(Math.sin(t * Math.PI * 2)) * size * 0.16
       return {
         dy: -bounce,
-        rotate: Math.sin(t * Math.PI * 2) * 0.12,
-        sy: 1 + Math.sin(t * Math.PI * 2) * 0.08,
-        sx: 1 - Math.sin(t * Math.PI * 2) * 0.05,
+        rotate: Math.sin(t * Math.PI * 2) * 0.1,
+        sy: 1 + Math.sin(t * Math.PI * 2) * 0.06,
+        sx: 1 - Math.sin(t * Math.PI * 2) * 0.04,
       }
     },
   },
@@ -126,7 +124,7 @@ function applyTransform(
 ): HTMLCanvasElement {
   const size = base.width
   const out = createCanvas(size, size)
-  const ctx = getCtx(out)
+  const ctx = getCtx(out, true)
 
   ctx.save()
   const cx = size / 2
@@ -138,14 +136,11 @@ function applyTransform(
   ctx.translate(-cx, -cy)
 
   if (tf.legPhase != null) {
-    // Split body: upper half static-ish, lower half alternating offset for walk cycle
-    const midY = Math.floor(size * 0.55)
+    const midY = Math.floor(size * 0.58)
     const phase = Math.sin(tf.legPhase * Math.PI * 2)
-    const shift = Math.round(phase * Math.max(1, size * 0.06))
+    const shift = Math.round(phase * Math.max(2, size * 0.045))
 
-    // Upper body
     ctx.drawImage(base, 0, 0, size, midY, 0, 0, size, midY)
-    // Lower body with horizontal offset (fake leg swing)
     ctx.drawImage(base, 0, midY, size, size - midY, shift, midY, size, size - midY)
   } else {
     ctx.drawImage(base, 0, 0)
@@ -157,10 +152,10 @@ function applyTransform(
     const { data } = img
     const { r, g, b } = tf.flash
     for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] < 40) continue
-      data[i] = Math.min(255, Math.round(data[i] * 0.55 + r * 0.45))
-      data[i + 1] = Math.min(255, Math.round(data[i + 1] * 0.55 + g * 0.45))
-      data[i + 2] = Math.min(255, Math.round(data[i + 2] * 0.55 + b * 0.45))
+      if (data[i + 3] < 20) continue
+      data[i] = Math.min(255, Math.round(data[i] * 0.6 + r * 0.4))
+      data[i + 1] = Math.min(255, Math.round(data[i + 1] * 0.6 + g * 0.4))
+      data[i + 2] = Math.min(255, Math.round(data[i + 2] * 0.6 + b * 0.4))
     }
     ctx.putImageData(img, 0, 0)
   }
@@ -174,24 +169,24 @@ export function generateAnimation(
   frameSize: FrameSize,
   palette: RGB[],
 ): GeneratedAnimation {
-  const base = pixelateToStyle(source, frameSize, palette)
+  const base = renderCleanVectorFrame(source, frameSize, palette, {
+    snapPalette: true,
+    softOutline: false,
+  })
   const config = ANIMATIONS[type]
   const frames: AnimationFrame[] = []
 
   for (let i = 0; i < config.frames; i++) {
     const t = i / config.frames
     const tf = config.transform(t, frameSize)
-    const frame = applyTransform(base, tf)
-    frames.push({ canvas: frame, index: i })
+    frames.push({ canvas: applyTransform(base, tf), index: i })
   }
-
-  const sheetCanvas = packFrames(frames, frameSize)
 
   return {
     type,
     frames,
     frameSize,
-    sheetCanvas,
+    sheetCanvas: packFrames(frames, frameSize),
     fps: config.fps,
   }
 }
@@ -213,7 +208,7 @@ export function packFrames(
   const cols = columns ?? frames.length
   const rows = Math.ceil(frames.length / cols)
   const sheet = createCanvas(cols * frameSize, rows * frameSize)
-  const ctx = getCtx(sheet)
+  const ctx = getCtx(sheet, true)
   frames.forEach((f, i) => {
     const x = (i % cols) * frameSize
     const y = Math.floor(i / cols) * frameSize
@@ -225,11 +220,11 @@ export function packFrames(
 export function packMultiAnimationSheet(
   animations: GeneratedAnimation[],
 ): { canvas: HTMLCanvasElement; meta: SpriteSheetMeta } {
-  const frameSize = animations[0]?.frameSize ?? 32
+  const frameSize = animations[0]?.frameSize ?? 128
   const maxFrames = Math.max(...animations.map((a) => a.frames.length), 1)
   const rowCount = animations.length
   const canvas = createCanvas(maxFrames * frameSize, rowCount * frameSize)
-  const ctx = getCtx(canvas)
+  const ctx = getCtx(canvas, true)
 
   animations.forEach((anim, row) => {
     anim.frames.forEach((f, col) => {
@@ -258,10 +253,12 @@ export function packMultiAnimationSheet(
   return { canvas, meta }
 }
 
-export function getBasePixelSprite(
+export function getBaseVectorSprite(
   source: HTMLImageElement | HTMLCanvasElement,
   frameSize: FrameSize,
   palette: RGB[],
 ): HTMLCanvasElement {
-  return cloneCanvas(pixelateToStyle(source, frameSize, palette))
+  return cloneCanvas(
+    renderCleanVectorFrame(source, frameSize, palette, { snapPalette: true }),
+  )
 }

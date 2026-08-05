@@ -1,13 +1,14 @@
 # SpriteNest
 
-Nintendo-style sprite sheet & modular location asset studio.
+Clean vector Nintendo-style sprite sheet & modular location asset studio.
 
 ## Features
 
-- **Style references** — upload Nintendo-inspired art; the app extracts a shared palette
-- **Character animations** — upload characters and generate idle, walk, run, jump, attack, hurt, and celebrate sprite sheets
-- **Modular locations** — generate ground, water, nature, structure, and prop tiles for overworld, forest, coast, mountain, village, and dungeon themes
-- **Export** — PNG sprite sheets / tilesets plus JSON metadata for game engines
+- **Style references** — upload clean chibi / vector character sheets; palette (including blush tones) is extracted
+- **Character animations** — generate idle, walk, run, jump, attack, hurt, celebrate in a flat Nintendo-soft vector look
+- **Output sizes** — **64×64**, **128×128**, and **512×512** for character frames and location tiles
+- **Modular locations** — ground, water, nature, structures, and props for overworld, forest, coast, mountain, village, dungeon
+- **Export** — PNG sprite sheets / tilesets + JSON metadata
 
 ## Quick start
 
@@ -16,15 +17,6 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints (usually `http://localhost:5173`).
-
-## Build
-
-```bash
-npm run build
-npm run preview
-```
-
 ## Notes
 
-Art is processed client-side with pixelation, palette quantization, and procedural animation / tile drawing. The look is **Nintendo-inspired** (classic console pixel art), not affiliated with Nintendo.
+Processing is client-side. Characters keep soft anti-aliased edges and flat colors (no harsh pixel crunch). Location tiles are drawn as clean rounded vector shapes that match the Nintendo-inspired character aesthetic. Not affiliated with Nintendo.

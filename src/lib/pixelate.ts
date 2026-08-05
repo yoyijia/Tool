@@ -17,25 +17,35 @@ export function createCanvas(w: number, h: number): HTMLCanvasElement {
   return c
 }
 
-export function getCtx(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+export function getCtx(
+  canvas: HTMLCanvasElement,
+  smooth = true,
+): CanvasRenderingContext2D {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!
-  ctx.imageSmoothingEnabled = false
+  ctx.imageSmoothingEnabled = smooth
+  if (smooth) ctx.imageSmoothingQuality = 'high'
   return ctx
 }
 
-/** Downscale with nearest-neighbor and quantize to palette. */
-export function pixelateToStyle(
+function clamp(n: number): number {
+  return Math.max(0, Math.min(255, n))
+}
+
+/**
+ * Fit uploaded art into a clean Nintendo-vector frame.
+ * Preserves soft anti-aliased edges, flat colors, and cheek blush tones.
+ */
+export function renderCleanVectorFrame(
   source: HTMLImageElement | HTMLCanvasElement,
   frameSize: FrameSize,
   palette: RGB[],
-  options: { outline?: boolean; contrast?: number } = {},
+  options: { snapPalette?: boolean; softOutline?: boolean } = {},
 ): HTMLCanvasElement {
-  const { outline = true, contrast = 1.08 } = options
-  const mid = createCanvas(frameSize, frameSize)
-  const midCtx = getCtx(mid)
+  const { snapPalette = true, softOutline = false } = options
+  const out = createCanvas(frameSize, frameSize)
+  const ctx = getCtx(out, true)
 
-  // Fit character into frame with padding
-  const pad = Math.max(1, Math.floor(frameSize * 0.08))
+  const pad = Math.max(4, Math.floor(frameSize * 0.06))
   const avail = frameSize - pad * 2
   const scale = Math.min(avail / source.width, avail / source.height)
   const dw = Math.max(1, Math.round(source.width * scale))
@@ -43,56 +53,62 @@ export function pixelateToStyle(
   const dx = Math.floor((frameSize - dw) / 2)
   const dy = Math.floor(frameSize - pad - dh)
 
-  midCtx.clearRect(0, 0, frameSize, frameSize)
-  midCtx.drawImage(source, dx, dy, dw, dh)
+  ctx.clearRect(0, 0, frameSize, frameSize)
+  ctx.drawImage(source, dx, dy, dw, dh)
 
-  const img = midCtx.getImageData(0, 0, frameSize, frameSize)
+  if (snapPalette) {
+    gentlePaletteSnap(out, palette)
+  }
+
+  if (softOutline) {
+    applySoftOutline(out, { r: 45, g: 40, b: 50 }, 0.35)
+  }
+
+  return out
+}
+
+/** Mild palette snap that keeps soft edges (doesn't force binary alpha). */
+function gentlePaletteSnap(canvas: HTMLCanvasElement, palette: RGB[]): void {
+  const ctx = getCtx(canvas, true)
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const { data } = img
 
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] < 40) {
+    const a = data[i + 3]
+    if (a < 12) {
       data[i + 3] = 0
       continue
     }
-    let r = data[i]
-    let g = data[i + 1]
-    let b = data[i + 2]
-    // Mild contrast boost for console punch
-    r = clamp(Math.round(((r / 255 - 0.5) * contrast + 0.5) * 255))
-    g = clamp(Math.round(((g / 255 - 0.5) * contrast + 0.5) * 255))
-    b = clamp(Math.round(((b / 255 - 0.5) * contrast + 0.5) * 255))
-    const nearest = nearestColor({ r, g, b }, palette)
-    data[i] = nearest.r
-    data[i + 1] = nearest.g
-    data[i + 2] = nearest.b
-    data[i + 3] = 255
+    // Keep near-skin blush pinks / soft antialias fringes lightly quantized
+    const nearest = nearestColor(
+      { r: data[i], g: data[i + 1], b: data[i + 2] },
+      palette,
+    )
+    // Blend toward palette so edges stay soft
+    const t = a > 220 ? 0.88 : 0.55
+    data[i] = clamp(Math.round(data[i] * (1 - t) + nearest.r * t))
+    data[i + 1] = clamp(Math.round(data[i + 1] * (1 - t) + nearest.g * t))
+    data[i + 2] = clamp(Math.round(data[i + 2] * (1 - t) + nearest.b * t))
   }
 
-  midCtx.putImageData(img, 0, 0)
-
-  if (outline) {
-    applyPixelOutline(mid, { r: 0, g: 0, b: 0 })
-  }
-
-  return mid
+  ctx.putImageData(img, 0, 0)
 }
 
-function clamp(n: number): number {
-  return Math.max(0, Math.min(255, n))
-}
-
-/** Classic console sprite outline around opaque pixels. */
-export function applyPixelOutline(canvas: HTMLCanvasElement, color: RGB): void {
-  const ctx = getCtx(canvas)
+function applySoftOutline(
+  canvas: HTMLCanvasElement,
+  color: RGB,
+  strength: number,
+): void {
+  const ctx = getCtx(canvas, true)
   const w = canvas.width
   const h = canvas.height
   const src = ctx.getImageData(0, 0, w, h)
   const out = ctx.createImageData(w, h)
   out.data.set(src.data)
 
-  const opaque = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= w || y >= h) return false
-    return src.data[(y * w + x) * 4 + 3] > 40
+  const alphaAt = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return 0
+    return src.data[(y * w + x) * 4 + 3]
   }
 
   for (let y = 0; y < h; y++) {
@@ -100,16 +116,15 @@ export function applyPixelOutline(canvas: HTMLCanvasElement, color: RGB): void {
       const i = (y * w + x) * 4
       if (src.data[i + 3] > 40) continue
       const neighbor =
-        opaque(x - 1, y) ||
-        opaque(x + 1, y) ||
-        opaque(x, y - 1) ||
-        opaque(x, y + 1)
-      if (neighbor) {
-        out.data[i] = color.r
-        out.data[i + 1] = color.g
-        out.data[i + 2] = color.b
-        out.data[i + 3] = 255
-      }
+        alphaAt(x - 1, y) > 40 ||
+        alphaAt(x + 1, y) > 40 ||
+        alphaAt(x, y - 1) > 40 ||
+        alphaAt(x, y + 1) > 40
+      if (!neighbor) continue
+      out.data[i] = color.r
+      out.data[i + 1] = color.g
+      out.data[i + 2] = color.b
+      out.data[i + 3] = Math.round(255 * strength)
     }
   }
   ctx.putImageData(out, 0, 0)
@@ -117,7 +132,7 @@ export function applyPixelOutline(canvas: HTMLCanvasElement, color: RGB): void {
 
 export function cloneCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
   const c = createCanvas(source.width, source.height)
-  getCtx(c).drawImage(source, 0, 0)
+  getCtx(c, true).drawImage(source, 0, 0)
   return c
 }
 
@@ -141,4 +156,13 @@ export function downloadJson(data: unknown, filename: string): void {
   a.download = filename
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+/** @deprecated use renderCleanVectorFrame — kept for call-site compatibility */
+export function pixelateToStyle(
+  source: HTMLImageElement | HTMLCanvasElement,
+  frameSize: FrameSize,
+  palette: RGB[],
+): HTMLCanvasElement {
+  return renderCleanVectorFrame(source, frameSize, palette)
 }

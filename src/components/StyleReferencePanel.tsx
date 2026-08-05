@@ -19,12 +19,15 @@ export function StyleReferencePanel({
     <section className="panel">
       <header className="panel-header">
         <h2>Style References</h2>
-        <p>Upload Nintendo-style art to lock the palette and look.</p>
+        <p>
+          Upload your clean vector Nintendo-style character sheets. We lock the
+          flat palette, blush tones, and soft look for generation.
+        </p>
       </header>
 
       <UploadZone
-        label="Drop Nintendo-style art"
-        hint="PNG, JPG, or WebP — palette is extracted automatically"
+        label="Drop character / style art"
+        hint="PNG, JPG, or WebP — flat chibi / vector sheets work best"
         multiple
         onFiles={onAdd}
       />
