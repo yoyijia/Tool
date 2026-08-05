@@ -39,7 +39,7 @@ Click the BrandVibe icon to open the popup.
 3. Parses HTML for title, meta, headings, body copy, CSS colors, and social links
 4. Runs heuristic personality / voice / trend models over those signals
 
-No API key required.
+Also analyze any website for personality, voice, palette, and social trends — then open **Content studio** to pick a voice, describe the post you want, and generate engagement-focused drafts for Instagram, LinkedIn, TikTok, X, or YouTube Shorts.
 
 ## Scripts
 

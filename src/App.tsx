@@ -65,7 +65,7 @@ export default function App() {
         </h2>
         <p>
           Drop a website name or URL. We extract personality, voice, color palette, and social
-          marketing trends from public signals.
+          marketing trends — then generate engagement drafts in the voice you choose.
         </p>
 
         <form className="search" onSubmit={onSubmit}>
@@ -117,7 +117,7 @@ export default function App() {
         Load as a Chrome extension for CORS-free analysis of any site.
       </p>
 
-      {copied && <div className="copied">Copied hex</div>}
+      {copied && <div className="copied">Copied</div>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { BrandReport, ColorSwatch } from "../types";
+import { ContentStudio } from "./ContentStudio";
 
 interface Props {
   report: BrandReport;
@@ -60,6 +61,8 @@ export function ReportView({ report, onCopy }: Props) {
           </div>
         )}
       </section>
+
+      <ContentStudio report={report} onCopy={onCopy} />
 
       <section className="panel span-2">
         <h3>Color palette</h3>

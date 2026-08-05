@@ -52,3 +52,47 @@ export interface BrandReport {
 export interface AnalyzeRequest {
   input: string;
 }
+
+export type VoicePresetId =
+  | "detected"
+  | "bold"
+  | "warm"
+  | "premium"
+  | "playful"
+  | "expert"
+  | "minimal"
+  | "innovative";
+
+export type ContentPlatform =
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "x"
+  | "youtube";
+
+export interface VoicePreset {
+  id: VoicePresetId;
+  label: string;
+  blurb: string;
+  hooks: string[];
+  closers: string[];
+  styleNotes: string[];
+}
+
+export interface GeneratedPost {
+  id: string;
+  platform: ContentPlatform;
+  format: string;
+  hook: string;
+  body: string;
+  cta: string;
+  hashtags: string[];
+  engagementTips: string[];
+  fullText: string;
+}
+
+export interface ContentBrief {
+  voiceId: VoicePresetId;
+  platform: ContentPlatform;
+  topic: string;
+}
