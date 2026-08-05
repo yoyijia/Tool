@@ -168,6 +168,7 @@ export function generateAnimation(
   type: AnimationType,
   frameSize: FrameSize,
   palette: RGB[],
+  poseSources?: Partial<Record<string, HTMLImageElement | HTMLCanvasElement>>,
 ): GeneratedAnimation {
   const base = renderCleanVectorFrame(source, frameSize, palette, {
     snapPalette: true,
@@ -176,10 +177,40 @@ export function generateAnimation(
   const config = ANIMATIONS[type]
   const frames: AnimationFrame[] = []
 
+  // Prefer real directional poses from the sheet when walking / running
+  const leftPose = poseSources?.left
+    ? renderCleanVectorFrame(poseSources.left, frameSize, palette)
+    : null
+  const rightPose = poseSources?.right
+    ? renderCleanVectorFrame(poseSources.right, frameSize, palette)
+    : null
+  const downPose = poseSources?.down
+    ? renderCleanVectorFrame(poseSources.down, frameSize, palette)
+    : base
+  const wavePose = poseSources?.wave
+    ? renderCleanVectorFrame(poseSources.wave, frameSize, palette)
+    : null
+
   for (let i = 0; i < config.frames; i++) {
     const t = i / config.frames
+    let frameBase = base
+
+    if ((type === 'walk' || type === 'run') && leftPose && rightPose) {
+      frameBase = i % 2 === 0 ? rightPose : leftPose
+    } else if (type === 'idle' && downPose) {
+      frameBase = downPose
+    } else if (type === 'celebrate' && wavePose) {
+      frameBase = wavePose
+    }
+
     const tf = config.transform(t, frameSize)
-    frames.push({ canvas: applyTransform(base, tf), index: i })
+    // When using real side poses, skip fake leg split
+    if ((type === 'walk' || type === 'run') && leftPose && rightPose) {
+      const { legPhase: _lp, ...rest } = tf
+      frames.push({ canvas: applyTransform(frameBase, rest), index: i })
+    } else {
+      frames.push({ canvas: applyTransform(frameBase, tf), index: i })
+    }
   }
 
   return {
@@ -196,8 +227,11 @@ export function generateAllAnimations(
   types: AnimationType[],
   frameSize: FrameSize,
   palette: RGB[],
+  poseSources?: Partial<Record<string, HTMLImageElement | HTMLCanvasElement>>,
 ): GeneratedAnimation[] {
-  return types.map((type) => generateAnimation(source, type, frameSize, palette))
+  return types.map((type) =>
+    generateAnimation(source, type, frameSize, palette, poseSources),
+  )
 }
 
 export function packFrames(

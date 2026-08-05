@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { CharacterStudio } from './components/CharacterStudio'
 import { LocationStudio } from './components/LocationStudio'
 import { StyleReferencePanel } from './components/StyleReferencePanel'
-import { createDemoCharacter } from './lib/demoCharacter'
 import {
   extractPaletteFromImage,
   mergePalettes,
   NINTENDO_DEFAULT_PALETTE,
 } from './lib/palette'
-import { canvasToDataUrl, loadImage } from './lib/pixelate'
+import { loadImage } from './lib/pixelate'
+import { loadSampleSheetCharacters } from './lib/sampleCharacterSheet'
 import type { CharacterAsset, StyleReference } from './types'
 import './App.css'
 
@@ -31,24 +31,27 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('characters')
   const [references, setReferences] = useState<StyleReference[]>([])
   const [characters, setCharacters] = useState<CharacterAsset[]>([])
-  const [demoReady, setDemoReady] = useState(false)
+  const [sheetPreviewUrl, setSheetPreviewUrl] = useState<string | null>(null)
+  const [sheetReady, setSheetReady] = useState(false)
 
   useEffect(() => {
-    if (demoReady) return
-    const canvas = createDemoCharacter()
-    const dataUrl = canvasToDataUrl(canvas)
-    void loadImage(dataUrl).then((image) => {
-      setCharacters([
-        {
-          id: 'demo-hero',
-          name: 'Demo Hero.png',
-          dataUrl,
-          image,
-        },
-      ])
-      setDemoReady(true)
-    })
-  }, [demoReady])
+    if (sheetReady) return
+    void loadSampleSheetCharacters().then(
+      ({ sheetDataUrl, characters: sheetChars, palette }) => {
+        setSheetPreviewUrl(sheetDataUrl)
+        setCharacters(sheetChars)
+        setReferences([
+          {
+            id: 'embedded-sheet',
+            name: 'Character sheet (embedded)',
+            dataUrl: sheetDataUrl,
+            palette,
+          },
+        ])
+        setSheetReady(true)
+      },
+    )
+  }, [sheetReady])
 
   const activePalette = useMemo(() => {
     if (!references.length) return NINTENDO_DEFAULT_PALETTE
@@ -100,14 +103,14 @@ export default function App() {
           <p className="brand-mark">SpriteNest</p>
           <h1>Clean vector Nintendo sprite studio</h1>
           <p className="hero-lead">
-            Upload your chibi character sheets and generate walk, idle, and more
-            in the same flat, friendly Nintendo feel — plus modular location
-            tiles at 64, 128, and 512px.
+            Your character sheet is already loaded — generate walk, idle, and more
+            sprite sheets in the same flat Nintendo feel, plus modular tiles at
+            64, 128, and 512px.
           </p>
         </div>
         <div className="hero-actions">
           <button type="button" className="primary-btn" onClick={() => setTab('characters')}>
-            Animate a character
+            Generate sprite sheets
           </button>
           <button type="button" className="secondary-btn" onClick={() => setTab('locations')}>
             Build locations
@@ -149,6 +152,8 @@ export default function App() {
           <CharacterStudio
             characters={characters}
             palette={activePalette}
+            sheetPreviewUrl={sheetPreviewUrl}
+            autoGenerate={sheetReady}
             onAdd={addCharacters}
             onRemove={(id) =>
               setCharacters((prev) => prev.filter((c) => c.id !== id))

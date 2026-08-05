@@ -204,6 +204,46 @@ button {
   transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
 }
 
+.sheet-banner {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 2px solid rgba(61, 184, 90, 0.35);
+  background: linear-gradient(180deg, #eefbf1, #fff);
+}
+
+.sheet-banner-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.sheet-banner-copy strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.sheet-banner-copy span {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.sheet-preview-img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  image-rendering: auto;
+  background:
+    linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+    linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+    linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
 .upload-zone:hover,
 .upload-zone.dragging {
   border-color: var(--blue);

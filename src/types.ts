@@ -47,6 +47,8 @@ export interface CharacterAsset {
   name: string
   dataUrl: string
   image: HTMLImageElement
+  /** Optional directional / expression poses from a sheet (data URLs). */
+  poses?: Partial<Record<string, string>>
 }
 
 export interface AnimationFrame {

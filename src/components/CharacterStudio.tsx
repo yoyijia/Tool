@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   generateAllAnimations,
   packMultiAnimationSheet,
 } from '../lib/characterAnimator'
-import { downloadCanvas, downloadJson } from '../lib/pixelate'
+import { downloadCanvas, downloadJson, loadImage } from '../lib/pixelate'
 import type {
   AnimationType,
   CharacterAsset,
@@ -28,6 +28,8 @@ const ALL_ANIMS: AnimationType[] = [
 interface CharacterStudioProps {
   characters: CharacterAsset[]
   palette: RGB[]
+  sheetPreviewUrl?: string | null
+  autoGenerate?: boolean
   onAdd: (files: File[]) => void
   onRemove: (id: string) => void
 }
@@ -35,6 +37,8 @@ interface CharacterStudioProps {
 export function CharacterStudio({
   characters,
   palette,
+  sheetPreviewUrl,
+  autoGenerate = false,
   onAdd,
   onRemove,
 }: CharacterStudioProps) {
@@ -49,6 +53,7 @@ export function CharacterStudio({
   const [generated, setGenerated] = useState<GeneratedAnimation[]>([])
   const [previewType, setPreviewType] = useState<AnimationType>('idle')
   const [busy, setBusy] = useState(false)
+  const [autoDone, setAutoDone] = useState(false)
 
   const selected = useMemo(
     () => characters.find((c) => c.id === (selectedId ?? characters[0]?.id)),
@@ -60,30 +65,62 @@ export function CharacterStudio({
   const previewScale = frameSize === 512 ? 1 : frameSize === 128 ? 2.5 : 3.5
   const thumbScale = frameSize === 512 ? 0.35 : frameSize === 128 ? 0.7 : 1.2
 
-  const toggleAnim = (type: AnimationType) => {
-    setSelectedAnims((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+  const resolvePoses = async (
+    character: CharacterAsset,
+  ): Promise<Partial<Record<string, HTMLImageElement>>> => {
+    if (!character.poses) return {}
+    const out: Partial<Record<string, HTMLImageElement>> = {}
+    await Promise.all(
+      Object.entries(character.poses).map(async ([key, url]) => {
+        if (!url) return
+        out[key] = await loadImage(url)
+      }),
+    )
+    return out
+  }
+
+  const runGenerate = async (character: CharacterAsset) => {
+    const poses = await resolvePoses(character)
+    return generateAllAnimations(
+      character.image,
+      selectedAnims,
+      frameSize,
+      palette,
+      poses,
     )
   }
 
   const handleGenerate = () => {
     if (!selected || !selectedAnims.length) return
     setBusy(true)
-    // Larger sizes need a frame for UI paint + avoid blocking
     requestAnimationFrame(() => {
       setTimeout(() => {
-        const results = generateAllAnimations(
-          selected.image,
-          selectedAnims,
-          frameSize,
-          palette,
-        )
-        setGenerated(results)
-        setPreviewType(results[0]?.type ?? 'idle')
-        setBusy(false)
+        void runGenerate(selected).then((results) => {
+          setGenerated(results)
+          setPreviewType(results[0]?.type ?? 'idle')
+          setBusy(false)
+        })
       }, 30)
     })
   }
+
+  // Auto-generate sprite sheet for the first embedded character
+  useEffect(() => {
+    if (!autoGenerate || autoDone || !characters.length || busy) return
+    const first = characters[0]
+    setSelectedId(first.id)
+    setBusy(true)
+    const timer = setTimeout(() => {
+      void runGenerate(first).then((results) => {
+        setGenerated(results)
+        setPreviewType(results[0]?.type ?? 'idle')
+        setBusy(false)
+        setAutoDone(true)
+      })
+    }, 80)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGenerate, characters, autoDone])
 
   const handleExportSheet = () => {
     if (!generated.length || !selected) return
@@ -120,18 +157,72 @@ export function CharacterStudio({
     )
   }
 
+  const handleGenerateAll = () => {
+    if (!characters.length || !selectedAnims.length) return
+    setBusy(true)
+    requestAnimationFrame(() => {
+      setTimeout(async () => {
+        for (const character of characters) {
+          const results = await runGenerate(character)
+          const { canvas, meta } = packMultiAnimationSheet(results)
+          downloadCanvas(
+            canvas,
+            `${slug(character.name)}-spritesheet-${frameSize}.png`,
+          )
+          downloadJson(
+            {
+              character: character.name,
+              style: 'nintendo-clean-vector',
+              frameSize,
+              ...meta,
+            },
+            `${slug(character.name)}-spritesheet-${frameSize}.json`,
+          )
+          if (character.id === (selected?.id ?? characters[0].id)) {
+            setGenerated(results)
+            setPreviewType(results[0]?.type ?? 'idle')
+          }
+        }
+        setBusy(false)
+      }, 30)
+    })
+  }
+
+  const toggleAnim = (type: AnimationType) => {
+    setSelectedAnims((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    )
+  }
+
   return (
     <section className="panel">
       <header className="panel-header">
         <h2>Character Animations</h2>
         <p>
-          Upload your clean vector character sprites. Output stays flat-color,
-          chibi, and Nintendo-soft — at 64, 128, or 512px.
+          Your clean vector character sheet is loaded below. Pick a character and
+          generate walk / idle sprite sheets — or generate all at once.
         </p>
       </header>
 
+      {sheetPreviewUrl && (
+        <div className="sheet-banner">
+          <div className="sheet-banner-copy">
+            <strong>Embedded character sheet</strong>
+            <span>
+              Curly Hero · Red Cap · Backwards Cap — directional poses included
+              for better walk cycles.
+            </span>
+          </div>
+          <img
+            src={sheetPreviewUrl}
+            alt="Character sprite sheet"
+            className="sheet-preview-img"
+          />
+        </div>
+      )}
+
       <UploadZone
-        label="Upload character sprites"
+        label="Or upload more character sprites"
         hint="Single pose or sheet — clean vector / chibi works best"
         multiple
         onFiles={onAdd}
@@ -144,22 +235,28 @@ export function CharacterStudio({
               key={c.id}
               type="button"
               className={`char-thumb ${selected?.id === c.id ? 'active' : ''}`}
-              onClick={() => setSelectedId(c.id)}
+              onClick={() => {
+                setSelectedId(c.id)
+                setGenerated([])
+                setAutoDone(true)
+              }}
             >
               <img src={c.dataUrl} alt={c.name} />
               <span>{c.name}</span>
-              <button
-                type="button"
-                className="thumb-remove"
-                aria-label={`Remove ${c.name}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRemove(c.id)
-                  if (selectedId === c.id) setSelectedId(null)
-                }}
-              >
-                ×
-              </button>
+              {!c.id.startsWith('sheet-') && (
+                <button
+                  type="button"
+                  className="thumb-remove"
+                  aria-label={`Remove ${c.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRemove(c.id)
+                    if (selectedId === c.id) setSelectedId(null)
+                  }}
+                >
+                  ×
+                </button>
+              )}
             </button>
           ))}
         </div>
@@ -204,7 +301,15 @@ export function CharacterStudio({
           disabled={!selected || !selectedAnims.length || busy}
           onClick={handleGenerate}
         >
-          {busy ? 'Generating…' : 'Generate animations'}
+          {busy ? 'Generating…' : 'Generate sprite sheet'}
+        </button>
+        <button
+          type="button"
+          className="secondary-btn"
+          disabled={!characters.length || busy}
+          onClick={handleGenerateAll}
+        >
+          Generate all characters
         </button>
         <button
           type="button"
@@ -235,7 +340,9 @@ export function CharacterStudio({
           </div>
 
           <div className="sheet-column">
-            <h3>Frames · {frameSize}px clean vector</h3>
+            <h3>
+              {selected?.name} · {frameSize}px sprite sheet
+            </h3>
             {generated.map((g) => (
               <div key={g.type} className="sheet-block">
                 <div className="sheet-block-head">
