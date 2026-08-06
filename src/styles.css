@@ -928,3 +928,75 @@ textarea {
 .engage-tips li::marker {
   color: var(--accent);
 }
+
+.image-actions {
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+
+.secondary-btn {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(200, 245, 66, 0.45);
+  box-shadow: none;
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: var(--accent-dim);
+  filter: none;
+}
+
+.image-block {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.image-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.copy-post.accent-outline {
+  border-color: rgba(200, 245, 66, 0.45);
+  color: var(--accent);
+}
+
+.copy-post:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.post-image-preview {
+  margin: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #000;
+}
+
+.post-image-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: top;
+}
+
+.post-image-preview figcaption {
+  padding: 6px 8px;
+  font-size: 0.65rem;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.35);
+}
