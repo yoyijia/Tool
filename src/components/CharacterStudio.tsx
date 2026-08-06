@@ -41,6 +41,7 @@ export function CharacterStudio({
 }: CharacterStudioProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [frameSize, setFrameSize] = useState<FrameSize>(128)
+  const [frameCount, setFrameCount] = useState(8)
   const [motionPrompt, setMotionPrompt] = useState(
     'idle, walk, run, jump — full character pack',
   )
@@ -83,6 +84,7 @@ export function CharacterStudio({
       frameSize,
       palette,
       poses,
+      frameCount,
     )
   }
 
@@ -285,6 +287,35 @@ export function CharacterStudio({
             ))}
           </select>
         </label>
+        <label className="field">
+          <span>Frame count · {frameCount}</span>
+          <input
+            type="range"
+            min={2}
+            max={48}
+            step={1}
+            value={frameCount}
+            onChange={(e) => setFrameCount(Number(e.target.value))}
+          />
+          <div className="frame-count-row">
+            {[4, 6, 8, 12, 16, 24, 32, 48].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`chip ${frameCount === n ? 'on' : ''}`}
+                onClick={() => setFrameCount(n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </label>
+        <div className="field">
+          <span>Framing</span>
+          <p className="palette-note">
+            All frames are center-anchored in the canvas
+          </p>
+        </div>
         <div className="field">
           <span>Export-ready for</span>
           <p className="palette-note">Unity · Godot · GameMaker · PNG + JSON atlas + GIF</p>

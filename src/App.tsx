@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CharacterBuilder } from './components/CharacterBuilder'
 import { CharacterStudio } from './components/CharacterStudio'
 import { LocationStudio } from './components/LocationStudio'
 import { NewSpriteStudio } from './components/NewSpriteStudio'
@@ -13,7 +14,7 @@ import { loadSampleSheetCharacters } from './lib/sampleCharacterSheet'
 import type { CharacterAsset, StyleReference } from './types'
 import './App.css'
 
-type Tab = 'animate' | 'new-sprite' | 'tilesets' | 'style'
+type Tab = 'animate' | 'builder' | 'new-sprite' | 'tilesets' | 'style'
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -94,9 +95,9 @@ export default function App() {
           <p className="brand-mark">SpriteNest</p>
           <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            Starting frame → motion prompt → engine-ready spritesheet. Nintendo
-            clean-vector style, 64 / 128 / 512px, PNG + JSON atlas + GIF — built
-            for the same workflow as{' '}
+            Customize hair, eyes, hands, legs, and clothes — then animate with a
+            motion prompt into centered, engine-ready spritesheets (64 / 128 /
+            512px, adjustable frame count). Workflow inspired by{' '}
             <a href="https://ludo.ai" target="_blank" rel="noreferrer">
               Ludo.ai
             </a>
@@ -107,8 +108,8 @@ export default function App() {
           <button type="button" className="primary-btn" onClick={() => setTab('animate')}>
             Animate sprite
           </button>
-          <button type="button" className="secondary-btn" onClick={() => setTab('new-sprite')}>
-            New sprite
+          <button type="button" className="secondary-btn" onClick={() => setTab('builder')}>
+            Customize parts
           </button>
         </div>
       </header>
@@ -117,6 +118,7 @@ export default function App() {
         {(
           [
             ['animate', 'Animate'],
+            ['builder', 'Builder'],
             ['new-sprite', 'New Sprite'],
             ['tilesets', 'Tilesets'],
             ['style', 'Style'],
@@ -144,6 +146,14 @@ export default function App() {
             onRemove={(id) =>
               setCharacters((prev) => prev.filter((c) => c.id !== id))
             }
+          />
+        )}
+        {tab === 'builder' && (
+          <CharacterBuilder
+            onAddToCharacters={(character) => {
+              setCharacters((prev) => [...prev, character])
+              setTab('animate')
+            }}
           />
         )}
         {tab === 'new-sprite' && (

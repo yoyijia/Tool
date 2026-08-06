@@ -33,15 +33,20 @@ function clamp(n: number): number {
 
 /**
  * Fit uploaded art into a clean Nintendo-vector frame.
- * Preserves soft anti-aliased edges, flat colors, and cheek blush tones.
+ * Centered in the frame (not bottom-anchored).
  */
 export function renderCleanVectorFrame(
   source: HTMLImageElement | HTMLCanvasElement,
   frameSize: FrameSize,
   palette: RGB[],
-  options: { snapPalette?: boolean; softOutline?: boolean } = {},
+  options: {
+    snapPalette?: boolean
+    softOutline?: boolean
+    /** @default 'center' */
+    anchor?: 'center' | 'bottom'
+  } = {},
 ): HTMLCanvasElement {
-  const { snapPalette = true, softOutline = false } = options
+  const { snapPalette = true, softOutline = false, anchor = 'center' } = options
   const out = createCanvas(frameSize, frameSize)
   const ctx = getCtx(out, true)
 
@@ -51,7 +56,10 @@ export function renderCleanVectorFrame(
   const dw = Math.max(1, Math.round(source.width * scale))
   const dh = Math.max(1, Math.round(source.height * scale))
   const dx = Math.floor((frameSize - dw) / 2)
-  const dy = Math.floor(frameSize - pad - dh)
+  const dy =
+    anchor === 'bottom'
+      ? Math.floor(frameSize - pad - dh)
+      : Math.floor((frameSize - dh) / 2)
 
   ctx.clearRect(0, 0, frameSize, frameSize)
   ctx.drawImage(source, dx, dy, dw, dh)

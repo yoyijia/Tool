@@ -169,30 +169,44 @@ export function generateAnimation(
   frameSize: FrameSize,
   palette: RGB[],
   poseSources?: Partial<Record<string, HTMLImageElement | HTMLCanvasElement>>,
+  frameCountOverride?: number,
 ): GeneratedAnimation {
   const base = renderCleanVectorFrame(source, frameSize, palette, {
     snapPalette: true,
     softOutline: false,
+    anchor: 'center',
   })
   const config = ANIMATIONS[type]
+  const frameCount = Math.max(
+    2,
+    Math.min(64, frameCountOverride ?? config.frames),
+  )
   const frames: AnimationFrame[] = []
 
   // Prefer real directional poses from the sheet when walking / running
   const leftPose = poseSources?.left
-    ? renderCleanVectorFrame(poseSources.left, frameSize, palette)
+    ? renderCleanVectorFrame(poseSources.left, frameSize, palette, {
+        anchor: 'center',
+      })
     : null
   const rightPose = poseSources?.right
-    ? renderCleanVectorFrame(poseSources.right, frameSize, palette)
+    ? renderCleanVectorFrame(poseSources.right, frameSize, palette, {
+        anchor: 'center',
+      })
     : null
   const downPose = poseSources?.down
-    ? renderCleanVectorFrame(poseSources.down, frameSize, palette)
+    ? renderCleanVectorFrame(poseSources.down, frameSize, palette, {
+        anchor: 'center',
+      })
     : base
   const wavePose = poseSources?.wave
-    ? renderCleanVectorFrame(poseSources.wave, frameSize, palette)
+    ? renderCleanVectorFrame(poseSources.wave, frameSize, palette, {
+        anchor: 'center',
+      })
     : null
 
-  for (let i = 0; i < config.frames; i++) {
-    const t = i / config.frames
+  for (let i = 0; i < frameCount; i++) {
+    const t = i / frameCount
     let frameBase = base
 
     if ((type === 'walk' || type === 'run') && leftPose && rightPose) {
@@ -213,12 +227,16 @@ export function generateAnimation(
     }
   }
 
+  // Scale FPS slightly with denser frame counts so duration stays similar
+  const fpsScale = frameCount / config.frames
+  const fps = Math.max(4, Math.round(config.fps * Math.min(2, Math.max(0.75, fpsScale))))
+
   return {
     type,
     frames,
     frameSize,
     sheetCanvas: packFrames(frames, frameSize),
-    fps: config.fps,
+    fps,
   }
 }
 
@@ -228,9 +246,17 @@ export function generateAllAnimations(
   frameSize: FrameSize,
   palette: RGB[],
   poseSources?: Partial<Record<string, HTMLImageElement | HTMLCanvasElement>>,
+  frameCountOverride?: number,
 ): GeneratedAnimation[] {
   return types.map((type) =>
-    generateAnimation(source, type, frameSize, palette, poseSources),
+    generateAnimation(
+      source,
+      type,
+      frameSize,
+      palette,
+      poseSources,
+      frameCountOverride,
+    ),
   )
 }
 
