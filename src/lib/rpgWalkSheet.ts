@@ -1,19 +1,22 @@
 import type { CharacterLoadoutData, FrameSize } from '../types'
+import type { CharacterLoadout } from './characterParts'
+import { DEFAULT_LOADOUT } from './characterParts'
 import { centerContentOnCanvas, createCanvas, getCtx } from './pixelate'
+import { drawSideCycleFrame } from './walkCycle'
 
 export type WalkDir = 'down' | 'left' | 'right' | 'up'
 
 export const WALK_DIRS: WalkDir[] = ['down', 'left', 'right', 'up']
 
 export const HAIR_VARIANT_COLORS = [
-  '#2a3a6e', // dark blue
-  '#1a1a1a', // black
-  '#6b3e1a', // brown
-  '#e88ab0', // pink
-  '#5ec4c0', // teal
-  '#b0b8c4', // silver
-  '#c9b86c', // blonde
-  '#e85a20', // orange
+  '#3a3338',
+  '#2a3a6e',
+  '#6b3e1a',
+  '#e88ab0',
+  '#5ec4c0',
+  '#b0b8c4',
+  '#c9b86c',
+  '#e85a20',
 ]
 
 export const SKIN_VARIANT_COLORS = [
@@ -24,14 +27,13 @@ export const SKIN_VARIANT_COLORS = [
   '#8d5524',
 ]
 
-const INK = '#1a1420'
+const INK = '#2d2832'
+const BLUSH = '#ff9eaa'
 
 export interface RpgWalkOptions {
   frameSize: FrameSize
   frameCount: number
   loadout?: CharacterLoadoutData
-  /** Pixel-art base cell before upscale (keeps Nintendo RPG crispness). */
-  pixelBase?: 32 | 48 | 64
   hairColor?: string
   skinColor?: string
   outfitColor?: string
@@ -46,319 +48,277 @@ function shade(hex: string, amount: number): string {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
 }
 
-function px(
+function rr(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
-  color: string,
+  r: number,
+  fill: string,
+  stroke = true,
 ): void {
-  ctx.fillStyle = color
-  ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h))
+  const radius = Math.min(r, w / 2, h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
+  ctx.fillStyle = fill
+  ctx.fill()
+  if (stroke) {
+    ctx.strokeStyle = INK
+    ctx.lineWidth = Math.max(1.8, Math.min(w, h) * 0.07)
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.stroke()
+  }
 }
 
-function outlineRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  fill: string,
-): void {
-  px(ctx, x, y, w, h, fill)
-  ctx.strokeStyle = INK
-  ctx.lineWidth = 1
-  ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(w) - 1, Math.round(h) - 1)
+function resolveLoadout(opts: RpgWalkOptions): CharacterLoadout {
+  const base = { ...(opts.loadout ?? DEFAULT_LOADOUT) }
+  if (opts.hairColor) base.hairColor = opts.hairColor
+  if (opts.skinColor) base.skin = opts.skinColor
+  if (opts.outfitColor) base.shirtColor = opts.outfitColor
+  if (opts.bootColor) base.pantsColor = opts.bootColor
+  return base as CharacterLoadout
 }
 
 /**
- * Draw one RPG Maker–style ¾ walk frame at pixelBase resolution.
+ * Clean-vector ¾ Nintendo chibi facing down or up (front/back).
  */
-function drawRpgWalkPixel(
-  base: number,
-  dir: WalkDir,
+function drawVectorFrontBack(
+  size: number,
+  dir: 'down' | 'up',
   phase: number,
-  colors: {
-    skin: string
-    hair: string
-    outfit: string
-    boot: string
-    hairStyle: string
-  },
+  loadout: CharacterLoadout,
 ): HTMLCanvasElement {
-  const c = createCanvas(base, base)
-  const ctx = getCtx(c, false)
-  ctx.clearRect(0, 0, base, base)
-
-  const s = base / 32
-  const cx = 16 * s
-  // walk bob + stride
+  const raw = createCanvas(size, size)
+  const ctx = getCtx(raw, true)
+  const s = size / 100
+  const cx = 50 * s
   const swing = Math.sin(phase * Math.PI * 2)
-  const bob = Math.round(Math.abs(Math.cos(phase * Math.PI * 2)) * 1 * s)
-  const stride = Math.round(swing * (dir === 'left' || dir === 'right' ? 2.5 : 2) * s)
+  const bob = Math.abs(Math.cos(phase * Math.PI * 2)) * 2.5 * s
+  const stride = swing * 4 * s
 
-  const skin = colors.skin
-  const hair = colors.hair
-  const outfit = colors.outfit
-  const boot = colors.boot
-  const outfitDark = shade(outfit, -35)
-  const skinDark = shade(skin, -25)
+  const skin = loadout.skin
+  const hair = loadout.hairColor
+  const shirt = loadout.shirtColor
+  const pants = loadout.pantsColor
+  const shoe = '#e23b45'
+  const facingAway = dir === 'up'
 
   // Shadow
-  px(ctx, cx - 6 * s, 28 * s, 12 * s, 2 * s, 'rgba(0,0,0,0.15)')
+  ctx.fillStyle = 'rgba(45,40,50,0.12)'
+  ctx.beginPath()
+  ctx.ellipse(cx, 90 * s, 18 * s, 4 * s, 0, 0, Math.PI * 2)
+  ctx.fill()
 
-  if (dir === 'down') {
-    drawFacingDown(ctx, cx, bob, stride, s, skin, skinDark, hair, outfit, outfitDark, boot, colors.hairStyle)
-  } else if (dir === 'up') {
-    drawFacingUp(ctx, cx, bob, stride, s, skin, hair, outfit, outfitDark, boot, colors.hairStyle)
-  } else if (dir === 'right') {
-    drawFacingSide(ctx, cx, bob, stride, s, skin, skinDark, hair, outfit, outfitDark, boot, colors.hairStyle, false)
-  } else {
-    drawFacingSide(ctx, cx, bob, -stride, s, skin, skinDark, hair, outfit, outfitDark, boot, colors.hairStyle, true)
-  }
+  const bodyY = 52 * s - bob
+  const headY = 28 * s - bob
 
-  return c
-}
-
-function drawFacingDown(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  bob: number,
-  stride: number,
-  s: number,
-  skin: string,
-  skinDark: string,
-  hair: string,
-  outfit: string,
-  outfitDark: string,
-  boot: string,
-  hairStyle: string,
-): void {
-  const y = 4 * s - bob
-
-  // Far arm
-  outlineRect(ctx, cx - 9 * s - stride * 0.3, y + 12 * s, 3 * s, 7 * s, skin)
-  // Near arm
-  outlineRect(ctx, cx + 6 * s + stride * 0.3, y + 12 * s, 3 * s, 7 * s, skin)
+  // Arms
+  const armL = facingAway ? stride * 0.4 : -stride * 0.4
+  const armR = facingAway ? -stride * 0.4 : stride * 0.4
+  rr(ctx, cx - 20 * s + armL, bodyY - 2 * s, 8 * s, 16 * s, 4 * s, skin)
+  rr(ctx, cx + 12 * s + armR, bodyY - 2 * s, 8 * s, 16 * s, 4 * s, skin)
 
   // Legs
-  outlineRect(ctx, cx - 5 * s - stride, y + 20 * s, 4 * s, 6 * s, outfitDark)
-  outlineRect(ctx, cx + 1 * s + stride, y + 20 * s, 4 * s, 6 * s, outfitDark)
-  // Boots
-  outlineRect(ctx, cx - 5 * s - stride, y + 25 * s, 4 * s, 3 * s, boot)
-  outlineRect(ctx, cx + 1 * s + stride, y + 25 * s, 4 * s, 3 * s, boot)
+  rr(ctx, cx - 12 * s - stride, bodyY + 18 * s, 9 * s, 16 * s, 4 * s, pants)
+  rr(ctx, cx + 3 * s + stride, bodyY + 18 * s, 9 * s, 16 * s, 4 * s, pants)
+  rr(ctx, cx - 13 * s - stride, bodyY + 32 * s, 11 * s, 5 * s, 2.5 * s, shoe)
+  rr(ctx, cx + 2 * s + stride, bodyY + 32 * s, 11 * s, 5 * s, 2.5 * s, shoe)
 
-  // Body / leotard-like outfit
-  outlineRect(ctx, cx - 6 * s, y + 11 * s, 12 * s, 10 * s, outfit)
-  px(ctx, cx - 6 * s, y + 18 * s, 12 * s, 3 * s, outfitDark)
-
-  // Head
-  outlineRect(ctx, cx - 6 * s, y + 2 * s, 12 * s, 10 * s, skin)
-  // Eyes
-  px(ctx, cx - 3 * s, y + 6 * s, 2 * s, 2 * s, INK)
-  px(ctx, cx + 2 * s, y + 6 * s, 2 * s, 2 * s, INK)
-  // Mouth
-  px(ctx, cx - 1 * s, y + 9 * s, 3 * s, 1 * s, skinDark)
-
-  drawHairDown(ctx, cx, y, s, hair, hairStyle)
-}
-
-function drawFacingUp(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  bob: number,
-  stride: number,
-  s: number,
-  skin: string,
-  hair: string,
-  outfit: string,
-  outfitDark: string,
-  boot: string,
-  hairStyle: string,
-): void {
-  const y = 4 * s - bob
-
-  outlineRect(ctx, cx - 9 * s + stride * 0.3, y + 12 * s, 3 * s, 7 * s, skin)
-  outlineRect(ctx, cx + 6 * s - stride * 0.3, y + 12 * s, 3 * s, 7 * s, skin)
-
-  outlineRect(ctx, cx - 5 * s + stride, y + 20 * s, 4 * s, 6 * s, outfitDark)
-  outlineRect(ctx, cx + 1 * s - stride, y + 20 * s, 4 * s, 6 * s, outfitDark)
-  outlineRect(ctx, cx - 5 * s + stride, y + 25 * s, 4 * s, 3 * s, boot)
-  outlineRect(ctx, cx + 1 * s - stride, y + 25 * s, 4 * s, 3 * s, boot)
-
-  outlineRect(ctx, cx - 6 * s, y + 11 * s, 12 * s, 10 * s, outfit)
-  px(ctx, cx - 6 * s, y + 18 * s, 12 * s, 3 * s, outfitDark)
-
-  // Head back
-  outlineRect(ctx, cx - 6 * s, y + 2 * s, 12 * s, 10 * s, skin)
-  drawHairUp(ctx, cx, y, s, hair, hairStyle)
-}
-
-function drawFacingSide(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  bob: number,
-  stride: number,
-  s: number,
-  skin: string,
-  skinDark: string,
-  hair: string,
-  outfit: string,
-  outfitDark: string,
-  boot: string,
-  hairStyle: string,
-  flip: boolean,
-): void {
-  const y = 4 * s - bob
-  ctx.save()
-  if (flip) {
-    ctx.translate(32 * s, 0)
-    ctx.scale(-1, 1)
-  }
-
-  // Far leg
-  outlineRect(ctx, cx - 1 * s - stride, y + 20 * s, 4 * s, 6 * s, outfitDark)
-  outlineRect(ctx, cx - 1 * s - stride, y + 25 * s, 4 * s, 3 * s, boot)
-
-  // Body
-  outlineRect(ctx, cx - 4 * s, y + 11 * s, 9 * s, 10 * s, outfit)
-  px(ctx, cx - 4 * s, y + 18 * s, 9 * s, 3 * s, outfitDark)
-
-  // Near leg
-  outlineRect(ctx, cx + 1 * s + stride, y + 20 * s, 4 * s, 6 * s, outfitDark)
-  outlineRect(ctx, cx + 1 * s + stride, y + 25 * s, 4 * s, 3 * s, boot)
-
-  // Far arm
-  outlineRect(ctx, cx - 2 * s - stride * 0.5, y + 12 * s, 3 * s, 7 * s, skin)
+  // Torso
+  rr(ctx, cx - 14 * s, bodyY - 4 * s, 28 * s, 24 * s, 10 * s, shirt)
+  ctx.fillStyle = shade(shirt, -28)
+  ctx.globalAlpha = 0.25
+  rr(ctx, cx - 14 * s, bodyY + 10 * s, 28 * s, 10 * s, 6 * s, shade(shirt, -28), false)
+  ctx.globalAlpha = 1
 
   // Head
-  outlineRect(ctx, cx - 3 * s, y + 2 * s, 10 * s, 10 * s, skin)
-  // Eye
-  px(ctx, cx + 3 * s, y + 6 * s, 2 * s, 2 * s, INK)
-  px(ctx, cx + 5 * s, y + 8 * s, 2 * s, 1 * s, skinDark)
+  ctx.beginPath()
+  ctx.ellipse(cx, headY, 16 * s, 16 * s, 0, 0, Math.PI * 2)
+  ctx.fillStyle = skin
+  ctx.fill()
+  ctx.strokeStyle = INK
+  ctx.lineWidth = 2 * s
+  ctx.stroke()
 
-  // Near arm
-  outlineRect(ctx, cx + 2 * s + stride * 0.5, y + 12 * s, 3 * s, 7 * s, skin)
+  if (!facingAway) {
+    // Blush + face
+    ctx.fillStyle = BLUSH
+    ctx.beginPath()
+    ctx.ellipse(cx - 8 * s, headY + 3 * s, 3.5 * s, 2.2 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(cx + 8 * s, headY + 3 * s, 3.5 * s, 2.2 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
 
-  drawHairSide(ctx, cx, y, s, hair, hairStyle)
-  ctx.restore()
+    ctx.fillStyle = INK
+    ctx.beginPath()
+    ctx.arc(cx - 5 * s, headY - 1 * s, 2 * s, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx + 5 * s, headY - 1 * s, 2 * s, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.strokeStyle = INK
+    ctx.lineWidth = 1.6 * s
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.arc(cx, headY + 5 * s, 3.5 * s, 0.15 * Math.PI, 0.85 * Math.PI)
+    ctx.stroke()
+  }
+
+  drawFrontHair(ctx, cx, headY, s, loadout.hair, hair, shirt, facingAway)
+
+  if (loadout.accessory === 'satchel' && !facingAway) {
+    ctx.fillStyle = loadout.accessoryColor
+    ctx.beginPath()
+    ctx.ellipse(cx + 14 * s, bodyY + 12 * s, 6 * s, 5 * s, 0.2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = INK
+    ctx.lineWidth = 1.5 * s
+    ctx.stroke()
+  }
+
+  return centerContentOnCanvas(raw, size, 0.1)
 }
 
-function drawHairDown(
+function drawFrontHair(
   ctx: CanvasRenderingContext2D,
   cx: number,
-  y: number,
+  hy: number,
   s: number,
-  hair: string,
   style: string,
+  color: string,
+  accent: string,
+  back: boolean,
 ): void {
-  // Top hair
-  outlineRect(ctx, cx - 7 * s, y + 1 * s, 14 * s, 5 * s, hair)
-  if (style === 'curly' || style === 'bun' || style === 'spiky' || style === 'short' || style === 'explorer') {
-    // bangs
-    px(ctx, cx - 6 * s, y + 5 * s, 3 * s, 2 * s, hair)
-    px(ctx, cx + 3 * s, y + 5 * s, 3 * s, 2 * s, hair)
+  ctx.fillStyle = color
+  ctx.strokeStyle = INK
+  ctx.lineWidth = 2 * s
+
+  if (style === 'none') return
+
+  if (style === 'curly') {
+    for (const [x, y, r] of [
+      [0, -14, 11],
+      [-12, -10, 9],
+      [12, -10, 9],
+      [-16, 0, 8],
+      [16, 0, 8],
+      [0, -20, 8],
+    ] as const) {
+      ctx.beginPath()
+      ctx.arc(cx + x * s, hy + y * s, r * s, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+    return
   }
-  // Ponytail (reference sheet style)
-  if (style !== 'none' && style !== 'cap' && style !== 'backwards') {
-    outlineRect(ctx, cx + 5 * s, y + 3 * s, 5 * s, 8 * s, hair)
-    outlineRect(ctx, cx + 6 * s, y + 10 * s, 4 * s, 4 * s, hair)
+
+  if (style === 'explorer' || style === 'cap') {
+    const hat = style === 'explorer' ? '#c4a574' : accent
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.moveTo(cx - 8 * s, hy - 4 * s)
+    ctx.lineTo(cx - 3 * s, hy + 2 * s)
+    ctx.lineTo(cx + 3 * s, hy - 3 * s)
+    ctx.lineTo(cx + 8 * s, hy + 1 * s)
+    ctx.lineTo(cx + 10 * s, hy - 4 * s)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = hat
+    ctx.beginPath()
+    ctx.ellipse(cx, hy - 10 * s, 16 * s, 8 * s, 0, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    rr(ctx, cx - 18 * s, hy - 10 * s, 36 * s, 5 * s, 2.5 * s, hat)
+    if (style === 'explorer') {
+      rr(ctx, cx - 12 * s, hy - 11 * s, 24 * s, 2.5 * s, 1 * s, '#6b4a2a', false)
+    }
+    return
   }
-  if (style === 'cap' || style === 'explorer') {
-    const hat = style === 'explorer' ? '#c4a574' : '#e23b45'
-    outlineRect(ctx, cx - 8 * s, y + 0 * s, 16 * s, 4 * s, hat)
-    outlineRect(ctx, cx - 9 * s, y + 3 * s, 18 * s, 2 * s, hat)
+
+  if (style === 'backwards') {
+    ctx.fillStyle = '#2a262e'
+    ctx.beginPath()
+    ctx.ellipse(cx, hy - 10 * s, 15 * s, 7 * s, 0, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    rr(ctx, cx - 18 * s, hy - 9 * s, 14 * s, 4 * s, 2 * s, '#2a262e')
+    return
+  }
+
+  if (style === 'spiky') {
+    ctx.beginPath()
+    ctx.moveTo(cx - 14 * s, hy - 2 * s)
+    ctx.lineTo(cx - 8 * s, hy - 18 * s)
+    ctx.lineTo(cx - 2 * s, hy - 6 * s)
+    ctx.lineTo(cx + 2 * s, hy - 20 * s)
+    ctx.lineTo(cx + 8 * s, hy - 6 * s)
+    ctx.lineTo(cx + 14 * s, hy - 16 * s)
+    ctx.lineTo(cx + 14 * s, hy - 2 * s)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+    return
+  }
+
+  // short / bun / default — soft bowl + optional ponytail for RPG vibe
+  ctx.beginPath()
+  ctx.ellipse(cx, hy - 8 * s, 15 * s, 10 * s, 0, Math.PI, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
+  if (style === 'bun' || back) {
+    ctx.beginPath()
+    ctx.arc(cx + (back ? 0 : 10) * s, hy - (back ? 4 : 2) * s, 6 * s, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
   }
 }
 
-function drawHairUp(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  y: number,
-  s: number,
-  hair: string,
-  style: string,
-): void {
-  outlineRect(ctx, cx - 7 * s, y + 1 * s, 14 * s, 8 * s, hair)
-  if (style !== 'none' && style !== 'cap' && style !== 'backwards') {
-    outlineRect(ctx, cx - 2 * s, y + 8 * s, 8 * s, 6 * s, hair)
-  }
-  if (style === 'cap' || style === 'explorer') {
-    const hat = style === 'explorer' ? '#c4a574' : '#e23b45'
-    outlineRect(ctx, cx - 8 * s, y + 0 * s, 16 * s, 5 * s, hat)
-  }
-}
-
-function drawHairSide(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  y: number,
-  s: number,
-  hair: string,
-  style: string,
-): void {
-  outlineRect(ctx, cx - 4 * s, y + 1 * s, 12 * s, 5 * s, hair)
-  if (style !== 'none' && style !== 'cap' && style !== 'backwards') {
-    // ponytail behind
-    outlineRect(ctx, cx - 7 * s, y + 4 * s, 5 * s, 9 * s, hair)
-  }
-  if (style === 'cap' || style === 'explorer') {
-    const hat = style === 'explorer' ? '#c4a574' : '#e23b45'
-    outlineRect(ctx, cx - 5 * s, y + 0 * s, 14 * s, 4 * s, hat)
-    outlineRect(ctx, cx + 6 * s, y + 2 * s, 5 * s, 2 * s, hat)
-  }
-}
-
-function upscaleNearest(src: HTMLCanvasElement, target: number): HTMLCanvasElement {
-  const out = createCanvas(target, target)
-  const ctx = getCtx(out, false)
-  ctx.imageSmoothingEnabled = false
-  ctx.drawImage(src, 0, 0, target, target)
-  return out
-}
-
-function resolveColors(loadout?: CharacterLoadoutData, overrides?: Partial<RpgWalkOptions>) {
-  return {
-    skin: overrides?.skinColor ?? loadout?.skin ?? '#ffd6ba',
-    hair: overrides?.hairColor ?? loadout?.hairColor ?? '#2a3a6e',
-    outfit: overrides?.outfitColor ?? loadout?.shirtColor ?? '#5a6a9e',
-    boot: overrides?.bootColor ?? '#3a3040',
-    hairStyle: loadout?.hair ?? 'short',
-  }
-}
-
-/** One direction row: N centered frames. */
+/** One direction row in clean vector Nintendo style. */
 export function generateDirectionalWalkFrames(
   dir: WalkDir,
   opts: RpgWalkOptions,
 ): HTMLCanvasElement[] {
   const frameCount = Math.max(2, Math.min(48, opts.frameCount))
-  const pixelBase = opts.pixelBase ?? 32
-  const colors = resolveColors(opts.loadout, opts)
+  const loadout = resolveLoadout(opts)
   const frames: HTMLCanvasElement[] = []
 
   for (let i = 0; i < frameCount; i++) {
     const phase = i / frameCount
-    const pixel = drawRpgWalkPixel(pixelBase, dir, phase, colors)
-    const scaled = upscaleNearest(pixel, opts.frameSize)
-    frames.push(centerContentOnCanvas(scaled, opts.frameSize, 0.08))
+    if (dir === 'left' || dir === 'right') {
+      frames.push(
+        drawSideCycleFrame(opts.frameSize, {
+          phase,
+          kind: 'walk',
+          loadout,
+          facing: dir,
+        }),
+      )
+    } else {
+      frames.push(drawVectorFrontBack(opts.frameSize, dir, phase, loadout))
+    }
   }
   return frames
 }
 
 export interface DirectionalWalkSheet {
-  /** Row order: down, left, right, up */
   directions: WalkDir[]
   frameCount: number
   frameSize: number
-  /** frames[dirIndex][frameIndex] */
   frames: HTMLCanvasElement[][]
-  /** Packed sheet: rows=dirs, cols=frames */
   sheetCanvas: HTMLCanvasElement
   fps: number
   meta: {
-    layout: 'rpg-maker-4dir'
+    layout: 'nintendo-vector-4dir'
+    style: 'clean-vector'
     directions: WalkDir[]
     frameWidth: number
     frameHeight: number
@@ -368,13 +328,14 @@ export interface DirectionalWalkSheet {
   }
 }
 
-/** Classic RPG sheet: 4 rows (down/left/right/up) × N frame columns. */
+/** 4-row walk sheet in clean vector Nintendo style (not pixel). */
 export function generateRpgWalkSheet(opts: RpgWalkOptions): DirectionalWalkSheet {
   const frameCount = Math.max(2, Math.min(48, opts.frameCount))
-  const frames = WALK_DIRS.map((dir) => generateDirectionalWalkFrames(dir, { ...opts, frameCount }))
+  const frames = WALK_DIRS.map((dir) =>
+    generateDirectionalWalkFrames(dir, { ...opts, frameCount }),
+  )
   const sheet = createCanvas(frameCount * opts.frameSize, WALK_DIRS.length * opts.frameSize)
-  const ctx = getCtx(sheet, false)
-  ctx.imageSmoothingEnabled = false
+  const ctx = getCtx(sheet, true)
 
   frames.forEach((row, ri) => {
     row.forEach((frame, fi) => {
@@ -390,7 +351,8 @@ export function generateRpgWalkSheet(opts: RpgWalkOptions): DirectionalWalkSheet
     sheetCanvas: sheet,
     fps: 10,
     meta: {
-      layout: 'rpg-maker-4dir',
+      layout: 'nintendo-vector-4dir',
+      style: 'clean-vector',
       directions: [...WALK_DIRS],
       frameWidth: opts.frameSize,
       frameHeight: opts.frameSize,
@@ -401,9 +363,6 @@ export function generateRpgWalkSheet(opts: RpgWalkOptions): DirectionalWalkSheet
   }
 }
 
-/** Multi-variant sheet like the reference: variants side-by-side, each with 4-dir rows stacked… 
- *  Simpler export: one mega-sheet with variants as column-groups.
- */
 export function generateVariantWalkSheet(
   opts: RpgWalkOptions,
   hairColors: string[] = HAIR_VARIANT_COLORS.slice(0, 4),
@@ -422,8 +381,7 @@ export function generateVariantWalkSheet(
     variantWidth * variants.length,
     WALK_DIRS.length * opts.frameSize,
   )
-  const ctx = getCtx(canvas, false)
-  ctx.imageSmoothingEnabled = false
+  const ctx = getCtx(canvas, true)
 
   variants.forEach((v, vi) => {
     const sheet = generateRpgWalkSheet({
@@ -438,15 +396,14 @@ export function generateVariantWalkSheet(
   return {
     canvas,
     meta: {
-      layout: 'rpg-maker-4dir-variants',
+      layout: 'nintendo-vector-4dir-variants',
+      style: 'clean-vector',
       directions: WALK_DIRS,
       frameWidth: opts.frameSize,
       frameHeight: opts.frameSize,
       framesPerDirection: frameCount,
       variantCount: variants.length,
       variants,
-      columnsPerVariant: frameCount,
-      rows: WALK_DIRS.length,
     },
   }
 }

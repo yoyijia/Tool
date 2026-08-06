@@ -51,10 +51,10 @@ export function CharacterStudio({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [frameSize, setFrameSize] = useState<FrameSize>(128)
   const [motionPrompt, setMotionPrompt] = useState(
-    '4-direction RPG walk sheet, 8 frames',
+    'walk cycle facing side, looping footsteps',
   )
-  const [frameCount, setFrameCount] = useState(8)
-  const [rpgMode, setRpgMode] = useState(true)
+  const [frameCount, setFrameCount] = useState(6)
+  const [rpgMode, setRpgMode] = useState(false)
   const [variants, setVariants] = useState(false)
   const [generated, setGenerated] = useState<GeneratedAnimation[]>([])
   const [rpgSheet, setRpgSheet] = useState<DirectionalWalkSheet | null>(null)
@@ -196,8 +196,8 @@ export function CharacterStudio({
         JSON.stringify(
           {
             character: selected.name,
-            style: 'nintendo-rpg-pixel',
             ...rpgSheet.meta,
+            style: 'nintendo-clean-vector',
             note: 'Rows: down, left, right, up. Columns: walk frames.',
           },
           null,
@@ -273,12 +273,11 @@ export function CharacterStudio({
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Animate · RPG 4-direction walk sheets</div>
+        <div className="ludo-badge">Animate · clean vector Nintendo style</div>
         <h2>Animate Sprite</h2>
         <p>
-          Generate Nintendo-style RPG walk sheets — <strong>down / left / right / up</strong>,
-          8 frames each, centered — like classic sprite templates. Or switch to
-          side-view cycles.
+          Flat chibi Nintendo look — soft shapes, blush, cel shade. Side-view
+          walk cycles by default; optional 4-direction sheet stays vector too.
         </p>
       </header>
 
@@ -293,8 +292,8 @@ export function CharacterStudio({
           <div className="sheet-banner-copy">
             <strong>Starting frames ready</strong>
             <span>
-              Pick a character (or Builder custom). RPG mode packs a 4-row walk
-              sheet like RPG Maker templates.
+              Pick a character (or Builder custom). Clean vector Nintendo style —
+              not pixel crunch.
             </span>
           </div>
           <img
@@ -307,7 +306,7 @@ export function CharacterStudio({
 
       <UploadZone
         label="Upload your own sprite"
-        hint="Or use Builder parts — hair/skin drive the RPG sheet variants"
+        hint="Or use Builder parts — hair/skin drive the variant sheets"
         multiple
         onFiles={onAdd}
       />
@@ -356,13 +355,16 @@ export function CharacterStudio({
               setRpgMode(e.target.checked)
               if (e.target.checked) {
                 setFrameCount(8)
-                setMotionPrompt('4-direction RPG walk sheet, 8 frames')
+                setMotionPrompt('4-direction vector walk sheet, 8 frames')
+              } else {
+                setFrameCount(6)
+                setMotionPrompt('walk cycle facing side, looping footsteps')
               }
             }}
           />
           <span>
-            <strong>4-direction RPG walk sheet</strong>
-            <em>Rows: down · left · right · up — like the reference template</em>
+            <strong>4-direction walk sheet</strong>
+            <em>Still clean vector — rows: down · left · right · up</em>
           </span>
         </label>
         {rpgMode && (
@@ -515,7 +517,7 @@ export function CharacterStudio({
           </div>
           <div className="sheet-column">
             <h3>
-              {selected?.name} · RPG 4-dir · {frameCount} frames
+              {selected?.name} · vector 4-dir · {frameCount} frames
             </h3>
             <div className="rpg-sheet-preview">
               <canvas
@@ -524,7 +526,7 @@ export function CharacterStudio({
                 ref={(node) => {
                   if (!node) return
                   const ctx = node.getContext('2d')!
-                  ctx.imageSmoothingEnabled = false
+                  ctx.imageSmoothingEnabled = true
                   ctx.clearRect(0, 0, node.width, node.height)
                   ctx.drawImage(rpgSheet.sheetCanvas, 0, 0)
                 }}
@@ -532,7 +534,7 @@ export function CharacterStudio({
                   width: '100%',
                   maxWidth: 640,
                   height: 'auto',
-                  imageRendering: 'pixelated',
+                  imageRendering: 'auto',
                 }}
               />
               <p className="palette-note">
@@ -548,7 +550,7 @@ export function CharacterStudio({
                   ref={(node) => {
                     if (!node) return
                     const ctx = node.getContext('2d')!
-                    ctx.imageSmoothingEnabled = false
+                    ctx.imageSmoothingEnabled = true
                     ctx.clearRect(0, 0, node.width, node.height)
                     ctx.drawImage(variantCanvas, 0, 0)
                   }}
@@ -556,7 +558,7 @@ export function CharacterStudio({
                     width: '100%',
                     maxWidth: 720,
                     height: 'auto',
-                    imageRendering: 'pixelated',
+                    imageRendering: 'auto',
                   }}
                 />
               </div>

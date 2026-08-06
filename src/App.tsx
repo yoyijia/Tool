@@ -95,9 +95,9 @@ export default function App() {
           <p className="brand-mark">SpriteNest</p>
           <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            Customize hair, eyes, hands, legs, and clothes — then animate with a
-            motion prompt into centered, engine-ready spritesheets (64 / 128 /
-            512px, adjustable frame count). Workflow inspired by{' '}
+            Clean vector Nintendo style — flat colors, soft chibi shapes, blush.
+            Customize parts, then animate walk cycles (side-view or 4-direction)
+            into centered spritesheets. Inspired by{' '}
             <a href="https://ludo.ai" target="_blank" rel="noreferrer">
               Ludo.ai
             </a>
