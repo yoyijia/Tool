@@ -766,6 +766,31 @@ input[type='range'] {
   border-radius: 14px;
   padding: 1rem;
   gap: 0.5rem;
+  position: relative;
+}
+
+.preview-stage::before,
+.preview-stage::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.22;
+  background: #2196f3;
+}
+
+.preview-stage::before {
+  left: 50%;
+  top: 12%;
+  bottom: 22%;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.preview-stage::after {
+  top: 44%;
+  left: 18%;
+  right: 18%;
+  height: 1px;
 }
 
 .preview-canvas {
