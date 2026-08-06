@@ -1175,3 +1175,90 @@ textarea {
 .mascot-grid {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 }
+
+.trend-signal-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.trend-signal-chip {
+  font-size: 0.68rem;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 9px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-signal-chip em {
+  font-style: normal;
+  color: var(--accent-2);
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.trend-sug-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (min-width: 720px) {
+  .trend-sug-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.trend-sug-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: rise 0.4s ease both;
+}
+
+.trend-sug-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.trend-cat {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.trend-sug-card h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.trend-angle {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.trend-fit {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.4;
+}

@@ -23,6 +23,8 @@ import {
 import { loadImageFromFile } from "../lib/mascots";
 import { InstagramLibrary } from "./InstagramLibrary";
 import { MascotPicker } from "./MascotPicker";
+import { TrendRadar } from "./TrendRadar";
+import type { TrendSuggestion } from "../types";
 
 const PLATFORMS: ContentPlatform[] = [
   "instagram",
@@ -52,6 +54,7 @@ export function ContentStudio({ report, onCopy }: Props) {
   const [mascotId, setMascotId] = useState<MascotId>("orb");
   const [customMascot, setCustomMascot] = useState<HTMLImageElement | null>(null);
   const [customMascotName, setCustomMascotName] = useState<string | null>(null);
+  const [activeTrend, setActiveTrend] = useState<TrendSuggestion | null>(null);
 
   const selectedVoice = useMemo(
     () => VOICE_PRESETS.find((v) => v.id === voiceId) ?? VOICE_PRESETS[0]!,
@@ -143,8 +146,8 @@ export function ContentStudio({ report, onCopy }: Props) {
     <section className="panel span-2 studio">
       <h3>Content studio</h3>
       <p className="sub">
-        Pick a voice and mascot, pull Instagram posts as numbered references, describe the
-        content you want, then export platform-sized images that cite the right post.
+        Pick a voice and mascot, listen to live TikTok/culture trends, pull Instagram
+        posts as numbered references, then export platform-sized images that cite the right post.
       </p>
 
       <form className="studio-form" onSubmit={runGenerate}>
@@ -177,6 +180,20 @@ export function ContentStudio({ report, onCopy }: Props) {
           customName={customMascotName}
           onSelect={setMascotId}
           onCustomFile={(file) => void onCustomFile(file)}
+        />
+
+        <TrendRadar
+          report={report}
+          onCopy={onCopy}
+          onUseSuggestion={(topicPrompt, suggestion) => {
+            setTopic(topicPrompt);
+            setActiveTrend(suggestion);
+            if (suggestion.category === "tiktok") setPlatform("tiktok");
+            else if (suggestion.platforms[0] === "LinkedIn") setPlatform("linkedin");
+            else if (suggestion.category === "movie" || suggestion.category === "festival") {
+              setPlatform("instagram");
+            }
+          }}
         />
 
         <InstagramLibrary
@@ -248,7 +265,9 @@ export function ContentStudio({ report, onCopy }: Props) {
           <p className="voice-hint">
             Writing as <em>{selectedVoice.label}</em>
             {mascotId !== "none" ? ` · mascot ${mascotId}` : ""}
-            {selectedRef ? ` · ref ${selectedRef.refId}` : ""} for {platformLabel(platform)}
+            {selectedRef ? ` · ref ${selectedRef.refId}` : ""}
+            {activeTrend ? ` · trend ${activeTrend.category}` : ""} for{" "}
+            {platformLabel(platform)}
           </p>
           <button type="submit" className="generate-btn" disabled={generating}>
             {generating ? "Crafting…" : "Generate engagement drafts"}

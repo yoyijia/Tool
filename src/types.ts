@@ -132,3 +132,28 @@ export interface MascotOption {
   label: string;
   blurb: string;
 }
+
+export interface TrendSignal {
+  id: string;
+  title: string;
+  category: "tiktok" | "festival" | "movie" | "sports" | "news" | "culture" | "search";
+  source: string;
+  heat: number;
+  summary: string;
+  url?: string;
+}
+
+export interface TrendSuggestion {
+  id: string;
+  trendId: string;
+  trendTitle: string;
+  category: TrendSignal["category"];
+  headline: string;
+  angle: string;
+  platforms: string[];
+  hookIdeas: string[];
+  topicPrompt: string;
+  fitScore: number;
+  fitReason: string;
+  timing: "now" | "this_week" | "seasonal";
+}
