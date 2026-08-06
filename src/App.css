@@ -412,6 +412,13 @@ button {
   font-size: 0.82rem;
 }
 
+.frame-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
 .rpg-sheet-preview {
   display: grid;
   gap: 0.5rem;
@@ -758,6 +765,17 @@ input[type='range'] {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.dir-chips {
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.dir-chips .chip {
+  text-transform: capitalize;
+  min-width: 4.2rem;
+  justify-content: center;
 }
 
 .chip {

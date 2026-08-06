@@ -499,7 +499,7 @@ export function CharacterStudio({
       {rpgMode && rpgSheet && (
         <div className="gen-results">
           <div className="preview-column">
-            <div className="chip-row">
+            <div className="chip-row dir-chips">
               {WALK_DIRS.map((d) => (
                 <button
                   key={d}
