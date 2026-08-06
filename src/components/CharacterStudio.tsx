@@ -41,10 +41,10 @@ export function CharacterStudio({
 }: CharacterStudioProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [frameSize, setFrameSize] = useState<FrameSize>(128)
-  const [frameCount, setFrameCount] = useState(8)
   const [motionPrompt, setMotionPrompt] = useState(
-    'idle, walk, run, jump — full character pack',
+    'walk cycle facing side, looping footsteps',
   )
+  const [frameCount, setFrameCount] = useState(6)
   const [generated, setGenerated] = useState<GeneratedAnimation[]>([])
   const [previewType, setPreviewType] = useState<AnimationType>('idle')
   const [busy, setBusy] = useState(false)
@@ -85,6 +85,7 @@ export function CharacterStudio({
       palette,
       poses,
       frameCount,
+      character.loadout,
     )
   }
 
@@ -170,11 +171,8 @@ export function CharacterStudio({
         <h2>Animate Sprite</h2>
         <p>
           Upload or pick a starting frame, write a motion prompt, get an
-          engine-ready spritesheet — same flow as{' '}
-          <a href="https://ludo.ai/features/sprite-generator" target="_blank" rel="noreferrer">
-            Ludo.ai
-          </a>
-          .
+          engine-ready spritesheet — walk cycles use real side-view limb
+          animation (like classic game walk sheets).
         </p>
       </header>
 

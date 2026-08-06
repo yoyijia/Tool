@@ -52,9 +52,10 @@ export const PART_OPTIONS: Record<PartSlot, PartOption[]> = {
     { id: 'curly', label: 'Curly', slot: 'hair', swatch: '#3a3338' },
     { id: 'short', label: 'Short', slot: 'hair', swatch: '#3a3338' },
     { id: 'bun', label: 'Bun', slot: 'hair', swatch: '#3a3338' },
+    { id: 'spiky', label: 'Spiky', slot: 'hair', swatch: '#e85a20' },
+    { id: 'explorer', label: 'Explorer Hat', slot: 'hair', swatch: '#c4a574' },
     { id: 'cap', label: 'Front Cap', slot: 'hair', swatch: '#e23b45' },
     { id: 'backwards', label: 'Backwards Cap', slot: 'hair', swatch: '#2a262e' },
-    { id: 'spiky', label: 'Spiky', slot: 'hair', swatch: '#5a4030' },
     { id: 'none', label: 'Bald', slot: 'hair' },
   ],
   eyes: [
@@ -364,6 +365,25 @@ function drawHair(
     ctx.ellipse(cx, hy - 16 * s, 18 * s, 10 * s, 0, Math.PI, Math.PI * 2)
     ctx.fill()
     rr(ctx, cx - 2 * s, hy - 16 * s, 22 * s, 5 * s, 2 * s, shirtColor)
+  } else if (style === 'explorer') {
+    const hat = '#c4a574'
+    const band = '#6b4a2a'
+    ctx.fillStyle = color
+    // fringe
+    ctx.beginPath()
+    ctx.moveTo(cx - 10 * s, hy - 6 * s)
+    ctx.lineTo(cx - 4 * s, hy + 2 * s)
+    ctx.lineTo(cx + 2 * s, hy - 5 * s)
+    ctx.lineTo(cx + 8 * s, hy + 1 * s)
+    ctx.lineTo(cx + 12 * s, hy - 6 * s)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = hat
+    ctx.beginPath()
+    ctx.ellipse(cx, hy - 14 * s, 18 * s, 10 * s, 0, Math.PI, Math.PI * 2)
+    ctx.fill()
+    rr(ctx, cx - 20 * s, hy - 12 * s, 40 * s, 6 * s, 3 * s, hat)
+    rr(ctx, cx - 14 * s, hy - 13 * s, 28 * s, 3 * s, 1 * s, band)
   } else if (style === 'backwards') {
     ctx.beginPath()
     ctx.ellipse(cx, hy - 12 * s, 18 * s, 10 * s, 0, Math.PI, Math.PI * 2)

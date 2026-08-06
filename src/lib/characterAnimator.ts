@@ -1,12 +1,16 @@
 import type {
   AnimationFrame,
   AnimationType,
+  CharacterLoadoutData,
   FrameSize,
   GeneratedAnimation,
   RGB,
   SpriteSheetMeta,
 } from '../types'
 import { cloneCanvas, createCanvas, getCtx, renderCleanVectorFrame } from './pixelate'
+import { generateSideCycleFrames } from './walkCycle'
+import type { CharacterLoadout } from './characterParts'
+import { DEFAULT_LOADOUT } from './characterParts'
 
 interface AnimConfig {
   frames: number
@@ -170,30 +174,50 @@ export function generateAnimation(
   palette: RGB[],
   poseSources?: Partial<Record<string, HTMLImageElement | HTMLCanvasElement>>,
   frameCountOverride?: number,
+  loadout?: CharacterLoadoutData,
 ): GeneratedAnimation {
-  const base = renderCleanVectorFrame(source, frameSize, palette, {
-    snapPalette: true,
-    softOutline: false,
-    anchor: 'center',
-  })
   const config = ANIMATIONS[type]
   const frameCount = Math.max(
     2,
     Math.min(64, frameCountOverride ?? config.frames),
   )
+
+  // Proper side-view limb cycles for walk / run / idle (reference walk-sheet style)
+  if (type === 'walk' || type === 'run' || type === 'idle') {
+    const kind = type === 'run' ? 'run' : type === 'idle' ? 'idle' : 'walk'
+    const lo = (loadout ?? DEFAULT_LOADOUT) as CharacterLoadout
+    const cycleFrames = generateSideCycleFrames(
+      frameSize,
+      frameCount,
+      kind,
+      lo,
+      'right',
+    )
+    const frames: AnimationFrame[] = cycleFrames.map((canvas, index) => ({
+      canvas,
+      index,
+    }))
+    const fpsScale = frameCount / config.frames
+    const fps = Math.max(
+      4,
+      Math.round(config.fps * Math.min(2, Math.max(0.75, fpsScale))),
+    )
+    return {
+      type,
+      frames,
+      frameSize,
+      sheetCanvas: packFrames(frames, frameSize),
+      fps,
+    }
+  }
+
+  const base = renderCleanVectorFrame(source, frameSize, palette, {
+    snapPalette: true,
+    softOutline: false,
+    anchor: 'center',
+  })
   const frames: AnimationFrame[] = []
 
-  // Prefer real directional poses from the sheet when walking / running
-  const leftPose = poseSources?.left
-    ? renderCleanVectorFrame(poseSources.left, frameSize, palette, {
-        anchor: 'center',
-      })
-    : null
-  const rightPose = poseSources?.right
-    ? renderCleanVectorFrame(poseSources.right, frameSize, palette, {
-        anchor: 'center',
-      })
-    : null
   const downPose = poseSources?.down
     ? renderCleanVectorFrame(poseSources.down, frameSize, palette, {
         anchor: 'center',
@@ -208,28 +232,18 @@ export function generateAnimation(
   for (let i = 0; i < frameCount; i++) {
     const t = i / frameCount
     let frameBase = base
-
-    if ((type === 'walk' || type === 'run') && leftPose && rightPose) {
-      frameBase = i % 2 === 0 ? rightPose : leftPose
-    } else if (type === 'idle' && downPose) {
-      frameBase = downPose
-    } else if (type === 'celebrate' && wavePose) {
-      frameBase = wavePose
-    }
+    if (type === 'celebrate' && wavePose) frameBase = wavePose
+    else if (downPose) frameBase = downPose
 
     const tf = config.transform(t, frameSize)
-    // When using real side poses, skip fake leg split
-    if ((type === 'walk' || type === 'run') && leftPose && rightPose) {
-      const { legPhase: _lp, ...rest } = tf
-      frames.push({ canvas: applyTransform(frameBase, rest), index: i })
-    } else {
-      frames.push({ canvas: applyTransform(frameBase, tf), index: i })
-    }
+    frames.push({ canvas: applyTransform(frameBase, tf), index: i })
   }
 
-  // Scale FPS slightly with denser frame counts so duration stays similar
   const fpsScale = frameCount / config.frames
-  const fps = Math.max(4, Math.round(config.fps * Math.min(2, Math.max(0.75, fpsScale))))
+  const fps = Math.max(
+    4,
+    Math.round(config.fps * Math.min(2, Math.max(0.75, fpsScale))),
+  )
 
   return {
     type,
@@ -247,6 +261,7 @@ export function generateAllAnimations(
   palette: RGB[],
   poseSources?: Partial<Record<string, HTMLImageElement | HTMLCanvasElement>>,
   frameCountOverride?: number,
+  loadout?: CharacterLoadoutData,
 ): GeneratedAnimation[] {
   return types.map((type) =>
     generateAnimation(
@@ -256,6 +271,7 @@ export function generateAllAnimations(
       palette,
       poseSources,
       frameCountOverride,
+      loadout,
     ),
   )
 }

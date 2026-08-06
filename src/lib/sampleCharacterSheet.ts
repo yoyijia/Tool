@@ -1,6 +1,7 @@
 import { canvasToDataUrl, centerContentOnCanvas, createCanvas, getCtx, loadImage } from './pixelate'
 import type { CharacterAsset, RGB } from '../types'
 import { extractPaletteFromImage } from './palette'
+import { composeCharacter, type CharacterLoadout } from './characterParts'
 
 const CELL = 160
 const INK = '#2d2832'
@@ -481,12 +482,27 @@ export async function loadSampleSheetCharacters(): Promise<{
     name: string
     primary: HTMLCanvasElement
     poses: Partial<Record<PoseKey, HTMLCanvasElement>>
+    loadout?: CharacterAsset['loadout']
   }[] = [
     {
       id: 'sheet-curly',
       name: 'Curly Hero',
       primary: curlyDown,
       poses: { down: curlyDown, left: curlyLeft, right: curlyRight, up: curlyUp },
+      loadout: {
+        hair: 'curly',
+        eyes: 'dots',
+        hands: 'relaxed',
+        legs: 'straight',
+        shirt: 'tee',
+        pants: 'shorts',
+        accessory: 'satchel',
+        skin: '#ffd6ba',
+        hairColor: '#3a3338',
+        shirtColor: '#e85a64',
+        pantsColor: '#4696e6',
+        accessoryColor: '#a0dc50',
+      },
     },
     {
       id: 'sheet-cap',
@@ -500,12 +516,76 @@ export async function loadSampleSheetCharacters(): Promise<{
         up: capUp,
         thinking: capThink,
       },
+      loadout: {
+        hair: 'cap',
+        eyes: 'dots',
+        hands: 'wave',
+        legs: 'straight',
+        shirt: 'tee',
+        pants: 'overalls',
+        accessory: 'none',
+        skin: '#ffd6ba',
+        hairColor: '#3a3338',
+        shirtColor: '#e23b45',
+        pantsColor: '#2a262e',
+        accessoryColor: '#a0dc50',
+      },
     },
     {
       id: 'sheet-bag',
       name: 'Backwards Cap',
       primary: bagDown,
       poses: { down: bagDown, left: bagLeft, right: bagRight, up: bagUp },
+      loadout: {
+        hair: 'backwards',
+        eyes: 'dots',
+        hands: 'relaxed',
+        legs: 'straight',
+        shirt: 'tee',
+        pants: 'jeans',
+        accessory: 'backpack',
+        skin: '#ffd6ba',
+        hairColor: '#3a3338',
+        shirtColor: '#f5f5f8',
+        pantsColor: '#3f78c8',
+        accessoryColor: '#2a262e',
+      },
+    },
+    {
+      id: 'sheet-explorer',
+      name: 'Explorer Walk',
+      primary: composeCharacter(
+        {
+          hair: 'explorer',
+          eyes: 'wide',
+          hands: 'relaxed',
+          legs: 'stride',
+          shirt: 'tee',
+          pants: 'shorts',
+          accessory: 'none',
+          skin: '#f2c9a0',
+          hairColor: '#e85a20',
+          shirtColor: '#c4a574',
+          pantsColor: '#a8845a',
+          accessoryColor: '#6b4a2a',
+        } satisfies CharacterLoadout,
+        CELL,
+      ),
+      poses: {},
+      loadout: {
+        hair: 'explorer',
+        eyes: 'wide',
+        hands: 'relaxed',
+        legs: 'stride',
+        shirt: 'tee',
+        pants: 'shorts',
+        accessory: 'none',
+        skin: '#f2c9a0',
+        hairColor: '#e85a20',
+        shirtColor: '#c4a574',
+        pantsColor: '#a8845a',
+        accessoryColor: '#6b4a2a',
+      },
     },
   ]
 
@@ -531,6 +611,7 @@ export async function loadSampleSheetCharacters(): Promise<{
       poses: Object.fromEntries(
         Object.entries(def.poses).map(([k, canvas]) => [k, canvasToDataUrl(canvas!)]),
       ),
+      loadout: def.loadout,
     })
   }
 

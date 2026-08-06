@@ -63,6 +63,7 @@ export function CharacterBuilder({ onAddToCharacters }: CharacterBuilderProps) {
       name: name.trim() || 'Custom Hero',
       dataUrl,
       image,
+      loadout: { ...loadout },
     })
   }
 

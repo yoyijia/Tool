@@ -42,6 +42,21 @@ export interface StyleReference {
   palette: RGB[]
 }
 
+export interface CharacterLoadoutData {
+  hair: string
+  eyes: string
+  hands: string
+  legs: string
+  shirt: string
+  pants: string
+  accessory: string
+  skin: string
+  hairColor: string
+  shirtColor: string
+  pantsColor: string
+  accessoryColor: string
+}
+
 export interface CharacterAsset {
   id: string
   name: string
@@ -49,6 +64,8 @@ export interface CharacterAsset {
   image: HTMLImageElement
   /** Optional directional / expression poses from a sheet (data URLs). */
   poses?: Partial<Record<string, string>>
+  /** Modular builder loadout — enables proper side-view walk cycles. */
+  loadout?: CharacterLoadoutData
 }
 
 export interface AnimationFrame {
