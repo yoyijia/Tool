@@ -402,7 +402,13 @@ export function CharacterStudio({
                   key={p.id}
                   type="button"
                   className={`chip ${motionPrompt === p.prompt ? 'on' : ''}`}
-                  onClick={() => setMotionPrompt(p.prompt)}
+                  onClick={() => {
+                    if (p.id === 'rpg4dir') {
+                      setRpgMode(true)
+                      setFrameCount(8)
+                    }
+                    setMotionPrompt(p.prompt)
+                  }}
                 >
                   {p.label}
                 </button>
