@@ -167,7 +167,7 @@ export function CharacterStudio({
   useEffect(() => {
     if (!autoGenerate || autoDone || !characters.length || busy) return
     const preferred =
-      characters.find((c) => c.id === 'sheet-explorer') ?? characters[0]
+      characters.find((c) => c.id === 'sheet-curly') ?? characters[0]
     setSelectedId(preferred.id)
     setBusy(true)
     const timer = setTimeout(() => {
@@ -292,8 +292,8 @@ export function CharacterStudio({
           <div className="sheet-banner-copy">
             <strong>Starting frames ready</strong>
             <span>
-              Pick a character (or Builder custom). Clean vector Nintendo style —
-              not pixel crunch.
+              Your sheet characters: Curly Hero · Red Cap · Backwards Cap —
+              same flat vector look for every animation.
             </span>
           </div>
           <img

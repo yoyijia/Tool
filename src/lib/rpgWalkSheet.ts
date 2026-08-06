@@ -56,7 +56,7 @@ function rr(
   h: number,
   r: number,
   fill: string,
-  stroke = true,
+  _stroke = false,
 ): void {
   const radius = Math.min(r, w / 2, h / 2)
   ctx.beginPath()
@@ -68,13 +68,6 @@ function rr(
   ctx.closePath()
   ctx.fillStyle = fill
   ctx.fill()
-  if (stroke) {
-    ctx.strokeStyle = INK
-    ctx.lineWidth = Math.max(1.8, Math.min(w, h) * 0.07)
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
-    ctx.stroke()
-  }
 }
 
 function resolveLoadout(opts: RpgWalkOptions): CharacterLoadout {
@@ -107,11 +100,11 @@ function drawVectorFrontBack(
   const hair = loadout.hairColor
   const shirt = loadout.shirtColor
   const pants = loadout.pantsColor
-  const shoe = '#e23b45'
+  const shoe = '#2a262e'
   const facingAway = dir === 'up'
 
   // Shadow
-  ctx.fillStyle = 'rgba(45,40,50,0.12)'
+  ctx.fillStyle = 'rgba(45,40,50,0.1)'
   ctx.beginPath()
   ctx.ellipse(cx, 90 * s, 18 * s, 4 * s, 0, 0, Math.PI * 2)
   ctx.fill()
@@ -133,43 +126,42 @@ function drawVectorFrontBack(
 
   // Torso
   rr(ctx, cx - 14 * s, bodyY - 4 * s, 28 * s, 24 * s, 10 * s, shirt)
-  ctx.fillStyle = shade(shirt, -28)
   ctx.globalAlpha = 0.25
-  rr(ctx, cx - 14 * s, bodyY + 10 * s, 28 * s, 10 * s, 6 * s, shade(shirt, -28), false)
+  rr(ctx, cx - 14 * s, bodyY + 10 * s, 28 * s, 10 * s, 6 * s, shade(shirt, -28))
   ctx.globalAlpha = 1
 
-  // Head
+  // Head — flat fill, no outline
   ctx.beginPath()
-  ctx.ellipse(cx, headY, 16 * s, 16 * s, 0, 0, Math.PI * 2)
+  ctx.ellipse(cx, headY, 17 * s, 17 * s, 0, 0, Math.PI * 2)
   ctx.fillStyle = skin
   ctx.fill()
-  ctx.strokeStyle = INK
-  ctx.lineWidth = 2 * s
-  ctx.stroke()
 
   if (!facingAway) {
-    // Blush + face
     ctx.fillStyle = BLUSH
     ctx.beginPath()
-    ctx.ellipse(cx - 8 * s, headY + 3 * s, 3.5 * s, 2.2 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx - 9 * s, headY + 4 * s, 4 * s, 2.5 * s, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.beginPath()
-    ctx.ellipse(cx + 8 * s, headY + 3 * s, 3.5 * s, 2.2 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx + 9 * s, headY + 4 * s, 4 * s, 2.5 * s, 0, 0, Math.PI * 2)
     ctx.fill()
 
+    // Large oval eyes + tiny nose (reference sheet)
     ctx.fillStyle = INK
     ctx.beginPath()
-    ctx.arc(cx - 5 * s, headY - 1 * s, 2 * s, 0, Math.PI * 2)
+    ctx.ellipse(cx - 6 * s, headY - 1 * s, 3 * s, 3.8 * s, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.beginPath()
-    ctx.arc(cx + 5 * s, headY - 1 * s, 2 * s, 0, Math.PI * 2)
+    ctx.ellipse(cx + 6 * s, headY - 1 * s, 3 * s, 3.8 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx, headY + 3 * s, 1 * s, 0, Math.PI * 2)
     ctx.fill()
 
     ctx.strokeStyle = INK
-    ctx.lineWidth = 1.6 * s
+    ctx.lineWidth = 1.5 * s
     ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.arc(cx, headY + 5 * s, 3.5 * s, 0.15 * Math.PI, 0.85 * Math.PI)
+    ctx.arc(cx, headY + 6 * s, 3.2 * s, 0.18 * Math.PI, 0.82 * Math.PI)
     ctx.stroke()
   }
 
@@ -180,9 +172,6 @@ function drawVectorFrontBack(
     ctx.beginPath()
     ctx.ellipse(cx + 14 * s, bodyY + 12 * s, 6 * s, 5 * s, 0.2, 0, Math.PI * 2)
     ctx.fill()
-    ctx.strokeStyle = INK
-    ctx.lineWidth = 1.5 * s
-    ctx.stroke()
   }
 
   return centerContentOnCanvas(raw, size, 0.1)
@@ -199,24 +188,23 @@ function drawFrontHair(
   back: boolean,
 ): void {
   ctx.fillStyle = color
-  ctx.strokeStyle = INK
-  ctx.lineWidth = 2 * s
 
   if (style === 'none') return
 
   if (style === 'curly') {
     for (const [x, y, r] of [
-      [0, -14, 11],
-      [-12, -10, 9],
-      [12, -10, 9],
-      [-16, 0, 8],
-      [16, 0, 8],
-      [0, -20, 8],
+      [0, -14, 12],
+      [-12, -10, 10],
+      [12, -10, 10],
+      [-16, 0, 9],
+      [16, 0, 9],
+      [0, -20, 9],
+      [-8, 6, 8],
+      [8, 6, 8],
     ] as const) {
       ctx.beginPath()
       ctx.arc(cx + x * s, hy + y * s, r * s, 0, Math.PI * 2)
       ctx.fill()
-      ctx.stroke()
     }
     return
   }
@@ -232,14 +220,19 @@ function drawFrontHair(
     ctx.lineTo(cx + 10 * s, hy - 4 * s)
     ctx.closePath()
     ctx.fill()
+    // bun under cap for red-cap look
+    if (style === 'cap') {
+      ctx.beginPath()
+      ctx.arc(cx, hy - 18 * s, 6 * s, 0, Math.PI * 2)
+      ctx.fill()
+    }
     ctx.fillStyle = hat
     ctx.beginPath()
     ctx.ellipse(cx, hy - 10 * s, 16 * s, 8 * s, 0, Math.PI, Math.PI * 2)
     ctx.fill()
-    ctx.stroke()
-    rr(ctx, cx - 18 * s, hy - 10 * s, 36 * s, 5 * s, 2.5 * s, hat)
+    rr(ctx, cx - (back ? 18 : 2) * s, hy - 10 * s, 24 * s, 5 * s, 2.5 * s, hat)
     if (style === 'explorer') {
-      rr(ctx, cx - 12 * s, hy - 11 * s, 24 * s, 2.5 * s, 1 * s, '#6b4a2a', false)
+      rr(ctx, cx - 12 * s, hy - 11 * s, 24 * s, 2.5 * s, 1 * s, '#6b4a2a')
     }
     return
   }
@@ -249,7 +242,6 @@ function drawFrontHair(
     ctx.beginPath()
     ctx.ellipse(cx, hy - 10 * s, 15 * s, 7 * s, 0, Math.PI, Math.PI * 2)
     ctx.fill()
-    ctx.stroke()
     rr(ctx, cx - 18 * s, hy - 9 * s, 14 * s, 4 * s, 2 * s, '#2a262e')
     return
   }
@@ -265,20 +257,16 @@ function drawFrontHair(
     ctx.lineTo(cx + 14 * s, hy - 2 * s)
     ctx.closePath()
     ctx.fill()
-    ctx.stroke()
     return
   }
 
-  // short / bun / default — soft bowl + optional ponytail for RPG vibe
   ctx.beginPath()
   ctx.ellipse(cx, hy - 8 * s, 15 * s, 10 * s, 0, Math.PI, Math.PI * 2)
   ctx.fill()
-  ctx.stroke()
   if (style === 'bun' || back) {
     ctx.beginPath()
-    ctx.arc(cx + (back ? 0 : 10) * s, hy - (back ? 4 : 2) * s, 6 * s, 0, Math.PI * 2)
+    ctx.arc(cx, hy - (back ? 4 : 18) * s, 6 * s, 0, Math.PI * 2)
     ctx.fill()
-    ctx.stroke()
   }
 }
 

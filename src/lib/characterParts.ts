@@ -34,17 +34,17 @@ export interface CharacterLoadout {
 
 export const DEFAULT_LOADOUT: CharacterLoadout = {
   hair: 'curly',
-  eyes: 'dots',
+  eyes: 'oval',
   hands: 'relaxed',
   legs: 'straight',
   shirt: 'tee',
   pants: 'shorts',
   accessory: 'satchel',
   skin: '#ffd6ba',
-  hairColor: '#3a3338',
+  hairColor: '#2f2a30',
   shirtColor: '#e85a64',
-  pantsColor: '#4696e6',
-  accessoryColor: '#a0dc50',
+  pantsColor: '#5a555e',
+  accessoryColor: '#9bc24a',
 }
 
 export const PART_OPTIONS: Record<PartSlot, PartOption[]> = {
@@ -59,6 +59,7 @@ export const PART_OPTIONS: Record<PartSlot, PartOption[]> = {
     { id: 'none', label: 'Bald', slot: 'hair' },
   ],
   eyes: [
+    { id: 'oval', label: 'Oval Eyes', slot: 'eyes' },
     { id: 'dots', label: 'Dot Eyes', slot: 'eyes' },
     { id: 'happy', label: 'Happy', slot: 'eyes' },
     { id: 'wink', label: 'Wink', slot: 'eyes' },
@@ -100,8 +101,8 @@ export const COLOR_PRESETS = {
   skin: ['#ffd6ba', '#f2c9a0', '#d4a574', '#c68642', '#8d5524'],
   hair: ['#3a3338', '#5a4030', '#c9a06c', '#f0e6d8', '#e23b45', '#4696e6'],
   shirt: ['#e85a64', '#e23b45', '#4696e6', '#f5f5f8', '#3db85a', '#ffb703', '#8e6cff'],
-  pants: ['#4696e6', '#3f78c8', '#2a262e', '#e85a64', '#3db85a', '#f5f5f8'],
-  accessory: ['#a0dc50', '#3f78c8', '#ffb703', '#e85a64', '#2a262e'],
+  pants: ['#5a555e', '#4696e6', '#3f78c8', '#2a262e', '#e85a64', '#3db85a', '#f5f5f8'],
+  accessory: ['#9bc24a', '#a0dc50', '#3f78c8', '#ffb703', '#e85a64', '#2a262e'],
 }
 
 const INK = '#2d2832'
@@ -277,6 +278,17 @@ function drawEyes(
     ctx.beginPath()
     ctx.arc(cx + 9 * s, hy - 1 * s, 1.1 * s, 0, Math.PI * 2)
     ctx.fill()
+  } else if (style === 'oval') {
+    // Reference sheet: large solid black ovals + tiny nose
+    ctx.beginPath()
+    ctx.ellipse(cx - 8 * s, hy, 3.6 * s, 4.4 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(cx + 8 * s, hy, 3.6 * s, 4.4 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx, hy + 3.5 * s, 1.1 * s, 0, Math.PI * 2)
+    ctx.fill()
   } else if (style === 'tired') {
     ctx.beginPath()
     ctx.arc(cx - 8 * s, hy + 1 * s, 2.2 * s, 0, Math.PI * 2)
@@ -299,9 +311,9 @@ function drawEyes(
     ctx.fill()
   }
 
-  // smile
+  // smile (oval already drew a tiny nose above)
   ctx.beginPath()
-  ctx.arc(cx, hy + 6 * s, 4 * s, 0.15 * Math.PI, 0.85 * Math.PI)
+  ctx.arc(cx, hy + (style === 'oval' ? 8 : 6) * s, style === 'oval' ? 3.6 * s : 4 * s, 0.15 * Math.PI, 0.85 * Math.PI)
   ctx.stroke()
 }
 

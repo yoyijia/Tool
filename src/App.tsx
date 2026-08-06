@@ -95,8 +95,8 @@ export default function App() {
           <p className="brand-mark">SpriteNest</p>
           <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            Clean vector Nintendo style — flat colors, soft chibi shapes, blush.
-            Customize parts, then animate walk cycles (side-view or 4-direction)
+            Built around your clean vector character sheet — flat chibi shapes,
+            oval eyes, soft blush. Customize parts, then animate walk cycles
             into centered spritesheets. Inspired by{' '}
             <a href="https://ludo.ai" target="_blank" rel="noreferrer">
               Ludo.ai
