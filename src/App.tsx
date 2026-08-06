@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CharacterStudio } from './components/CharacterStudio'
 import { LocationStudio } from './components/LocationStudio'
+import { NewSpriteStudio } from './components/NewSpriteStudio'
 import { StyleReferencePanel } from './components/StyleReferencePanel'
 import {
   extractPaletteFromImage,
@@ -12,7 +13,7 @@ import { loadSampleSheetCharacters } from './lib/sampleCharacterSheet'
 import type { CharacterAsset, StyleReference } from './types'
 import './App.css'
 
-type Tab = 'style' | 'characters' | 'locations'
+type Tab = 'animate' | 'new-sprite' | 'tilesets' | 'style'
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -28,7 +29,7 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('characters')
+  const [tab, setTab] = useState<Tab>('animate')
   const [references, setReferences] = useState<StyleReference[]>([])
   const [characters, setCharacters] = useState<CharacterAsset[]>([])
   const [sheetPreviewUrl, setSheetPreviewUrl] = useState<string | null>(null)
@@ -67,12 +68,7 @@ export default function App() {
       const dataUrl = await fileToDataUrl(file)
       const image = await loadImage(dataUrl)
       const palette = await extractPaletteFromImage(image, 12)
-      next.push({
-        id: uid(),
-        name: file.name,
-        dataUrl,
-        palette,
-      })
+      next.push({ id: uid(), name: file.name, dataUrl, palette })
     }
     setReferences((prev) => [...prev, ...next])
   }
@@ -82,15 +78,10 @@ export default function App() {
     for (const file of files) {
       const dataUrl = await fileToDataUrl(file)
       const image = await loadImage(dataUrl)
-      next.push({
-        id: uid(),
-        name: file.name,
-        dataUrl,
-        image,
-      })
+      next.push({ id: uid(), name: file.name, dataUrl, image })
     }
     setCharacters((prev) => [...prev, ...next])
-    setTab('characters')
+    setTab('animate')
   }
 
   return (
@@ -101,19 +92,23 @@ export default function App() {
       <header className="hero">
         <div className="brand-block">
           <p className="brand-mark">SpriteNest</p>
-          <h1>Clean vector Nintendo sprite studio</h1>
+          <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            Your character sheet is already loaded — generate walk, idle, and more
-            sprite sheets in the same flat Nintendo feel, plus modular tiles at
-            64, 128, and 512px.
+            Starting frame → motion prompt → engine-ready spritesheet. Nintendo
+            clean-vector style, 64 / 128 / 512px, PNG + JSON atlas + GIF — built
+            for the same workflow as{' '}
+            <a href="https://ludo.ai" target="_blank" rel="noreferrer">
+              Ludo.ai
+            </a>
+            .
           </p>
         </div>
         <div className="hero-actions">
-          <button type="button" className="primary-btn" onClick={() => setTab('characters')}>
-            Generate sprite sheets
+          <button type="button" className="primary-btn" onClick={() => setTab('animate')}>
+            Animate sprite
           </button>
-          <button type="button" className="secondary-btn" onClick={() => setTab('locations')}>
-            Build locations
+          <button type="button" className="secondary-btn" onClick={() => setTab('new-sprite')}>
+            New sprite
           </button>
         </div>
       </header>
@@ -121,9 +116,10 @@ export default function App() {
       <nav className="tabs" aria-label="Studio sections">
         {(
           [
+            ['animate', 'Animate'],
+            ['new-sprite', 'New Sprite'],
+            ['tilesets', 'Tilesets'],
             ['style', 'Style'],
-            ['characters', 'Characters'],
-            ['locations', 'Locations'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -138,17 +134,7 @@ export default function App() {
       </nav>
 
       <main className="main">
-        {tab === 'style' && (
-          <StyleReferencePanel
-            references={references}
-            activePalette={activePalette}
-            onAdd={addStyleRefs}
-            onRemove={(id) =>
-              setReferences((prev) => prev.filter((r) => r.id !== id))
-            }
-          />
-        )}
-        {tab === 'characters' && (
+        {tab === 'animate' && (
           <CharacterStudio
             characters={characters}
             palette={activePalette}
@@ -160,19 +146,40 @@ export default function App() {
             }
           />
         )}
-        {tab === 'locations' && (
+        {tab === 'new-sprite' && (
+          <NewSpriteStudio
+            onCreated={(character) => {
+              setCharacters((prev) => [...prev, character])
+              setTab('animate')
+            }}
+          />
+        )}
+        {tab === 'tilesets' && (
           <LocationStudio
             palette={activePalette}
             useCustomPalette={references.length > 0}
+          />
+        )}
+        {tab === 'style' && (
+          <StyleReferencePanel
+            references={references}
+            activePalette={activePalette}
+            onAdd={addStyleRefs}
+            onRemove={(id) =>
+              setReferences((prev) => prev.filter((r) => r.id !== id))
+            }
           />
         )}
       </main>
 
       <footer className="footer">
         <p>
-          SpriteNest keeps a clean Nintendo-<em>inspired</em> vector look: flat
-          colors, soft shapes, chibi proportions. Export PNG sheets + JSON at
-          64 / 128 / 512px.
+          Workflow inspired by{' '}
+          <a href="https://ludo.ai/features/sprite-generator" target="_blank" rel="noreferrer">
+            Ludo.ai Sprite Generator
+          </a>
+          . Nintendo-<em>inspired</em> clean vector look · not affiliated with
+          Ludo.ai or Nintendo.
         </p>
       </footer>
     </div>

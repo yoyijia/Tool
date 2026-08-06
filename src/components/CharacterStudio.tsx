@@ -3,7 +3,14 @@ import {
   generateAllAnimations,
   packMultiAnimationSheet,
 } from '../lib/characterAnimator'
-import { downloadCanvas, downloadJson, loadImage } from '../lib/pixelate'
+import {
+  buildEngineMeta,
+  buildTexturePackerAtlas,
+  downloadText,
+  exportAnimationGif,
+} from '../lib/exportPack'
+import { MOTION_PRESETS, parseMotionPrompt } from '../lib/motionPrompt'
+import { downloadCanvas, loadImage } from '../lib/pixelate'
 import type {
   AnimationType,
   CharacterAsset,
@@ -14,16 +21,6 @@ import type {
 import { ANIMATION_LABELS, FRAME_SIZES } from '../types'
 import { AnimationPreview } from './AnimationPreview'
 import { UploadZone } from './UploadZone'
-
-const ALL_ANIMS: AnimationType[] = [
-  'idle',
-  'walk',
-  'run',
-  'jump',
-  'attack',
-  'hurt',
-  'celebrate',
-]
 
 interface CharacterStudioProps {
   characters: CharacterAsset[]
@@ -44,16 +41,18 @@ export function CharacterStudio({
 }: CharacterStudioProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [frameSize, setFrameSize] = useState<FrameSize>(128)
-  const [selectedAnims, setSelectedAnims] = useState<AnimationType[]>([
-    'idle',
-    'walk',
-    'run',
-    'jump',
-  ])
+  const [motionPrompt, setMotionPrompt] = useState(
+    'idle, walk, run, jump — full character pack',
+  )
   const [generated, setGenerated] = useState<GeneratedAnimation[]>([])
   const [previewType, setPreviewType] = useState<AnimationType>('idle')
   const [busy, setBusy] = useState(false)
   const [autoDone, setAutoDone] = useState(false)
+
+  const selectedAnims = useMemo(
+    () => parseMotionPrompt(motionPrompt),
+    [motionPrompt],
+  )
 
   const selected = useMemo(
     () => characters.find((c) => c.id === (selectedId ?? characters[0]?.id)),
@@ -61,13 +60,10 @@ export function CharacterStudio({
   )
 
   const preview = generated.find((g) => g.type === previewType) ?? generated[0] ?? null
-
   const previewScale = frameSize === 512 ? 1 : frameSize === 128 ? 2.5 : 3.5
   const thumbScale = frameSize === 512 ? 0.35 : frameSize === 128 ? 0.7 : 1.2
 
-  const resolvePoses = async (
-    character: CharacterAsset,
-  ): Promise<Partial<Record<string, HTMLImageElement>>> => {
+  const resolvePoses = async (character: CharacterAsset) => {
     if (!character.poses) return {}
     const out: Partial<Record<string, HTMLImageElement>> = {}
     await Promise.all(
@@ -104,7 +100,6 @@ export function CharacterStudio({
     })
   }
 
-  // Auto-generate sprite sheet for the first embedded character
   useEffect(() => {
     if (!autoGenerate || autoDone || !characters.length || busy) return
     const first = characters[0]
@@ -122,61 +117,39 @@ export function CharacterStudio({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate, characters, autoDone])
 
-  const handleExportSheet = () => {
+  const handleExportPack = async () => {
     if (!generated.length || !selected) return
-    const { canvas, meta } = packMultiAnimationSheet(generated)
-    downloadCanvas(canvas, `${slug(selected.name)}-spritesheet-${frameSize}.png`)
-    downloadJson(
-      {
-        character: selected.name,
-        style: 'nintendo-clean-vector',
-        frameSize,
-        ...meta,
-        animations: Object.fromEntries(
-          generated.map((g, row) => [
-            g.type,
-            {
-              row,
-              frames: g.frames.length,
-              fps: g.fps,
-              frameWidth: g.frameSize,
-              frameHeight: g.frameSize,
-            },
-          ]),
-        ),
-      },
-      `${slug(selected.name)}-spritesheet-${frameSize}.json`,
+    const base = slug(selected.name)
+    const { canvas } = packMultiAnimationSheet(generated)
+    const pngName = `${base}-spritesheet-${frameSize}.png`
+    downloadCanvas(canvas, pngName)
+    downloadText(
+      JSON.stringify(buildTexturePackerAtlas(generated, pngName), null, 2),
+      `${base}-atlas-${frameSize}.json`,
     )
-  }
-
-  const handleExportSingle = (anim: GeneratedAnimation) => {
-    if (!selected) return
-    downloadCanvas(
-      anim.sheetCanvas,
-      `${slug(selected.name)}-${anim.type}-${frameSize}.png`,
+    downloadText(
+      JSON.stringify(buildEngineMeta(generated), null, 2),
+      `${base}-meta-${frameSize}.json`,
     )
+    if (preview) {
+      await exportAnimationGif(preview, `${base}-${preview.type}-${frameSize}.gif`)
+    }
   }
 
   const handleGenerateAll = () => {
-    if (!characters.length || !selectedAnims.length) return
+    if (!characters.length) return
     setBusy(true)
     requestAnimationFrame(() => {
       setTimeout(async () => {
         for (const character of characters) {
           const results = await runGenerate(character)
-          const { canvas, meta } = packMultiAnimationSheet(results)
-          downloadCanvas(
-            canvas,
-            `${slug(character.name)}-spritesheet-${frameSize}.png`,
-          )
-          downloadJson(
-            {
-              character: character.name,
-              style: 'nintendo-clean-vector',
-              frameSize,
-              ...meta,
-            },
-            `${slug(character.name)}-spritesheet-${frameSize}.json`,
+          const { canvas } = packMultiAnimationSheet(results)
+          const base = slug(character.name)
+          const pngName = `${base}-spritesheet-${frameSize}.png`
+          downloadCanvas(canvas, pngName)
+          downloadText(
+            JSON.stringify(buildTexturePackerAtlas(results, pngName), null, 2),
+            `${base}-atlas-${frameSize}.json`,
           )
           if (character.id === (selected?.id ?? characters[0].id)) {
             setGenerated(results)
@@ -188,29 +161,34 @@ export function CharacterStudio({
     })
   }
 
-  const toggleAnim = (type: AnimationType) => {
-    setSelectedAnims((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-    )
-  }
-
   return (
     <section className="panel">
       <header className="panel-header">
-        <h2>Character Animations</h2>
+        <div className="ludo-badge">Animate · Ludo.ai-style workflow</div>
+        <h2>Animate Sprite</h2>
         <p>
-          Your clean vector character sheet is loaded below. Pick a character and
-          generate walk / idle sprite sheets — or generate all at once.
+          Upload or pick a starting frame, write a motion prompt, get an
+          engine-ready spritesheet — same flow as{' '}
+          <a href="https://ludo.ai/features/sprite-generator" target="_blank" rel="noreferrer">
+            Ludo.ai
+          </a>
+          .
         </p>
       </header>
+
+      <div className="steps-row">
+        <div className="step on"><span>1</span> Starting frame</div>
+        <div className="step on"><span>2</span> Motion prompt</div>
+        <div className="step"><span>3</span> Export pack</div>
+      </div>
 
       {sheetPreviewUrl && (
         <div className="sheet-banner">
           <div className="sheet-banner-copy">
-            <strong>Embedded character sheet</strong>
+            <strong>Starting frames ready</strong>
             <span>
-              Curly Hero · Red Cap · Backwards Cap — directional poses included
-              for better walk cycles.
+              Embedded character sheet — Curly Hero · Red Cap · Backwards Cap
+              (directional poses for walk cycles).
             </span>
           </div>
           <img
@@ -222,8 +200,8 @@ export function CharacterStudio({
       )}
 
       <UploadZone
-        label="Or upload more character sprites"
-        hint="Single pose or sheet — clean vector / chibi works best"
+        label="Upload your own sprite"
+        hint="Clean vector / chibi PNG works best — like Ludo’s Animate tab"
         multiple
         onFiles={onAdd}
       />
@@ -262,6 +240,37 @@ export function CharacterStudio({
         </div>
       )}
 
+      <label className="field">
+        <span>Motion prompt</span>
+        <textarea
+          className="prompt-box"
+          rows={3}
+          value={motionPrompt}
+          onChange={(e) => setMotionPrompt(e.target.value)}
+          placeholder='e.g. "walk cycle facing side" or "soft idle breathing"'
+        />
+      </label>
+
+      <div className="field">
+        <span>Presets</span>
+        <div className="chip-row">
+          {MOTION_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`chip ${motionPrompt === p.prompt ? 'on' : ''}`}
+              onClick={() => setMotionPrompt(p.prompt)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="palette-note">
+          Will generate:{' '}
+          {selectedAnims.map((a) => ANIMATION_LABELS[a]).join(' · ')}
+        </p>
+      </div>
+
       <div className="controls-grid">
         <label className="field">
           <span>Frame size</span>
@@ -276,21 +285,9 @@ export function CharacterStudio({
             ))}
           </select>
         </label>
-
-        <div className="field field-span">
-          <span>Animations</span>
-          <div className="chip-row">
-            {ALL_ANIMS.map((type) => (
-              <button
-                key={type}
-                type="button"
-                className={`chip ${selectedAnims.includes(type) ? 'on' : ''}`}
-                onClick={() => toggleAnim(type)}
-              >
-                {ANIMATION_LABELS[type]}
-              </button>
-            ))}
-          </div>
+        <div className="field">
+          <span>Export-ready for</span>
+          <p className="palette-note">Unity · Godot · GameMaker · PNG + JSON atlas + GIF</p>
         </div>
       </div>
 
@@ -301,7 +298,7 @@ export function CharacterStudio({
           disabled={!selected || !selectedAnims.length || busy}
           onClick={handleGenerate}
         >
-          {busy ? 'Generating…' : 'Generate sprite sheet'}
+          {busy ? 'Generating…' : 'Generate spritesheet'}
         </button>
         <button
           type="button"
@@ -315,9 +312,9 @@ export function CharacterStudio({
           type="button"
           className="secondary-btn"
           disabled={!generated.length}
-          onClick={handleExportSheet}
+          onClick={() => void handleExportPack()}
         >
-          Download sprite sheet
+          Download export pack
         </button>
       </div>
 
@@ -341,7 +338,7 @@ export function CharacterStudio({
 
           <div className="sheet-column">
             <h3>
-              {selected?.name} · {frameSize}px sprite sheet
+              {selected?.name} · {frameSize}px spritesheet
             </h3>
             {generated.map((g) => (
               <div key={g.type} className="sheet-block">
@@ -350,9 +347,14 @@ export function CharacterStudio({
                   <button
                     type="button"
                     className="ghost-btn"
-                    onClick={() => handleExportSingle(g)}
+                    onClick={() =>
+                      downloadCanvas(
+                        g.sheetCanvas,
+                        `${slug(selected?.name ?? 'sprite')}-${g.type}-${frameSize}.png`,
+                      )
+                    }
                   >
-                    Export
+                    PNG
                   </button>
                 </div>
                 <div className="frame-strip">

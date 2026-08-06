@@ -190,6 +190,89 @@ button {
   color: var(--ink-soft);
 }
 
+.panel-header a,
+.hero-lead a,
+.footer a {
+  color: #0d47a1;
+  font-weight: 800;
+}
+
+.ludo-badge {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: #e3f2fd;
+  border: 1px solid rgba(33, 150, 243, 0.35);
+  color: #0d47a1;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.steps-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.step span {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #eef2f6;
+  font-size: 0.75rem;
+}
+
+.step.on {
+  background: #e8f8ec;
+  border-color: rgba(61, 184, 90, 0.45);
+  color: var(--ink);
+}
+
+.step.on span {
+  background: var(--grass);
+  color: #fff;
+}
+
+.prompt-box {
+  width: 100%;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  resize: vertical;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.prompt-box:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.18);
+}
+
+.new-sprite-preview img {
+  width: min(220px, 70%);
+  height: auto;
+  image-rendering: auto;
+}
+
 .upload-zone {
   display: grid;
   justify-items: center;

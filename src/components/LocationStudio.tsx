@@ -89,10 +89,11 @@ export function LocationStudio({ palette, useCustomPalette }: LocationStudioProp
   return (
     <section className="panel">
       <header className="panel-header">
-        <h2>Modular Locations</h2>
+        <div className="ludo-badge">Tilesets · game-ready 2D assets</div>
+        <h2>Modular Location Tiles</h2>
         <p>
-          Generate clean vector tilesets that match your Nintendo-style characters —
-          64×64, 128×128, or 512×512.
+          Ludo-style asset pipeline for worlds — clean vector tilesets that match
+          your characters at 64×64, 128×128, or 512×512.
         </p>
       </header>
 

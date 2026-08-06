@@ -1,14 +1,20 @@
 # SpriteNest
 
-Clean vector Nintendo-style sprite sheet & modular location asset studio.
+Ludo.ai-inspired sprite studio for Nintendo clean-vector game assets.
+
+Workflow mirrors [Ludo.ai Sprite Generator](https://ludo.ai/features/sprite-generator):
+
+1. **Starting frame** — upload art or use the embedded character sheet  
+2. **Motion prompt** — e.g. `walk cycle`, `soft idle breathing`, or an animation pack  
+3. **Export pack** — PNG spritesheet + TexturePacker-style JSON atlas + GIF  
 
 ## Features
 
-- **Style references** — upload clean chibi / vector character sheets; palette (including blush tones) is extracted
-- **Character animations** — generate idle, walk, run, jump, attack, hurt, celebrate in a flat Nintendo-soft vector look
-- **Output sizes** — **64×64**, **128×128**, and **512×512** for character frames and location tiles
-- **Modular locations** — ground, water, nature, structures, and props for overworld, forest, coast, mountain, village, dungeon
-- **Export** — PNG sprite sheets / tilesets + JSON metadata
+- **Animate** — Ludo-style animate tab with motion presets (idle / walk / run / jump / attack / hit)
+- **New Sprite** — text-to-static-sprite in Nintendo clean-vector / chibi / soft-cel styles
+- **Tilesets** — modular location assets at **64 / 128 / 512** px
+- **Embedded sheet** — Curly Hero, Red Cap, Backwards Cap with directional poses
+- **Engine-ready** — Unity / Godot / GameMaker friendly atlas JSON
 
 ## Quick start
 
@@ -17,6 +23,4 @@ npm install
 npm run dev
 ```
 
-## Notes
-
-Processing is client-side. Characters keep soft anti-aliased edges and flat colors (no harsh pixel crunch). Location tiles are drawn as clean rounded vector shapes that match the Nintendo-inspired character aesthetic. Not affiliated with Nintendo.
+Not affiliated with Ludo.ai or Nintendo.
