@@ -1,271 +1,196 @@
 import type { CharacterLoadout } from './characterParts'
 import { DEFAULT_LOADOUT } from './characterParts'
-import { centerContentOnCanvas, createCanvas, getCtx } from './pixelate'
-
-function shade(hex: string, amount: number): string {
-  const h = hex.replace('#', '')
-  const r = Math.max(0, Math.min(255, parseInt(h.slice(0, 2), 16) + amount))
-  const g = Math.max(0, Math.min(255, parseInt(h.slice(2, 4), 16) + amount))
-  const b = Math.max(0, Math.min(255, parseInt(h.slice(4, 6), 16) + amount))
-  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
-}
-
-/** Flat rounded rect — no ink outlines (matches reference sheet). */
-function rr(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-  fill: string,
-): void {
-  const radius = Math.min(r, w / 2, h / 2)
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.arcTo(x + w, y, x + w, y + h, radius)
-  ctx.arcTo(x + w, y + h, x, y + h, radius)
-  ctx.arcTo(x, y + h, x, y, radius)
-  ctx.arcTo(x, y, x + w, y, radius)
-  ctx.closePath()
-  ctx.fillStyle = fill
-  ctx.fill()
-}
-
-function limb(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  len: number,
-  thick: number,
-  angle: number,
-  color: string,
-  shoeColor?: string,
-): void {
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.rotate(angle)
-  rr(ctx, -thick / 2, 0, thick, len, thick / 2, color)
-  ctx.globalAlpha = 0.3
-  rr(ctx, -thick / 2, len * 0.5, thick, len * 0.5, thick / 2, shade(color, -24))
-  ctx.globalAlpha = 1
-  if (shoeColor) {
-    rr(ctx, -thick * 0.65, len - thick * 0.15, thick * 1.45, thick * 0.7, thick * 0.25, shoeColor)
-  }
-  ctx.restore()
-}
+import {
+  createPixelCanvas,
+  logicalSizeFor,
+  outlineCanvas,
+  pixelBlob,
+  px,
+  shadeHex,
+  upscalePixel,
+} from './pixelArt'
 
 export type CycleKind = 'walk' | 'run' | 'idle'
 
 interface CycleOpts {
   loadout?: CharacterLoadout
   facing?: 'right' | 'left'
-  /** 0–1 phase within the cycle */
   phase: number
   kind: CycleKind
 }
 
 /**
- * Side-profile walk / run / idle frame in the reference sheet's
- * clean flat-vector Nintendo chibi style (no heavy outlines).
+ * Side-view pixel chibi walk / run / idle — FairPrice-style outlined RPG sprite.
  */
 export function drawSideCycleFrame(
   size: number,
   opts: CycleOpts,
 ): HTMLCanvasElement {
   const loadout = opts.loadout ?? DEFAULT_LOADOUT
-  const raw = createCanvas(size, size)
-  const ctx = getCtx(raw, true)
-  const s = size / 100
+  const logical = logicalSizeFor(size)
+  const { canvas, ctx } = createPixelCanvas(logical)
+  const s = logical / 48
   const facing = opts.facing ?? 'right'
   const flip = facing === 'left'
 
   ctx.save()
   if (flip) {
-    ctx.translate(size, 0)
+    ctx.translate(logical, 0)
     ctx.scale(-1, 1)
   }
 
-  const hipX = 50 * s
-  const hipY = 58 * s
   const phase = opts.phase
   const twoPi = Math.PI * 2
-
   const isRun = opts.kind === 'run'
   const isIdle = opts.kind === 'idle'
-  const legAmp = isIdle ? 0.08 : isRun ? 0.85 : 0.7
-  const armAmp = isIdle ? 0.12 : isRun ? 0.75 : 0.55
-  const bobAmp = isIdle ? 1.2 * s : isRun ? 4.5 * s : 3 * s
-
+  const legAmp = isIdle ? 0.5 : isRun ? 3.2 : 2.4
+  const armAmp = isIdle ? 0.4 : isRun ? 2.8 : 2.0
+  const bob = Math.abs(Math.cos(phase * twoPi)) * (isIdle ? 0.4 : isRun ? 1.6 : 1.1)
   const swing = Math.sin(phase * twoPi)
-  const bob = Math.abs(Math.cos(phase * twoPi)) * bobAmp
-  const frontLeg = swing * legAmp
-  const backLeg = -swing * legAmp
-  const frontArm = -swing * armAmp
-  const backArm = swing * armAmp
 
-  const bodyY = hipY - bob
-  const headY = bodyY - 26 * s
-
-  ctx.fillStyle = 'rgba(31,26,34,0.1)'
-  ctx.beginPath()
-  ctx.ellipse(hipX, 90 * s, 18 * s, 4 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  const hipX = 24 * s
+  const hipY = 30 * s - bob * s
+  const headY = hipY - 14 * s
 
   const skin = loadout.skin
+  const skinHi = shadeHex(skin, 28)
   const shirt = loadout.shirtColor
+  const shirtHi = shadeHex(shirt, 32)
   const pants = loadout.pantsColor
   const hair = loadout.hairColor
-  const shoe = '#2a262e'
+  const hairHi = shadeHex(hair, 40)
+  const bag = loadout.accessoryColor
+  const shoe = '#1a1420'
 
-  limb(ctx, hipX + 2 * s, bodyY - 14 * s, 16 * s, 6.5 * s, backArm + 0.15, skin)
-  limb(ctx, hipX - 2 * s, hipY - bob * 0.3, 22 * s, 7.5 * s, backLeg + 0.05, pants, shoe)
-
-  rr(ctx, hipX - 12 * s, bodyY - 22 * s, 24 * s, 26 * s, 9 * s, shirt)
-  ctx.globalAlpha = 0.28
-  rr(ctx, hipX - 12 * s, bodyY - 4 * s, 24 * s, 10 * s, 6 * s, shade(shirt, -28))
-  ctx.globalAlpha = 1
-
-  limb(ctx, hipX + 3 * s, hipY - bob * 0.3, 22 * s, 7.5 * s, frontLeg - 0.05, pants, shoe)
-
-  // Head — large circle, flat fill
+  // Contact shadow
+  ctx.fillStyle = 'rgba(26,20,32,0.22)'
   ctx.beginPath()
-  ctx.ellipse(hipX + 2 * s, headY, 14 * s, 14 * s, 0, 0, Math.PI * 2)
-  ctx.fillStyle = skin
+  ctx.ellipse(hipX, 44 * s, 10 * s, 2.2 * s, 0, 0, Math.PI * 2)
   ctx.fill()
+
+  const backLegY = Math.round(swing * legAmp * s)
+  const frontLegY = Math.round(-swing * legAmp * s)
+  const backArmY = Math.round(-swing * armAmp * s)
+  const frontArmY = Math.round(swing * armAmp * s)
+
+  // Far arm
+  px(ctx, hipX + 6 * s, hipY - 8 * s + backArmY, 4 * s, 9 * s, skin)
+
+  // Far leg
+  px(ctx, hipX - 3 * s, hipY + 2 * s + backLegY, 5 * s, 10 * s, pants)
+  px(ctx, hipX - 4 * s, hipY + 11 * s + backLegY, 6 * s, 3 * s, shoe)
+
+  // Torso (polo)
+  px(ctx, hipX - 6 * s, hipY - 10 * s, 13 * s, 14 * s, shirt)
+  px(ctx, hipX - 5 * s, hipY - 10 * s, 11 * s, 3 * s, shirtHi)
+  // Collar V
+  px(ctx, hipX - 1 * s, hipY - 10 * s, 3 * s, 2 * s, shadeHex(shirt, -25))
+
+  // Near leg
+  px(ctx, hipX + 1 * s, hipY + 2 * s + frontLegY, 5 * s, 10 * s, pants)
+  px(ctx, hipX + 1 * s, hipY + 11 * s + frontLegY, 6 * s, 3 * s, shoe)
+
+  // Head
+  pixelBlob(ctx, hipX + 1 * s, headY, 9 * s, 9 * s, skin)
+  px(ctx, hipX - 2 * s, headY - 4 * s, 8 * s, 4 * s, skinHi)
 
   // Blush
-  ctx.fillStyle = '#ff9eaa'
-  ctx.beginPath()
-  ctx.ellipse(hipX + 6 * s, headY + 4 * s, 3 * s, 2 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  px(ctx, hipX + 4 * s, headY + 2 * s, 3 * s, 2 * s, '#e88890')
 
-  // Large black oval eye (side)
-  ctx.fillStyle = '#2a262e'
-  ctx.beginPath()
-  ctx.ellipse(hipX + 7 * s, headY - 0.5 * s, 2.8 * s, 3.6 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  // Eye
+  px(ctx, hipX + 4 * s, headY - 1 * s, 3 * s, 3 * s, '#1a1420')
+  px(ctx, hipX + 5 * s, headY - 1 * s, 1 * s, 1 * s, '#ffffff')
 
-  // Tiny nose
-  ctx.beginPath()
-  ctx.arc(hipX + 13 * s, headY + 1.5 * s, 1.2 * s, 0, Math.PI * 2)
-  ctx.fill()
+  // Mouth
+  px(ctx, hipX + 3 * s, headY + 4 * s, 3 * s, 1 * s, '#1a1420')
 
-  // Soft smile
-  ctx.strokeStyle = '#2a262e'
-  ctx.lineWidth = 1.4 * s
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  ctx.arc(hipX + 6 * s, headY + 5.5 * s, 2.8 * s, 0.1 * Math.PI, 0.7 * Math.PI)
-  ctx.stroke()
+  drawPixelHair(ctx, hipX, headY, s, loadout.hair, hair, hairHi, shirt)
 
-  drawSideHair(ctx, hipX, headY, s, loadout.hair, hair, shirt)
+  // Near arm
+  px(ctx, hipX + 5 * s, hipY - 8 * s + frontArmY, 4 * s, 9 * s, skin)
 
-  limb(ctx, hipX + 4 * s, bodyY - 14 * s, 16 * s, 6.5 * s, frontArm - 0.1, skin)
-
-  if (loadout.accessory === 'satchel' || loadout.accessory === 'backpack') {
-    ctx.fillStyle = loadout.accessoryColor
-    ctx.beginPath()
-    ctx.ellipse(hipX - 8 * s, bodyY + 4 * s, 6.5 * s, 5.5 * s, -0.3, 0, Math.PI * 2)
-    ctx.fill()
+  // Shopping bag / satchel (held in front — FairPrice pose)
+  if (loadout.accessory !== 'none') {
+    px(ctx, hipX - 12 * s, hipY - 2 * s, 8 * s, 10 * s, bag)
+    px(ctx, hipX - 11 * s, hipY - 2 * s, 6 * s, 2 * s, shadeHex(bag, 35))
+    px(ctx, hipX - 10 * s, hipY - 4 * s, 2 * s, 3 * s, shadeHex(bag, -20))
+    px(ctx, hipX - 8 * s, hipY - 4 * s, 2 * s, 3 * s, shadeHex(bag, -20))
   }
 
   ctx.restore()
-  return centerContentOnCanvas(raw, size, 0.12)
+  outlineCanvas(canvas)
+  return upscalePixel(canvas, size)
 }
 
-function drawSideHair(
+function drawPixelHair(
   ctx: CanvasRenderingContext2D,
   hx: number,
   hy: number,
   s: number,
   style: string,
   color: string,
+  hi: string,
   accent: string,
 ): void {
-  ctx.fillStyle = color
-
   if (style === 'none') return
 
-  if (style === 'cap') {
-    ctx.beginPath()
-    ctx.ellipse(hx + 1 * s, hy - 8 * s, 15 * s, 8 * s, 0, Math.PI, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = accent
-    ctx.beginPath()
-    ctx.ellipse(hx + 1 * s, hy - 9 * s, 15 * s, 8 * s, 0, Math.PI, Math.PI * 2)
-    ctx.fill()
-    rr(ctx, hx - 2 * s, hy - 8 * s, 22 * s, 5 * s, 2 * s, accent)
+  if (style === 'curly') {
+    const curls: [number, number, number][] = [
+      [0, -7, 6],
+      [-6, -5, 5],
+      [6, -5, 5],
+      [-8, 0, 4.5],
+      [8, 0, 4.5],
+      [-4, -9, 4],
+      [4, -9, 4],
+      [0, -11, 4],
+      [-7, 3, 4],
+      [7, 3, 4],
+    ]
+    for (const [x, y, r] of curls) {
+      pixelBlob(ctx, hx + x * s, hy + y * s, r * s, r * s, color)
+    }
+    pixelBlob(ctx, hx - 2 * s, hy - 8 * s, 3 * s, 2 * s, hi)
     return
   }
 
-  if (style === 'explorer') {
-    const hat = '#c4a574'
-    ctx.beginPath()
-    ctx.moveTo(hx - 6 * s, hy - 4 * s)
-    ctx.lineTo(hx - 2 * s, hy + 2 * s)
-    ctx.lineTo(hx + 2 * s, hy - 3 * s)
-    ctx.lineTo(hx + 6 * s, hy + 1 * s)
-    ctx.lineTo(hx + 10 * s, hy - 4 * s)
-    ctx.closePath()
-    ctx.fill()
-    ctx.fillStyle = hat
-    ctx.beginPath()
-    ctx.ellipse(hx + 1 * s, hy - 8 * s, 15 * s, 8 * s, 0, Math.PI, Math.PI * 2)
-    ctx.fill()
-    rr(ctx, hx - 14 * s, hy - 8 * s, 32 * s, 5 * s, 2 * s, hat)
+  if (style === 'cap') {
+    pixelBlob(ctx, hx, hy - 5 * s, 9 * s, 4 * s, color)
+    pixelBlob(ctx, hx, hy - 12 * s, 4 * s, 4 * s, color) // bun
+    px(ctx, hx - 8 * s, hy - 7 * s, 16 * s, 5 * s, accent)
+    px(ctx, hx + 2 * s, hy - 5 * s, 10 * s, 3 * s, accent)
     return
   }
 
   if (style === 'backwards') {
-    ctx.fillStyle = '#2a262e'
-    ctx.beginPath()
-    ctx.ellipse(hx, hy - 8 * s, 14 * s, 7 * s, 0, Math.PI, Math.PI * 2)
-    ctx.fill()
-    rr(ctx, hx - 16 * s, hy - 8 * s, 12 * s, 4 * s, 2 * s, '#2a262e')
+    px(ctx, hx - 8 * s, hy - 8 * s, 16 * s, 6 * s, '#1a1420')
+    px(ctx, hx - 10 * s, hy - 6 * s, 6 * s, 3 * s, '#1a1420')
+    px(ctx, hx - 2 * s, hy - 7 * s, 4 * s, 2 * s, '#8a9098')
     return
   }
 
-  if (style === 'curly') {
-    for (const [x, y, r] of [
-      [-6, -10, 8],
-      [4, -12, 9],
-      [10, -6, 7],
-      [-10, -4, 7],
-      [0, -16, 7],
-    ] as const) {
-      ctx.beginPath()
-      ctx.arc(hx + x * s, hy + y * s, r * s, 0, Math.PI * 2)
-      ctx.fill()
-    }
+  if (style === 'explorer') {
+    pixelBlob(ctx, hx, hy - 2 * s, 5 * s, 3 * s, color)
+    px(ctx, hx - 9 * s, hy - 8 * s, 18 * s, 5 * s, '#c4a574')
+    px(ctx, hx - 11 * s, hy - 5 * s, 22 * s, 3 * s, '#c4a574')
+    px(ctx, hx - 6 * s, hy - 7 * s, 12 * s, 2 * s, '#6b4a2a')
     return
   }
 
   if (style === 'spiky') {
-    ctx.beginPath()
-    ctx.moveTo(hx - 12 * s, hy - 2 * s)
-    ctx.lineTo(hx - 8 * s, hy - 18 * s)
-    ctx.lineTo(hx - 2 * s, hy - 6 * s)
-    ctx.lineTo(hx + 2 * s, hy - 20 * s)
-    ctx.lineTo(hx + 6 * s, hy - 6 * s)
-    ctx.lineTo(hx + 12 * s, hy - 16 * s)
-    ctx.lineTo(hx + 14 * s, hy - 2 * s)
-    ctx.closePath()
-    ctx.fill()
+    px(ctx, hx - 6 * s, hy - 10 * s, 4 * s, 8 * s, color)
+    px(ctx, hx - 1 * s, hy - 12 * s, 4 * s, 9 * s, color)
+    px(ctx, hx + 4 * s, hy - 9 * s, 4 * s, 7 * s, color)
     return
   }
 
-  ctx.beginPath()
-  ctx.ellipse(hx + 1 * s, hy - 8 * s, 13 * s, 9 * s, 0, Math.PI, Math.PI * 2)
-  ctx.fill()
+  // short / bun
+  pixelBlob(ctx, hx, hy - 5 * s, 9 * s, 5 * s, color)
   if (style === 'bun') {
-    ctx.beginPath()
-    ctx.arc(hx - 2 * s, hy - 16 * s, 5.5 * s, 0, Math.PI * 2)
-    ctx.fill()
+    pixelBlob(ctx, hx, hy - 11 * s, 4 * s, 4 * s, color)
   }
 }
 
-/** Generate a full centered walk/run/idle cycle sheet as individual frames. */
 export function generateSideCycleFrames(
   frameSize: number,
   frameCount: number,
@@ -275,10 +200,9 @@ export function generateSideCycleFrames(
 ): HTMLCanvasElement[] {
   const frames: HTMLCanvasElement[] = []
   for (let i = 0; i < frameCount; i++) {
-    const phase = i / frameCount
     frames.push(
       drawSideCycleFrame(frameSize, {
-        phase,
+        phase: i / frameCount,
         kind,
         loadout,
         facing,

@@ -82,7 +82,7 @@ export function CharacterBuilder({ onAddToCharacters }: CharacterBuilderProps) {
         <div className="builder-preview">
           <div className="preview-stage">
             <img src={previewUrl} alt="Character preview" className="builder-hero" />
-            <div className="preview-meta">Centered · clean vector</div>
+            <div className="preview-meta">Centered · pixel RPG</div>
           </div>
           <label className="field">
             <span>Character name</span>

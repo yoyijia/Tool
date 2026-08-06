@@ -270,7 +270,8 @@ button {
 .new-sprite-preview img {
   width: min(220px, 70%);
   height: auto;
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .builder-layout {
@@ -290,7 +291,8 @@ button {
 .builder-hero {
   width: min(220px, 85%);
   height: auto;
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .builder-controls {
@@ -496,7 +498,8 @@ input[type='range'] {
   width: 100%;
   max-height: 280px;
   object-fit: contain;
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   background:
     linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
     linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
@@ -613,7 +616,8 @@ input[type='range'] {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   background: #eef6ff;
 }
 
@@ -634,7 +638,8 @@ input[type='range'] {
 }
 
 .asset-card canvas {
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   background:
     linear-gradient(45deg, #ddd 25%, transparent 25%),
     linear-gradient(-45deg, #ddd 25%, transparent 25%),
@@ -708,7 +713,8 @@ input[type='range'] {
   width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   background: #eef6ff;
   border-radius: 8px;
 }
@@ -860,7 +866,8 @@ input[type='range'] {
 }
 
 .preview-canvas {
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .preview-meta {
@@ -907,7 +914,8 @@ input[type='range'] {
 }
 
 .frame-strip canvas {
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   background: #eef6ff;
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -964,7 +972,8 @@ input[type='range'] {
 }
 
 .map-preview canvas {
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   border-radius: 8px;
   border: 2px solid var(--line);
 }

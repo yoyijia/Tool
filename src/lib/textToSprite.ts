@@ -1,6 +1,7 @@
 import { centerContentOnCanvas, createCanvas, getCtx } from './pixelate'
+import { outlineCanvas } from './pixelArt'
 
-export type ArtStyleId = 'nintendo-clean-vector' | 'chibi-flat' | 'soft-cel'
+export type ArtStyleId = 'pixel-rpg' | 'nintendo-clean-vector' | 'chibi-flat' | 'soft-cel'
 
 export const ART_STYLES: {
   id: ArtStyleId
@@ -8,9 +9,14 @@ export const ART_STYLES: {
   blurb: string
 }[] = [
   {
+    id: 'pixel-rpg',
+    label: 'Pixel RPG',
+    blurb: 'Outlined chibi, shaded — FairPrice / indie RPG',
+  },
+  {
     id: 'nintendo-clean-vector',
-    label: 'Nintendo Clean Vector',
-    blurb: 'Flat chibi, soft blush, Switch Sports vibe',
+    label: 'Clean Vector',
+    blurb: 'Flat chibi, soft blush',
   },
   {
     id: 'chibi-flat',
@@ -20,7 +26,7 @@ export const ART_STYLES: {
   {
     id: 'soft-cel',
     label: 'Soft Cel',
-    blurb: 'Gentle shade bands, cartoon outline soft',
+    blurb: 'Gentle shade bands',
   },
 ]
 
@@ -87,25 +93,24 @@ function rr(
 }
 
 /**
- * Ludo-style "New Sprite": text description → static character frame
- * in Nintendo clean-vector style (procedural, client-side).
+ * Ludo-style "New Sprite": text description → static character frame.
  */
 export function generateSpriteFromPrompt(
   prompt: string,
   size = 256,
-  style: ArtStyleId = 'nintendo-clean-vector',
+  style: ArtStyleId = 'pixel-rpg',
 ): HTMLCanvasElement {
-  const traits = parseTraits(prompt || 'friendly chibi hero coral shirt')
+  const traits = parseTraits(prompt || 'pixel RPG shopper red polo')
   const c = createCanvas(size, size)
-  const ctx = getCtx(c, true)
+  const ctx = getCtx(c, style !== 'pixel-rpg')
   const s = size / 100
   const cx = 50 * s
 
-  const skin = '#ffd6ba'
+  const skin = style === 'pixel-rpg' ? '#c68642' : '#ffd6ba'
   const blush = '#ff9eaa'
-  const ink = '#2d2832'
-  const hair = '#3a3338'
-  const shoe = '#2a262e'
+  const ink = '#1a1420'
+  const hair = '#1a1420'
+  const shoe = '#1a1420'
   const headScale = style === 'chibi-flat' ? 1.12 : 1
 
   ctx.fillStyle = 'rgba(45,40,50,0.12)'
@@ -207,5 +212,7 @@ export function generateSpriteFromPrompt(
     ctx.fill()
   }
 
-  return centerContentOnCanvas(c, size, 0.1)
+  const out = centerContentOnCanvas(c, size, 0.1)
+  if (style === 'pixel-rpg') outlineCanvas(out)
+  return out
 }

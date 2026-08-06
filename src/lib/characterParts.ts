@@ -40,11 +40,11 @@ export const DEFAULT_LOADOUT: CharacterLoadout = {
   shirt: 'tee',
   pants: 'shorts',
   accessory: 'satchel',
-  skin: '#ffd6ba',
-  hairColor: '#2f2a30',
-  shirtColor: '#e85a64',
-  pantsColor: '#5a555e',
-  accessoryColor: '#9bc24a',
+  skin: '#c68642',
+  hairColor: '#1a1420',
+  shirtColor: '#d62828',
+  pantsColor: '#2d3a6e',
+  accessoryColor: '#7cb342',
 }
 
 export const PART_OPTIONS: Record<PartSlot, PartOption[]> = {

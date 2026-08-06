@@ -128,7 +128,8 @@ function applyTransform(
 ): HTMLCanvasElement {
   const size = base.width
   const out = createCanvas(size, size)
-  const ctx = getCtx(out, true)
+  const ctx = getCtx(out, false)
+  ctx.imageSmoothingEnabled = false
 
   ctx.save()
   const cx = size / 2

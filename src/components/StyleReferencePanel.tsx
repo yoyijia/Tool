@@ -20,14 +20,14 @@ export function StyleReferencePanel({
       <header className="panel-header">
         <h2>Style References</h2>
         <p>
-          Upload your clean vector Nintendo-style character sheets. We lock the
-          flat palette, blush tones, and soft look for generation.
+          Upload pixel RPG character or scene sheets (like FairPrice grocery art).
+          We lock the outlined palette and shading for generation.
         </p>
       </header>
 
       <UploadZone
         label="Drop character / style art"
-        hint="PNG, JPG, or WebP — flat chibi / vector sheets work best"
+        hint="PNG, JPG, or WebP — pixel RPG / chibi sheets work best"
         multiple
         onFiles={onAdd}
       />

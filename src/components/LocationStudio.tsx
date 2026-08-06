@@ -14,7 +14,7 @@ interface LocationStudioProps {
 }
 
 export function LocationStudio({ palette, useCustomPalette }: LocationStudioProps) {
-  const [theme, setTheme] = useState<LocationTheme>('overworld')
+  const [theme, setTheme] = useState<LocationTheme>('market')
   const [tileSize, setTileSize] = useState<TileSize>(64)
   const [assets, setAssets] = useState<LocationAsset[]>([])
   const [filter, setFilter] = useState<string>('all')
@@ -56,7 +56,7 @@ export function LocationStudio({ palette, useCustomPalette }: LocationStudioProp
       {
         theme,
         tileSize,
-        style: 'nintendo-clean-vector',
+        style: 'pixel-art',
         modular: true,
         tiles: assets.map((a, i) => {
           const cols = tileSize >= 512 ? 4 : 8
@@ -89,11 +89,11 @@ export function LocationStudio({ palette, useCustomPalette }: LocationStudioProp
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Tilesets · game-ready 2D assets</div>
+        <div className="ludo-badge">Tilesets · pixel RPG assets</div>
         <h2>Modular Location Tiles</h2>
         <p>
-          Ludo-style asset pipeline for worlds — clean vector tilesets that match
-          your characters at 64×64, 128×128, or 512×512.
+          Supermarket shelves, produce, checkout, and world tiles — crisp pixel
+          art at 64×64, 128×128, or 512×512.
         </p>
       </header>
 

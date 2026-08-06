@@ -11,7 +11,7 @@ export type AnimationType =
 export type FrameSize = 64 | 128 | 512
 export type TileSize = 64 | 128 | 512
 
-export type ArtStyle = 'clean-vector'
+export type ArtStyle = 'pixel-art' | 'clean-vector'
 
 export type LocationCategory =
   | 'ground'
@@ -22,6 +22,7 @@ export type LocationCategory =
   | 'decor'
 
 export type LocationTheme =
+  | 'market'
   | 'overworld'
   | 'forest'
   | 'coast'
@@ -117,6 +118,7 @@ export const ANIMATION_LABELS: Record<AnimationType, string> = {
 }
 
 export const LOCATION_THEMES: { id: LocationTheme; label: string; blurb: string }[] = [
+  { id: 'market', label: 'Supermarket', blurb: 'Shelves, produce & checkout' },
   { id: 'overworld', label: 'Overworld', blurb: 'Sunny plains & soft hills' },
   { id: 'forest', label: 'Forest', blurb: 'Dense trees & mossy ground' },
   { id: 'coast', label: 'Coast', blurb: 'Sand, docks & blue water' },

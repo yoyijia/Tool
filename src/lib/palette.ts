@@ -34,31 +34,45 @@ export function nearestColor(c: RGB, palette: RGB[]): RGB {
 }
 
 /**
- * Clean Nintendo-vector default palette
- * (chibi / Switch Sports / Miitopia-adjacent flat colors).
+ * High-fidelity pixel RPG default palette
+ * (FairPrice / indie supermarket scene).
  */
 export const NINTENDO_DEFAULT_PALETTE: RGB[] = [
-  { r: 45, g: 40, b: 50 }, // soft ink
+  { r: 26, g: 20, b: 32 }, // ink outline
   { r: 255, g: 255, b: 255 },
-  { r: 255, g: 214, b: 186 }, // skin light
-  { r: 242, g: 186, b: 150 }, // skin mid
-  { r: 255, g: 160, b: 170 }, // blush
-  { r: 232, g: 90, b: 100 }, // coral / red shirt
-  { r: 220, g: 60, b: 70 }, // deep red
-  { r: 70, g: 150, b: 230 }, // blue shorts/jeans
-  { r: 45, g: 110, b: 190 },
-  { r: 160, g: 220, b: 80 }, // lime bag
-  { r: 60, g: 55, b: 65 }, // dark hair / shoes
-  { r: 90, g: 70, b: 55 }, // brown hair
-  { r: 245, g: 245, b: 248 }, // white tee
-  { r: 40, g: 40, b: 48 }, // overalls / black
-  { r: 120, g: 200, b: 110 }, // grass
-  { r: 90, g: 175, b: 85 },
-  { r: 255, g: 200, b: 80 }, // accent gold
-  { r: 180, g: 210, b: 240 }, // soft sky
+  { r: 198, g: 134, b: 66 }, // skin mid
+  { r: 212, g: 165, b: 116 }, // skin hi
+  { r: 232, g: 136, b: 144 }, // blush
+  { r: 214, g: 40, b: 40 }, // red polo
+  { r: 240, g: 74, b: 74 }, // red hi
+  { r: 45, g: 58, b: 110 }, // navy shorts
+  { r: 63, g: 95, b: 158 }, // jeans
+  { r: 124, g: 179, b: 66 }, // green bag
+  { r: 26, g: 20, b: 32 }, // dark hair
+  { r: 58, g: 51, b: 56 },
+  { r: 240, g: 240, b: 244 }, // white tee / floor
+  { r: 220, g: 220, b: 228 }, // grout
+  { r: 90, g: 140, b: 200 }, // checkout blue
+  { r: 255, g: 160, b: 40 }, // orange UI
+  { r: 255, g: 200, b: 80 }, // bananas
+  { r: 180, g: 60, b: 70 }, // tomatoes
 ]
 
 const THEME_PALETTES: Record<string, RGB[]> = {
+  market: [
+    { r: 240, g: 240, b: 244 }, // floor
+    { r: 210, g: 210, b: 220 }, // grout
+    { r: 90, g: 140, b: 200 }, // shelf blue
+    { r: 55, g: 90, b: 150 },
+    { r: 214, g: 40, b: 40 }, // red signs
+    { r: 124, g: 179, b: 66 }, // produce green
+    { r: 255, g: 200, b: 80 }, // bananas
+    { r: 180, g: 60, b: 70 }, // tomatoes
+    { r: 255, g: 140, b: 40 }, // oranges
+    { r: 26, g: 20, b: 32 }, // ink
+    { r: 255, g: 255, b: 255 },
+    { r: 160, g: 110, b: 200 }, // grapes
+  ],
   overworld: [
     { r: 120, g: 205, b: 105 },
     { r: 90, g: 175, b: 85 },

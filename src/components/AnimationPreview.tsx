@@ -19,8 +19,8 @@ export function AnimationPreview({ animation, scale = 4 }: AnimationPreviewProps
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.imageSmoothingEnabled = true
-    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high'
+    ctx.imageSmoothingEnabled = false
+    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'low'
 
     frameRef.current = 0
     lastRef.current = performance.now()

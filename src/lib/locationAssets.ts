@@ -492,6 +492,187 @@ const drawCliff: DrawFn = (ctx, size, pal) => {
   ctx.fill()
 }
 
+/** --- Supermarket / FairPrice-style modular tiles (pixel RPG) --- */
+
+const drawMarketFloor: DrawFn = (ctx, size, pal) => {
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  ctx.strokeStyle = c(pal, 1)
+  ctx.lineWidth = Math.max(2, size * 0.04)
+  ctx.strokeRect(size * 0.02, size * 0.02, size * 0.96, size * 0.96)
+  // subtle tile highlight
+  ctx.fillStyle = c(pal, 10)
+  ctx.globalAlpha = 0.35
+  ctx.fillRect(size * 0.08, size * 0.08, size * 0.28, size * 0.12)
+  ctx.globalAlpha = 1
+}
+
+const drawEnterArrow: DrawFn = (ctx, size, pal) => {
+  drawMarketFloor(ctx, size, pal, 0)
+  ctx.fillStyle = c(pal, 2)
+  ctx.beginPath()
+  ctx.moveTo(size * 0.5, size * 0.18)
+  ctx.lineTo(size * 0.78, size * 0.48)
+  ctx.lineTo(size * 0.62, size * 0.48)
+  ctx.lineTo(size * 0.62, size * 0.82)
+  ctx.lineTo(size * 0.38, size * 0.82)
+  ctx.lineTo(size * 0.38, size * 0.48)
+  ctx.lineTo(size * 0.22, size * 0.48)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = c(pal, 9)
+  ctx.font = `bold ${Math.max(8, size * 0.14)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('ENTER', size * 0.5, size * 0.95)
+}
+
+const drawShelfUnit = (
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  pal: RGB[],
+  label: string,
+  produce: 'fruit' | 'veg',
+): void => {
+  ctx.imageSmoothingEnabled = false
+  // floor peek
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, size * 0.85, size, size * 0.15)
+  // metal frame
+  ctx.fillStyle = c(pal, 3)
+  ctx.fillRect(size * 0.06, size * 0.08, size * 0.88, size * 0.78)
+  ctx.fillStyle = c(pal, 2)
+  ctx.fillRect(size * 0.08, size * 0.1, size * 0.84, size * 0.14)
+  // header label
+  ctx.fillStyle = c(pal, 10)
+  ctx.font = `bold ${Math.max(7, size * 0.1)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText(label, size * 0.5, size * 0.2)
+
+  // shelves
+  const rows = [0.28, 0.48, 0.68]
+  for (const ry of rows) {
+    ctx.fillStyle = c(pal, 1)
+    ctx.fillRect(size * 0.1, size * ry, size * 0.8, size * 0.04)
+  }
+
+  // produce blobs
+  const colors =
+    produce === 'fruit'
+      ? [c(pal, 7), c(pal, 6), c(pal, 8), c(pal, 11), c(pal, 4)]
+      : [c(pal, 5), '#e8d8a0', '#f0a030', '#7a4a28', '#6b2a8a']
+  let i = 0
+  for (const ry of rows) {
+    for (let x = 0.16; x < 0.85; x += 0.18) {
+      ctx.fillStyle = colors[i % colors.length]
+      ctx.beginPath()
+      ctx.ellipse(size * x, size * (ry - 0.06), size * 0.06, size * 0.05, 0, 0, Math.PI * 2)
+      ctx.fill()
+      i++
+    }
+  }
+}
+
+const drawFruitShelf: DrawFn = (ctx, size, pal) => {
+  drawShelfUnit(ctx, size, pal, 'FRUITS', 'fruit')
+}
+
+const drawVegShelf: DrawFn = (ctx, size, pal) => {
+  drawShelfUnit(ctx, size, pal, 'VEGETABLES', 'veg')
+}
+
+const drawCheckout: DrawFn = (ctx, size, pal) => {
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  // counter body
+  ctx.fillStyle = c(pal, 2)
+  ctx.fillRect(size * 0.08, size * 0.42, size * 0.84, size * 0.4)
+  ctx.fillStyle = c(pal, 10)
+  ctx.fillRect(size * 0.08, size * 0.42, size * 0.84, size * 0.08)
+  // register
+  ctx.fillStyle = c(pal, 9)
+  ctx.fillRect(size * 0.18, size * 0.22, size * 0.28, size * 0.22)
+  ctx.fillStyle = c(pal, 6)
+  ctx.fillRect(size * 0.22, size * 0.26, size * 0.2, size * 0.12)
+  // monitor
+  ctx.fillStyle = '#3a4558'
+  ctx.fillRect(size * 0.55, size * 0.18, size * 0.28, size * 0.22)
+  ctx.fillStyle = '#7ec8ff'
+  ctx.fillRect(size * 0.58, size * 0.22, size * 0.22, size * 0.14)
+  // card reader
+  ctx.fillStyle = c(pal, 4)
+  ctx.fillRect(size * 0.72, size * 0.48, size * 0.12, size * 0.16)
+}
+
+const drawPriceTag: DrawFn = (ctx, size, pal) => {
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = c(pal, 10)
+  ctx.fillRect(size * 0.15, size * 0.25, size * 0.7, size * 0.5)
+  ctx.strokeStyle = c(pal, 9)
+  ctx.lineWidth = Math.max(2, size * 0.04)
+  ctx.strokeRect(size * 0.15, size * 0.25, size * 0.7, size * 0.5)
+  ctx.fillStyle = c(pal, 4)
+  ctx.fillRect(size * 0.15, size * 0.25, size * 0.7, size * 0.14)
+  ctx.fillStyle = c(pal, 10)
+  ctx.font = `bold ${Math.max(8, size * 0.12)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('SAVE', size * 0.5, size * 0.36)
+  ctx.fillStyle = c(pal, 9)
+  ctx.font = `bold ${Math.max(10, size * 0.18)}px sans-serif`
+  ctx.fillText('$2', size * 0.5, size * 0.58)
+}
+
+const drawPromoBoard: DrawFn = (ctx, size, pal) => {
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = c(pal, 5)
+  ctx.fillRect(size * 0.08, size * 0.12, size * 0.84, size * 0.76)
+  ctx.fillStyle = c(pal, 10)
+  ctx.fillRect(size * 0.12, size * 0.18, size * 0.76, size * 0.28)
+  ctx.fillStyle = c(pal, 4)
+  ctx.font = `bold ${Math.max(7, size * 0.1)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('Fresh &', size * 0.5, size * 0.32)
+  ctx.fillText('Great Value', size * 0.5, size * 0.42)
+  ctx.fillStyle = c(pal, 6)
+  ctx.beginPath()
+  ctx.ellipse(size * 0.35, size * 0.65, size * 0.1, size * 0.08, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 7)
+  ctx.beginPath()
+  ctx.ellipse(size * 0.58, size * 0.62, size * 0.09, size * 0.09, 0, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+const drawStaffDoor: DrawFn = (ctx, size, pal) => {
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = c(pal, 0)
+  ctx.fillRect(0, 0, size, size)
+  ctx.fillStyle = '#6a7a90'
+  ctx.fillRect(size * 0.18, size * 0.08, size * 0.64, size * 0.84)
+  ctx.fillStyle = c(pal, 9)
+  ctx.fillRect(size * 0.22, size * 0.12, size * 0.56, size * 0.12)
+  ctx.fillStyle = c(pal, 10)
+  ctx.font = `bold ${Math.max(6, size * 0.09)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('STAFF', size * 0.5, size * 0.21)
+  ctx.fillStyle = '#ffd060'
+  ctx.fillRect(size * 0.68, size * 0.48, size * 0.06, size * 0.08)
+}
+
+const drawBasketUI: DrawFn = (ctx, size, pal) => {
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = 'rgba(26,20,32,0.55)'
+  roundRect(ctx, size * 0.08, size * 0.28, size * 0.84, size * 0.44, size * 0.1)
+  ctx.fill()
+  ctx.fillStyle = c(pal, 4)
+  ctx.fillRect(size * 0.16, size * 0.36, size * 0.28, size * 0.28)
+  ctx.fillStyle = c(pal, 10)
+  ctx.font = `bold ${Math.max(10, size * 0.18)}px sans-serif`
+  ctx.textAlign = 'left'
+  ctx.fillText('1/5', size * 0.5, size * 0.56)
+}
+
 interface AssetDef {
   name: string
   category: LocationCategory
@@ -500,27 +681,38 @@ interface AssetDef {
 }
 
 const ASSET_DEFS: AssetDef[] = [
-  { name: 'Grass', category: 'ground', draw: drawGrass },
-  { name: 'Dirt', category: 'ground', draw: drawDirt },
+  // Supermarket (FairPrice-style)
+  { name: 'Market Floor', category: 'ground', draw: drawMarketFloor, themes: ['market'] },
+  { name: 'Enter Arrow', category: 'ground', draw: drawEnterArrow, themes: ['market'] },
+  { name: 'Fruit Shelf', category: 'structure', draw: drawFruitShelf, themes: ['market'] },
+  { name: 'Veggie Shelf', category: 'structure', draw: drawVegShelf, themes: ['market'] },
+  { name: 'Checkout', category: 'structure', draw: drawCheckout, themes: ['market'] },
+  { name: 'Price Tag', category: 'props', draw: drawPriceTag, themes: ['market'] },
+  { name: 'Promo Board', category: 'decor', draw: drawPromoBoard, themes: ['market'] },
+  { name: 'Staff Door', category: 'structure', draw: drawStaffDoor, themes: ['market'] },
+  { name: 'Basket UI', category: 'decor', draw: drawBasketUI, themes: ['market'] },
+
+  { name: 'Grass', category: 'ground', draw: drawGrass, themes: ['overworld', 'forest', 'coast', 'mountain', 'village'] },
+  { name: 'Dirt', category: 'ground', draw: drawDirt, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
   { name: 'Sand', category: 'ground', draw: drawSand, themes: ['coast', 'overworld'] },
   { name: 'Stone Floor', category: 'ground', draw: drawStone, themes: ['mountain', 'dungeon', 'village'] },
-  { name: 'Path', category: 'ground', draw: drawPath },
+  { name: 'Path', category: 'ground', draw: drawPath, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
   { name: 'Dungeon Tile', category: 'ground', draw: drawDungeonFloor, themes: ['dungeon'] },
-  { name: 'Water', category: 'water', draw: drawWater },
-  { name: 'Shore', category: 'water', draw: drawWaterEdge },
-  { name: 'Tree', category: 'nature', draw: drawTree },
-  { name: 'Bush', category: 'nature', draw: drawBush },
-  { name: 'Rock', category: 'nature', draw: drawRock },
-  { name: 'Flower', category: 'decor', draw: drawFlower },
+  { name: 'Water', category: 'water', draw: drawWater, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
+  { name: 'Shore', category: 'water', draw: drawWaterEdge, themes: ['overworld', 'forest', 'coast', 'mountain', 'village'] },
+  { name: 'Tree', category: 'nature', draw: drawTree, themes: ['overworld', 'forest', 'coast', 'mountain', 'village'] },
+  { name: 'Bush', category: 'nature', draw: drawBush, themes: ['overworld', 'forest', 'coast', 'mountain', 'village'] },
+  { name: 'Rock', category: 'nature', draw: drawRock, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
+  { name: 'Flower', category: 'decor', draw: drawFlower, themes: ['overworld', 'forest', 'coast', 'mountain', 'village'] },
   { name: 'Cliff', category: 'nature', draw: drawCliff, themes: ['mountain'] },
   { name: 'Wall', category: 'structure', draw: drawHouseWall, themes: ['village', 'overworld'] },
   { name: 'Roof', category: 'structure', draw: drawHouseRoof, themes: ['village', 'overworld'] },
   { name: 'Door', category: 'structure', draw: drawDoor, themes: ['village'] },
   { name: 'Window', category: 'structure', draw: drawWindow, themes: ['village'] },
-  { name: 'Fence', category: 'props', draw: drawFence },
-  { name: 'Chest', category: 'props', draw: drawChest },
-  { name: 'Sign', category: 'props', draw: drawSign },
-  { name: 'Bridge', category: 'props', draw: drawBridge },
+  { name: 'Fence', category: 'props', draw: drawFence, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
+  { name: 'Chest', category: 'props', draw: drawChest, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
+  { name: 'Sign', category: 'props', draw: drawSign, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
+  { name: 'Bridge', category: 'props', draw: drawBridge, themes: ['overworld', 'forest', 'coast', 'mountain', 'village', 'dungeon'] },
   { name: 'Torch', category: 'decor', draw: drawTorch, themes: ['dungeon', 'village'] },
 ]
 
@@ -536,7 +728,8 @@ export function generateLocationAssets(
     (def) => !def.themes || def.themes.includes(theme),
   ).map((def, i) => {
     const canvas = createCanvas(tileSize, tileSize)
-    const ctx = getCtx(canvas, true)
+    const ctx = getCtx(canvas, false)
+    ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, tileSize, tileSize)
     def.draw(ctx, tileSize, pal, seed + i * 17)
 
@@ -581,19 +774,30 @@ export function buildPreviewMap(
   const canvas = createCanvas(mapSize * previewTile, mapSize * previewTile)
   const ctx = getCtx(canvas, true)
   const byName = Object.fromEntries(assets.map((a) => [a.name, a]))
-  const grass = byName['Grass'] ?? byName['Dirt'] ?? byName['Dungeon Tile'] ?? assets[0]
+  const grass =
+    byName['Market Floor'] ??
+    byName['Grass'] ??
+    byName['Dirt'] ??
+    byName['Dungeon Tile'] ??
+    assets[0]
   const water = byName['Water']
   const tree = byName['Tree']
   const bush = byName['Bush']
-  const path = byName['Path'] ?? byName['Stone Floor']
+  const path = byName['Enter Arrow'] ?? byName['Path'] ?? byName['Stone Floor']
   const rock = byName['Rock']
   const flower = byName['Flower']
   const houseWall = byName['Wall']
   const roof = byName['Roof']
   const shore = byName['Shore']
+  const fruit = byName['Fruit Shelf']
+  const veg = byName['Veggie Shelf']
+  const checkout = byName['Checkout']
+  const promo = byName['Promo Board']
+  const staff = byName['Staff Door']
 
   const draw = (asset: LocationAsset | undefined, x: number, y: number) => {
     if (!asset) return
+    ctx.imageSmoothingEnabled = false
     ctx.drawImage(
       asset.canvas,
       x * previewTile,
@@ -609,6 +813,21 @@ export function buildPreviewMap(
     for (let x = 0; x < mapSize; x++) {
       draw(grass, x, y)
     }
+  }
+
+  // Supermarket aisle layout
+  if (fruit && veg) {
+    for (let x = 1; x < mapSize - 1; x++) {
+      draw(fruit, x, 2)
+      draw(veg, x, 5)
+    }
+    draw(checkout, Math.floor(mapSize / 2), mapSize - 3)
+    draw(promo, 1, 8)
+    draw(staff, mapSize - 2, 8)
+    draw(path, 2, mapSize - 2)
+    draw(byName['Price Tag'], 3, 3)
+    draw(byName['Basket UI'], mapSize - 2, 1)
+    return canvas
   }
 
   if (path) {

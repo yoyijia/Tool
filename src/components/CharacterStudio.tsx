@@ -197,7 +197,7 @@ export function CharacterStudio({
           {
             character: selected.name,
             ...rpgSheet.meta,
-            style: 'nintendo-clean-vector',
+            style: 'pixel-art',
             note: 'Rows: down, left, right, up. Columns: walk frames.',
           },
           null,
@@ -273,11 +273,11 @@ export function CharacterStudio({
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Animate · clean vector Nintendo style</div>
+        <div className="ludo-badge">Animate · pixel RPG style</div>
         <h2>Animate Sprite</h2>
         <p>
-          Flat chibi Nintendo look — soft shapes, blush, cel shade. Side-view
-          walk cycles by default; optional 4-direction sheet stays vector too.
+          Outlined chibi pixel heroes with shading — like the FairPrice grocery
+          scene. Side-view walk by default; optional 4-direction sheets too.
         </p>
       </header>
 
@@ -292,8 +292,8 @@ export function CharacterStudio({
           <div className="sheet-banner-copy">
             <strong>Starting frames ready</strong>
             <span>
-              Your sheet characters: Curly Hero · Red Cap · Backwards Cap —
-              same flat vector look for every animation.
+              Curly Shopper · Market Clerk · Backwards Cap — pixel RPG walk
+              cycles with outlines and shading.
             </span>
           </div>
           <img
@@ -364,7 +364,7 @@ export function CharacterStudio({
           />
           <span>
             <strong>4-direction walk sheet</strong>
-            <em>Still clean vector — rows: down · left · right · up</em>
+            <em>Pixel RPG — rows: down · left · right · up</em>
           </span>
         </label>
         {rpgMode && (
@@ -532,7 +532,7 @@ export function CharacterStudio({
                 ref={(node) => {
                   if (!node) return
                   const ctx = node.getContext('2d')!
-                  ctx.imageSmoothingEnabled = true
+                  ctx.imageSmoothingEnabled = false
                   ctx.clearRect(0, 0, node.width, node.height)
                   ctx.drawImage(rpgSheet.sheetCanvas, 0, 0)
                 }}
@@ -540,7 +540,7 @@ export function CharacterStudio({
                   width: '100%',
                   maxWidth: 640,
                   height: 'auto',
-                  imageRendering: 'auto',
+                  imageRendering: 'pixelated',
                 }}
               />
               <p className="palette-note">
@@ -556,7 +556,7 @@ export function CharacterStudio({
                   ref={(node) => {
                     if (!node) return
                     const ctx = node.getContext('2d')!
-                    ctx.imageSmoothingEnabled = true
+                    ctx.imageSmoothingEnabled = false
                     ctx.clearRect(0, 0, node.width, node.height)
                     ctx.drawImage(variantCanvas, 0, 0)
                   }}
@@ -564,7 +564,7 @@ export function CharacterStudio({
                     width: '100%',
                     maxWidth: 720,
                     height: 'auto',
-                    imageRendering: 'auto',
+                    imageRendering: 'pixelated',
                   }}
                 />
               </div>
@@ -620,7 +620,7 @@ export function CharacterStudio({
                       ref={(node) => {
                         if (!node) return
                         const ctx = node.getContext('2d')!
-                        ctx.imageSmoothingEnabled = true
+                        ctx.imageSmoothingEnabled = false
                         ctx.clearRect(0, 0, g.frameSize, g.frameSize)
                         ctx.drawImage(f.canvas, 0, 0)
                       }}

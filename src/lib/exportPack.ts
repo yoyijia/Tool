@@ -67,7 +67,7 @@ export function buildEngineMeta(
     frameCount: animations.reduce((s, a) => s + a.frames.length, 0),
     columns: maxFrames,
     rows: animations.length,
-    style: 'nintendo-clean-vector',
+    style: 'pixel-art',
     engineHints: ['Unity', 'Godot', 'GameMaker'],
     animations: Object.fromEntries(
       animations.map((anim, row) => [

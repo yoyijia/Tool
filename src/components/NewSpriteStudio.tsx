@@ -12,10 +12,10 @@ interface NewSpriteStudioProps {
 }
 
 export function NewSpriteStudio({ onCreated }: NewSpriteStudioProps) {
+  const [style, setStyle] = useState<ArtStyleId>('pixel-rpg')
   const [prompt, setPrompt] = useState(
-    'friendly chibi hero with curly hair, coral shirt, blue shorts, lime satchel',
+    'pixel RPG shopper with curly hair, red polo, navy shorts, green shopping bag',
   )
-  const [style, setStyle] = useState<ArtStyleId>('nintendo-clean-vector')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 

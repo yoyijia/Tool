@@ -95,9 +95,9 @@ export default function App() {
           <p className="brand-mark">SpriteNest</p>
           <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            Built around your clean vector character sheet — flat chibi shapes,
-            oval eyes, soft blush. Customize parts, then animate walk cycles
-            into centered spritesheets. Inspired by{' '}
+            High-fidelity pixel RPG style — outlined chibi heroes, shaded
+            sprites, modular supermarket tiles. Animate walk cycles and build
+            FairPrice-style worlds. Inspired by{' '}
             <a href="https://ludo.ai" target="_blank" rel="noreferrer">
               Ludo.ai
             </a>
@@ -188,8 +188,8 @@ export default function App() {
           <a href="https://ludo.ai/features/sprite-generator" target="_blank" rel="noreferrer">
             Ludo.ai Sprite Generator
           </a>
-          . Nintendo-<em>inspired</em> clean vector look · not affiliated with
-          Ludo.ai or Nintendo.
+          . Pixel-art RPG look · supermarket tiles · not affiliated with
+          FairPrice, Ludo.ai, or Nintendo.
         </p>
       </footer>
     </div>
