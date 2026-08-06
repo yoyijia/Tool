@@ -9,9 +9,10 @@ import type { CharacterAsset } from '../types'
 
 interface NewSpriteStudioProps {
   onCreated: (character: CharacterAsset) => void
+  compact?: boolean
 }
 
-export function NewSpriteStudio({ onCreated }: NewSpriteStudioProps) {
+export function NewSpriteStudio({ onCreated, compact }: NewSpriteStudioProps) {
   const [style, setStyle] = useState<ArtStyleId>('pixel-rpg')
   const [prompt, setPrompt] = useState(
     'pixel RPG shopper with curly hair, red polo, navy shorts, green shopping bag',
@@ -49,20 +50,24 @@ export function NewSpriteStudio({ onCreated }: NewSpriteStudioProps) {
 
   return (
     <section className="panel">
-      <header className="panel-header">
-        <div className="ludo-badge">New Sprite · Ludo.ai-style workflow</div>
-        <h2>Text-to-Sprite</h2>
-        <p>
-          Describe a static character — appearance only, not motion. Then send it
-          to Animate to make a spritesheet (like Ludo’s New Sprite → Animate).
-        </p>
-      </header>
+      {!compact && (
+        <header className="panel-header">
+          <div className="ludo-badge">New Sprite · Ludo.ai-style workflow</div>
+          <h2>Text-to-Sprite</h2>
+          <p>
+            Describe a static character — appearance only, not motion. Then send it
+            to Animate for a spritesheet.
+          </p>
+        </header>
+      )}
 
-      <div className="steps-row">
-        <div className="step on"><span>1</span> Describe</div>
-        <div className="step"><span>2</span> Generate</div>
-        <div className="step"><span>3</span> Animate</div>
-      </div>
+      {!compact && (
+        <div className="steps-row">
+          <div className="step on"><span>1</span> Describe</div>
+          <div className="step"><span>2</span> Generate</div>
+          <div className="step"><span>3</span> Animate</div>
+        </div>
+      )}
 
       <label className="field">
         <span>Sprite prompt</span>
@@ -107,7 +112,7 @@ export function NewSpriteStudio({ onCreated }: NewSpriteStudioProps) {
           disabled={!previewUrl}
           onClick={() => void handleUse()}
         >
-          Use in Animate
+          Create &amp; animate →
         </button>
       </div>
 

@@ -22,9 +22,11 @@ const SLOTS: { id: PartSlot; label: string }[] = [
 
 interface CharacterBuilderProps {
   onAddToCharacters: (character: CharacterAsset) => void
+  /** Hide outer intro when nested in CharacterCreateStudio */
+  compact?: boolean
 }
 
-export function CharacterBuilder({ onAddToCharacters }: CharacterBuilderProps) {
+export function CharacterBuilder({ onAddToCharacters, compact }: CharacterBuilderProps) {
   const [loadout, setLoadout] = useState<CharacterLoadout>(DEFAULT_LOADOUT)
   const [activeSlot, setActiveSlot] = useState<PartSlot>('hair')
   const [name, setName] = useState('Custom Hero')
@@ -69,20 +71,21 @@ export function CharacterBuilder({ onAddToCharacters }: CharacterBuilderProps) {
 
   return (
     <section className="panel">
-      <header className="panel-header">
-        <div className="ludo-badge">Character Builder · modular parts</div>
-        <h2>Customize parts</h2>
-        <p>
-          Mix hair, eyes, hands, legs, and clothes — then add the character to
-          Animate for centered spritesheets.
-        </p>
-      </header>
+      {!compact && (
+        <header className="panel-header">
+          <div className="ludo-badge">Character Builder · modular parts</div>
+          <h2>Customize parts</h2>
+          <p>
+            Mix hair, eyes, hands, legs, and clothes — then animate walk cycles.
+          </p>
+        </header>
+      )}
 
       <div className="builder-layout">
         <div className="builder-preview">
           <div className="preview-stage">
             <img src={previewUrl} alt="Character preview" className="builder-hero" />
-            <div className="preview-meta">Centered · pixel RPG</div>
+            <div className="preview-meta">Centered · classic chibi pixel</div>
           </div>
           <label className="field">
             <span>Character name</span>
@@ -94,7 +97,7 @@ export function CharacterBuilder({ onAddToCharacters }: CharacterBuilderProps) {
             />
           </label>
           <button type="button" className="primary-btn" onClick={() => void handleAdd()}>
-            Add to Animate
+            Create &amp; animate →
           </button>
         </div>
 

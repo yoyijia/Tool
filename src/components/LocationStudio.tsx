@@ -187,13 +187,14 @@ export function LocationStudio({ palette, useCustomPalette }: LocationStudioProp
                     ref={(node) => {
                       if (!node) return
                       const ctx = node.getContext('2d')!
-                      ctx.imageSmoothingEnabled = true
+                      ctx.imageSmoothingEnabled = false
                       ctx.clearRect(0, 0, asset.tileSize, asset.tileSize)
                       ctx.drawImage(asset.canvas, 0, 0)
                     }}
                     style={{
                       width: Math.max(64, asset.tileSize * thumbScale),
                       height: Math.max(64, asset.tileSize * thumbScale),
+                      imageRendering: 'pixelated',
                     }}
                   />
                   <figcaption>

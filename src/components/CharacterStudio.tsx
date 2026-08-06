@@ -36,8 +36,11 @@ interface CharacterStudioProps {
   palette: RGB[]
   sheetPreviewUrl?: string | null
   autoGenerate?: boolean
+  /** Prefer selecting this character (e.g. just created). */
+  focusCharacterId?: string | null
   onAdd: (files: File[]) => void
   onRemove: (id: string) => void
+  onCreateClick?: () => void
 }
 
 export function CharacterStudio({
@@ -45,8 +48,10 @@ export function CharacterStudio({
   palette,
   sheetPreviewUrl,
   autoGenerate = false,
+  focusCharacterId = null,
   onAdd,
   onRemove,
+  onCreateClick,
 }: CharacterStudioProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [frameSize, setFrameSize] = useState<FrameSize>(128)
@@ -165,9 +170,20 @@ export function CharacterStudio({
   }
 
   useEffect(() => {
+    if (!focusCharacterId) return
+    if (!characters.some((c) => c.id === focusCharacterId)) return
+    setSelectedId(focusCharacterId)
+    setGenerated([])
+    setRpgSheet(null)
+    setAutoDone(false)
+  }, [focusCharacterId, characters])
+
+  useEffect(() => {
     if (!autoGenerate || autoDone || !characters.length || busy) return
     const preferred =
-      characters.find((c) => c.id === 'sheet-curly') ?? characters[0]
+      characters.find((c) => c.id === (focusCharacterId ?? 'sheet-curly')) ??
+      characters.find((c) => c.id === 'sheet-curly') ??
+      characters[0]
     setSelectedId(preferred.id)
     setBusy(true)
     const timer = setTimeout(() => {
@@ -276,8 +292,16 @@ export function CharacterStudio({
         <div className="ludo-badge">Animate · classic chibi pixel</div>
         <h2>Animate Sprite</h2>
         <p>
-          RPG Maker–style chibi pixels — oversized heads, solid black outlines,
-          stepped shade. Side-view walk by default; optional 4-direction sheets.
+          Pick a character you created (or from the sheet), choose motion, and
+          export walk cycles / spritesheets.
+          {onCreateClick && (
+            <>
+              {' '}
+              <button type="button" className="linkish" onClick={onCreateClick}>
+                Create a new character →
+              </button>
+            </>
+          )}
         </p>
       </header>
 
