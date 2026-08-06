@@ -105,13 +105,14 @@ export function CharacterStudio({
 
   useEffect(() => {
     if (!autoGenerate || autoDone || !characters.length || busy) return
-    const first = characters[0]
-    setSelectedId(first.id)
+    const preferred =
+      characters.find((c) => c.id === 'sheet-explorer') ?? characters[0]
+    setSelectedId(preferred.id)
     setBusy(true)
     const timer = setTimeout(() => {
-      void runGenerate(first).then((results) => {
+      void runGenerate(preferred).then((results) => {
         setGenerated(results)
-        setPreviewType(results[0]?.type ?? 'idle')
+        setPreviewType(results.find((r) => r.type === 'walk')?.type ?? results[0]?.type ?? 'idle')
         setBusy(false)
         setAutoDone(true)
       })
