@@ -1,4 +1,4 @@
-import { createCanvas, getCtx } from './pixelate'
+import { centerContentOnCanvas, createCanvas, getCtx } from './pixelate'
 
 export type PartSlot =
   | 'hair'
@@ -408,28 +408,26 @@ function drawAccessory(
 }
 
 /**
- * Compose a centered Nintendo clean-vector character from modular parts.
- * Drawn in a 100×100 logical space mapped onto `size`.
+ * Compose a Nintendo clean-vector character from modular parts,
+ * then place the figure dead-center in the canvas.
  */
 export function composeCharacter(
   loadout: CharacterLoadout,
   size = 256,
 ): HTMLCanvasElement {
-  const c = createCanvas(size, size)
-  const ctx = getCtx(c, true)
-  const s = size / 100
-  // Center the character figure in the canvas
+  // Draw oversized then center-crop so figure sits in the middle
+  const drawSize = size
+  const raw = createCanvas(drawSize, drawSize)
+  const ctx = getCtx(raw, true)
+  const s = drawSize / 100
   const cx = 50 * s
-  // Vertical center: figure spans ~8–92 → midpoint ~50
   const hy = 34 * s
 
-  // Soft ground shadow centered
   ctx.fillStyle = 'rgba(45,40,50,0.12)'
   ctx.beginPath()
   ctx.ellipse(cx, 92 * s, 22 * s, 5 * s, 0, 0, Math.PI * 2)
   ctx.fill()
 
-  // Legs / pants base
   if (loadout.pants !== 'skirt' && loadout.pants !== 'overalls') {
     drawLegs(ctx, cx, s, loadout.legs, loadout.pantsColor)
   } else if (loadout.pants === 'overalls') {
@@ -443,13 +441,11 @@ export function composeCharacter(
   drawHands(ctx, cx, s, loadout.hands, loadout.skin)
   drawAccessory(ctx, cx, s, loadout.accessory, loadout.accessoryColor)
 
-  // Head
   ctx.fillStyle = loadout.skin
   ctx.beginPath()
   ctx.ellipse(cx, hy, 22 * s, 22 * s, 0, 0, Math.PI * 2)
   ctx.fill()
 
-  // Blush
   ctx.fillStyle = BLUSH
   ctx.beginPath()
   ctx.ellipse(cx - 12 * s, hy + 4 * s, 5 * s, 3 * s, 0, 0, Math.PI * 2)
@@ -461,7 +457,7 @@ export function composeCharacter(
   drawEyes(ctx, cx, hy, s, loadout.eyes)
   drawHair(ctx, cx, hy, s, loadout.hair, loadout.hairColor, loadout.shirtColor)
 
-  return c
+  return centerContentOnCanvas(raw, size, 0.1)
 }
 
 /** Tiny part preview icon for picker UI. */

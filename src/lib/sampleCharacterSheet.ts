@@ -1,4 +1,4 @@
-import { canvasToDataUrl, createCanvas, getCtx, loadImage } from './pixelate'
+import { canvasToDataUrl, centerContentOnCanvas, createCanvas, getCtx, loadImage } from './pixelate'
 import type { CharacterAsset, RGB } from '../types'
 import { extractPaletteFromImage } from './palette'
 
@@ -400,7 +400,8 @@ function makePoseCell(
   const ctx = getCtx(c, true)
   ctx.clearRect(0, 0, CELL, CELL)
   drawer(ctx, pose)
-  return c
+  // Place the drawn figure dead-center in the cell
+  return centerContentOnCanvas(c, CELL, 0.1)
 }
 
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {

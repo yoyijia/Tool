@@ -319,6 +319,9 @@ export function getBaseVectorSprite(
   palette: RGB[],
 ): HTMLCanvasElement {
   return cloneCanvas(
-    renderCleanVectorFrame(source, frameSize, palette, { snapPalette: true }),
+    renderCleanVectorFrame(source, frameSize, palette, {
+      snapPalette: true,
+      anchor: 'center',
+    }),
   )
 }

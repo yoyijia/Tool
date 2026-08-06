@@ -31,9 +31,92 @@ function clamp(n: number): number {
   return Math.max(0, Math.min(255, n))
 }
 
+/** Opaque pixel bounding box (ignores near-transparent pixels). */
+export function getOpaqueBounds(
+  source: HTMLCanvasElement | HTMLImageElement,
+  alphaThreshold = 16,
+): { x: number; y: number; w: number; h: number } | null {
+  const w = source.width
+  const h = source.height
+  const tmp = createCanvas(w, h)
+  const ctx = getCtx(tmp, true)
+  ctx.drawImage(source, 0, 0)
+  const { data } = ctx.getImageData(0, 0, w, h)
+
+  let minX = w
+  let minY = h
+  let maxX = -1
+  let maxY = -1
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const a = data[(y * w + x) * 4 + 3]
+      if (a < alphaThreshold) continue
+      if (x < minX) minX = x
+      if (y < minY) minY = y
+      if (x > maxX) maxX = x
+      if (y > maxY) maxY = y
+    }
+  }
+
+  if (maxX < 0) return null
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
+}
+
+/**
+ * Crop to opaque content and draw it dead-center in a square frame.
+ */
+export function centerContentOnCanvas(
+  source: HTMLImageElement | HTMLCanvasElement,
+  frameSize: number,
+  padRatio = 0.08,
+): HTMLCanvasElement {
+  const out = createCanvas(frameSize, frameSize)
+  const ctx = getCtx(out, true)
+  ctx.clearRect(0, 0, frameSize, frameSize)
+
+  const bounds = getOpaqueBounds(source)
+  const pad = Math.max(2, Math.floor(frameSize * padRatio))
+  const avail = frameSize - pad * 2
+
+  if (!bounds) {
+    // Fallback: center whole source
+    const scale = Math.min(avail / source.width, avail / source.height)
+    const dw = Math.max(1, Math.round(source.width * scale))
+    const dh = Math.max(1, Math.round(source.height * scale))
+    ctx.drawImage(
+      source,
+      Math.floor((frameSize - dw) / 2),
+      Math.floor((frameSize - dh) / 2),
+      dw,
+      dh,
+    )
+    return out
+  }
+
+  const scale = Math.min(avail / bounds.w, avail / bounds.h)
+  const dw = Math.max(1, Math.round(bounds.w * scale))
+  const dh = Math.max(1, Math.round(bounds.h * scale))
+  const dx = Math.floor((frameSize - dw) / 2)
+  const dy = Math.floor((frameSize - dh) / 2)
+
+  ctx.drawImage(
+    source,
+    bounds.x,
+    bounds.y,
+    bounds.w,
+    bounds.h,
+    dx,
+    dy,
+    dw,
+    dh,
+  )
+  return out
+}
+
 /**
  * Fit uploaded art into a clean Nintendo-vector frame.
- * Centered in the frame (not bottom-anchored).
+ * Character content is always drawn at the center of the frame.
  */
 export function renderCleanVectorFrame(
   source: HTMLImageElement | HTMLCanvasElement,
@@ -42,27 +125,42 @@ export function renderCleanVectorFrame(
   options: {
     snapPalette?: boolean
     softOutline?: boolean
-    /** @default 'center' */
+    /** @default 'center' — content bounding-box centered in frame */
     anchor?: 'center' | 'bottom'
   } = {},
 ): HTMLCanvasElement {
   const { snapPalette = true, softOutline = false, anchor = 'center' } = options
-  const out = createCanvas(frameSize, frameSize)
-  const ctx = getCtx(out, true)
 
-  const pad = Math.max(4, Math.floor(frameSize * 0.06))
-  const avail = frameSize - pad * 2
-  const scale = Math.min(avail / source.width, avail / source.height)
-  const dw = Math.max(1, Math.round(source.width * scale))
-  const dh = Math.max(1, Math.round(source.height * scale))
-  const dx = Math.floor((frameSize - dw) / 2)
-  const dy =
-    anchor === 'bottom'
-      ? Math.floor(frameSize - pad - dh)
-      : Math.floor((frameSize - dh) / 2)
-
-  ctx.clearRect(0, 0, frameSize, frameSize)
-  ctx.drawImage(source, dx, dy, dw, dh)
+  let out: HTMLCanvasElement
+  if (anchor === 'center') {
+    out = centerContentOnCanvas(source, frameSize)
+  } else {
+    out = createCanvas(frameSize, frameSize)
+    const ctx = getCtx(out, true)
+    const pad = Math.max(4, Math.floor(frameSize * 0.06))
+    const avail = frameSize - pad * 2
+    const bounds = getOpaqueBounds(source)
+    if (bounds) {
+      const scale = Math.min(avail / bounds.w, avail / bounds.h)
+      const dw = Math.max(1, Math.round(bounds.w * scale))
+      const dh = Math.max(1, Math.round(bounds.h * scale))
+      const dx = Math.floor((frameSize - dw) / 2)
+      const dy = Math.floor(frameSize - pad - dh)
+      ctx.drawImage(
+        source,
+        bounds.x,
+        bounds.y,
+        bounds.w,
+        bounds.h,
+        dx,
+        dy,
+        dw,
+        dh,
+      )
+    } else {
+      ctx.drawImage(source, pad, pad, avail, avail)
+    }
+  }
 
   if (snapPalette) {
     gentlePaletteSnap(out, palette)

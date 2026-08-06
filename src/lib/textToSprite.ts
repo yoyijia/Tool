@@ -1,4 +1,4 @@
-import { createCanvas, getCtx } from './pixelate'
+import { centerContentOnCanvas, createCanvas, getCtx } from './pixelate'
 
 export type ArtStyleId = 'nintendo-clean-vector' | 'chibi-flat' | 'soft-cel'
 
@@ -207,5 +207,5 @@ export function generateSpriteFromPrompt(
     ctx.fill()
   }
 
-  return c
+  return centerContentOnCanvas(c, size, 0.1)
 }
