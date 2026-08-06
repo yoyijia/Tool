@@ -3,6 +3,8 @@ import type {
   BrandReport,
   ContentPlatform,
   GeneratedPost,
+  InstagramPostRef,
+  MascotId,
   VoicePresetId,
 } from "../types";
 import {
@@ -18,6 +20,9 @@ import {
   renderPostImage,
   type RenderedPostImage,
 } from "../lib/postImage";
+import { loadImageFromFile } from "../lib/mascots";
+import { InstagramLibrary } from "./InstagramLibrary";
+import { MascotPicker } from "./MascotPicker";
 
 const PLATFORMS: ContentPlatform[] = [
   "instagram",
@@ -42,9 +47,20 @@ export function ContentStudio({ report, onCopy }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
+  const [igRefs, setIgRefs] = useState<InstagramPostRef[]>([]);
+  const [selectedRefId, setSelectedRefId] = useState<string | null>(null);
+  const [mascotId, setMascotId] = useState<MascotId>("orb");
+  const [customMascot, setCustomMascot] = useState<HTMLImageElement | null>(null);
+  const [customMascotName, setCustomMascotName] = useState<string | null>(null);
+
   const selectedVoice = useMemo(
     () => VOICE_PRESETS.find((v) => v.id === voiceId) ?? VOICE_PRESETS[0]!,
     [voiceId],
+  );
+
+  const selectedRef = useMemo(
+    () => igRefs.find((r) => r.refId === selectedRefId) ?? null,
+    [igRefs, selectedRefId],
   );
 
   const imageSpec = PLATFORM_IMAGE_SPECS[platform];
@@ -59,6 +75,10 @@ export function ContentStudio({ report, onCopy }: Props) {
         voiceId,
         platform,
         topic,
+        referenceId: selectedRef?.refId,
+        referenceUrl: selectedRef?.url,
+        referenceCaption: selectedRef?.caption,
+        mascotId,
       });
       setPosts(next);
     } catch (err) {
@@ -69,11 +89,26 @@ export function ContentStudio({ report, onCopy }: Props) {
     }
   }
 
+  async function onCustomFile(file: File) {
+    try {
+      const img = await loadImageFromFile(file);
+      setCustomMascot(img);
+      setCustomMascotName(file.name);
+      setMascotId("custom");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Mascot upload failed.");
+    }
+  }
+
   async function generateImage(post: GeneratedPost, index: number) {
     setError(null);
     setImageBusy(post.id);
     try {
-      const rendered = await renderPostImage(report, post, { variantIndex: index });
+      const rendered = await renderPostImage(report, post, {
+        variantIndex: index,
+        mascotId,
+        customMascot: mascotId === "custom" ? customMascot : null,
+      });
       setImages((prev) => ({ ...prev, [post.id]: rendered }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not render post image.");
@@ -90,7 +125,11 @@ export function ContentStudio({ report, onCopy }: Props) {
       const entries: Record<string, RenderedPostImage> = {};
       for (let i = 0; i < posts.length; i++) {
         const post = posts[i]!;
-        entries[post.id] = await renderPostImage(report, post, { variantIndex: i });
+        entries[post.id] = await renderPostImage(report, post, {
+          variantIndex: i,
+          mascotId,
+          customMascot: mascotId === "custom" ? customMascot : null,
+        });
       }
       setImages(entries);
     } catch (err) {
@@ -104,8 +143,8 @@ export function ContentStudio({ report, onCopy }: Props) {
     <section className="panel span-2 studio">
       <h3>Content studio</h3>
       <p className="sub">
-        Pick a brand voice, describe the content you want, generate engagement drafts, then
-        export platform-sized post images from your brand palette.
+        Pick a voice and mascot, pull Instagram posts as numbered references, describe the
+        content you want, then export platform-sized images that cite the right post.
       </p>
 
       <form className="studio-form" onSubmit={runGenerate}>
@@ -133,6 +172,22 @@ export function ContentStudio({ report, onCopy }: Props) {
           </div>
         </fieldset>
 
+        <MascotPicker
+          mascotId={mascotId}
+          customName={customMascotName}
+          onSelect={setMascotId}
+          onCustomFile={(file) => void onCustomFile(file)}
+        />
+
+        <InstagramLibrary
+          report={report}
+          refs={igRefs}
+          selectedId={selectedRefId}
+          onChange={setIgRefs}
+          onSelect={(ref) => setSelectedRefId(ref?.refId ?? null)}
+          onCopy={onCopy}
+        />
+
         <fieldset className="studio-field">
           <legend>Platform</legend>
           <div className="platform-row">
@@ -151,6 +206,12 @@ export function ContentStudio({ report, onCopy }: Props) {
           <p className="platform-tip">
             {platformTip(platform)} Export size: <strong>{imageSpec.ratio}</strong> (
             {imageSpec.label}).
+            {selectedRef ? (
+              <>
+                {" "}
+                Citing <strong>{selectedRef.refId}</strong>.
+              </>
+            ) : null}
           </p>
         </fieldset>
 
@@ -159,7 +220,7 @@ export function ContentStudio({ report, onCopy }: Props) {
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder={`e.g. A launch post for our new checkout feature, or a myth-busting carousel about ${report.keywords[0] ?? "our product"}…`}
+            placeholder={`e.g. Remix ${selectedRef?.refId ?? "IG-01"} into a launch teaser for our new checkout…`}
             rows={3}
             aria-label="Content brief"
           />
@@ -169,7 +230,12 @@ export function ContentStudio({ report, onCopy }: Props) {
                 key={prompt}
                 type="button"
                 onClick={() =>
-                  setTopic((prev) => (prev.trim() ? `${prev.trim()} — ${prompt}` : prompt))
+                  setTopic((prev) => {
+                    const base = selectedRef
+                      ? `${prompt} referencing ${selectedRef.refId}`
+                      : prompt;
+                    return prev.trim() ? `${prev.trim()} — ${base}` : base;
+                  })
                 }
               >
                 {prompt}
@@ -180,7 +246,9 @@ export function ContentStudio({ report, onCopy }: Props) {
 
         <div className="studio-actions">
           <p className="voice-hint">
-            Writing as <em>{selectedVoice.label}</em> for {platformLabel(platform)}
+            Writing as <em>{selectedVoice.label}</em>
+            {mascotId !== "none" ? ` · mascot ${mascotId}` : ""}
+            {selectedRef ? ` · ref ${selectedRef.refId}` : ""} for {platformLabel(platform)}
           </p>
           <button type="submit" className="generate-btn" disabled={generating}>
             {generating ? "Crafting…" : "Generate engagement drafts"}
@@ -195,6 +263,12 @@ export function ContentStudio({ report, onCopy }: Props) {
           <div className="studio-actions image-actions">
             <p className="voice-hint">
               Post images use {report.name}’s palette at <em>{imageSpec.ratio}</em>
+              {selectedRef ? (
+                <>
+                  {" "}
+                  · badge <em>{selectedRef.refId}</em>
+                </>
+              ) : null}
             </p>
             <button
               type="button"
@@ -217,7 +291,10 @@ export function ContentStudio({ report, onCopy }: Props) {
                   style={{ animationDelay: `${i * 0.06}s` }}
                 >
                   <div className="post-head">
-                    <span className="post-format">{post.format}</span>
+                    <span className="post-format">
+                      {post.format}
+                      {post.referenceId ? ` · ${post.referenceId}` : ""}
+                    </span>
                     <button
                       type="button"
                       className="copy-post"
@@ -226,6 +303,15 @@ export function ContentStudio({ report, onCopy }: Props) {
                       Copy text
                     </button>
                   </div>
+                  {post.referenceId && (
+                    <div className="ref-inline">
+                      <span className="ref-id">{post.referenceId}</span>
+                      <span className="ref-inline-cap">
+                        {post.referenceCaption?.slice(0, 90) || "Instagram reference"}
+                        {(post.referenceCaption?.length ?? 0) > 90 ? "…" : ""}
+                      </span>
+                    </div>
+                  )}
                   <p className="post-hook">{post.hook}</p>
                   <pre className="post-body">{post.body}</pre>
                   {post.hashtags.length > 0 && (
@@ -274,6 +360,8 @@ export function ContentStudio({ report, onCopy }: Props) {
                         />
                         <figcaption>
                           {image.width}×{image.height}px · {image.spec.label}
+                          {post.referenceId ? ` · ${post.referenceId}` : ""}
+                          {mascotId !== "none" ? ` · mascot` : ""}
                         </figcaption>
                       </figure>
                     )}

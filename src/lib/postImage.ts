@@ -1,4 +1,5 @@
-import type { BrandReport, ContentPlatform, GeneratedPost } from "../types";
+import type { BrandReport, ContentPlatform, GeneratedPost, MascotId } from "../types";
+import { drawMascot } from "./mascots";
 
 export interface PostImageSpec {
   width: number;
@@ -177,7 +178,11 @@ export interface RenderedPostImage {
 export async function renderPostImage(
   report: BrandReport,
   post: GeneratedPost,
-  options?: { variantIndex?: number },
+  options?: {
+    variantIndex?: number;
+    mascotId?: MascotId;
+    customMascot?: HTMLImageElement | null;
+  },
 ): Promise<RenderedPostImage> {
   await ensureFonts();
 
@@ -193,6 +198,7 @@ export async function renderPostImage(
   const pad = Math.round(Math.min(w, h) * 0.08);
   const isVertical = h / w > 1.3;
   const isWide = w / h > 1.4;
+  const mascotId = (options?.mascotId ?? post.mascotId ?? "none") as MascotId;
 
   // Background
   ctx.fillStyle = palette.bg;
@@ -254,8 +260,29 @@ export async function renderPostImage(
   ctx.fillStyle = palette.accent;
   ctx.fillRect(pad, pad + brandSize + Math.round(brandSize * 0.45), Math.round(w * 0.18), 4);
 
-  // Main hook
-  const hookMaxW = w - pad * 2;
+  // Reference badge (easy citation) — high visibility
+  if (post.referenceId) {
+    const badge = `REF ${post.referenceId}`;
+    const badgeFont = Math.round(brandSize * 0.95);
+    ctx.font = `800 ${badgeFont}px Figtree, system-ui, sans-serif`;
+    const bw = ctx.measureText(badge).width + brandSize * 1.1;
+    const bh = brandSize * 1.55;
+    const bx = pad;
+    const by = pad + brandSize * 2.15;
+    ctx.fillStyle = palette.accent;
+    drawRoundRect(ctx, bx, by, bw, bh, bh / 2);
+    ctx.fill();
+    // outline for contrast on light accents
+    ctx.strokeStyle = luminance(palette.bg) < 0.5 ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = luminance(palette.accent) > 0.55 ? "#0C1210" : "#F4F7F5";
+    ctx.fillText(badge, bx + brandSize * 0.55, by + bh * 0.7);
+  }
+
+  // Main hook — leave room for mascot on the right when present
+  const mascotRoom = mascotId !== "none" ? Math.min(w, h) * 0.28 : 0;
+  const hookMaxW = w - pad * 2 - mascotRoom;
   const hookFont = isVertical
     ? Math.round(w * 0.09)
     : isWide
@@ -269,7 +296,7 @@ export async function renderPostImage(
   const hookBlockH = hookLines.length * hookLineH;
   const hookStartY = isWide
     ? h * 0.38 - hookBlockH / 2
-    : pad + brandSize * 3.2;
+    : pad + brandSize * (post.referenceId ? 4.2 : 3.2);
 
   hookLines.forEach((line, i) => {
     ctx.fillText(line, pad, hookStartY + (i + 1) * hookLineH);
@@ -285,6 +312,20 @@ export async function renderPostImage(
   supportLines.forEach((line, i) => {
     ctx.fillText(line, pad, supportStart + (i + 1) * supportFont * 1.35);
   });
+
+  // Mascot
+  if (mascotId !== "none") {
+    const size = Math.min(w, h) * (isWide ? 0.34 : 0.3);
+    drawMascot(ctx, mascotId, {
+      x: w - pad - size * 0.55,
+      y: isWide ? h * 0.5 : hookStartY + hookBlockH * 0.55,
+      size,
+      accent: palette.accent,
+      ink: palette.ink,
+      secondary: palette.secondary,
+      customImage: options?.customMascot,
+    });
+  }
 
   // Bottom CTA pill
   const pillText = "Engage → " + (post.hashtags[0]?.replace(/^#/, "") || report.domain);
@@ -325,7 +366,8 @@ export async function renderPostImage(
   });
 
   const safeName = report.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  const filename = `${safeName}-${post.platform}-${w}x${h}-v${(options?.variantIndex ?? 0) + 1}.png`;
+  const refPart = post.referenceId ? `-${post.referenceId.toLowerCase()}` : "";
+  const filename = `${safeName}-${post.platform}-${w}x${h}${refPart}-v${(options?.variantIndex ?? 0) + 1}.png`;
 
   return { dataUrl, blob, width: w, height: h, filename, spec };
 }

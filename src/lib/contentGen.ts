@@ -436,7 +436,7 @@ export function generateSocialContent(
       closers: [closerPool[variant % closerPool.length]!, ...closerPool],
     };
 
-    const { hook, body, cta } = buildBodies(
+    const { hook, body: baseBody, cta } = buildBodies(
       platform,
       variantVoice,
       report,
@@ -444,7 +444,28 @@ export function generateSocialContent(
       seed,
     );
     const hashtags = hashtagPack(report, topic, seed + variant);
-    const tips = engagementTips(platform, voice);
+    const tips = [...engagementTips(platform, voice)];
+    if (brief.referenceId) {
+      tips.unshift(
+        `Reference ${brief.referenceId}${brief.referenceUrl ? ` → ${brief.referenceUrl}` : ""} when briefing design or recycling creative.`,
+      );
+    }
+
+    let body = baseBody;
+    if (brief.referenceId) {
+      const refBlock = [
+        "",
+        `Reference: ${brief.referenceId}`,
+        brief.referenceCaption
+          ? `Inspired by: “${brief.referenceCaption.slice(0, 140)}${brief.referenceCaption.length > 140 ? "…" : ""}”`
+          : null,
+        brief.referenceUrl ? `Link: ${brief.referenceUrl}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      body = `${body}\n${refBlock}`;
+    }
+
     const fullText =
       platform === "instagram" || platform === "linkedin"
         ? `${body}\n\n${hashtags.join(" ")}`
@@ -460,6 +481,10 @@ export function generateSocialContent(
       hashtags,
       engagementTips: tips,
       fullText,
+      referenceId: brief.referenceId,
+      referenceUrl: brief.referenceUrl,
+      referenceCaption: brief.referenceCaption,
+      mascotId: brief.mascotId,
     };
   });
 }

@@ -1,5 +1,5 @@
 /**
- * Production static server + page fetch proxy for BrandVibe.
+ * Production static server + page/image fetch proxy for BrandVibe.
  * Usage: node server.mjs
  */
 import { createServer } from "node:http";
@@ -20,8 +20,13 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
   ".woff2": "font/woff2",
 };
+
+const UA =
+  "BrandVibe/1.0 (+https://github.com/yoyijia/Tool; marketing-research)";
 
 async function handleFetchPage(req, res, urlObj) {
   const target = urlObj.searchParams.get("url");
@@ -35,8 +40,7 @@ async function handleFetchPage(req, res, urlObj) {
       redirect: "follow",
       headers: {
         Accept: "text/html,application/xhtml+xml,text/css,*/*",
-        "User-Agent":
-          "BrandVibe/1.0 (+https://github.com/yoyijia/Tool; marketing-research)",
+        "User-Agent": UA,
       },
     });
     const body = await upstream.text();
@@ -52,9 +56,37 @@ async function handleFetchPage(req, res, urlObj) {
   }
 }
 
+async function handleFetchImage(req, res, urlObj) {
+  const target = urlObj.searchParams.get("url");
+  if (!target) {
+    res.writeHead(400, { "Content-Type": "text/plain" });
+    res.end("Missing url");
+    return;
+  }
+  try {
+    const upstream = await fetch(target, {
+      redirect: "follow",
+      headers: {
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "User-Agent": UA,
+      },
+    });
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    const type = upstream.headers.get("content-type") || "image/jpeg";
+    res.writeHead(upstream.ok ? 200 : upstream.status, {
+      "Content-Type": type,
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=3600",
+    });
+    res.end(buf);
+  } catch (err) {
+    res.writeHead(502, { "Content-Type": "text/plain" });
+    res.end(err instanceof Error ? err.message : "Image proxy failed");
+  }
+}
+
 async function serveStatic(req, res, pathname) {
   let path = pathname === "/" ? "/index.html" : pathname;
-  // SPA fallback
   let filePath = join(DIST, path);
   try {
     const data = await readFile(filePath);
@@ -83,6 +115,10 @@ const server = createServer(async (req, res) => {
 
   if (urlObj.pathname === "/api/fetch-page") {
     await handleFetchPage(req, res, urlObj);
+    return;
+  }
+  if (urlObj.pathname === "/api/fetch-image") {
+    await handleFetchImage(req, res, urlObj);
     return;
   }
 

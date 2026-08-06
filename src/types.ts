@@ -89,10 +89,46 @@ export interface GeneratedPost {
   hashtags: string[];
   engagementTips: string[];
   fullText: string;
+  /** Easy-to-cite Instagram reference id, e.g. IG-03 */
+  referenceId?: string;
+  referenceUrl?: string;
+  referenceCaption?: string;
+  mascotId?: string;
 }
 
 export interface ContentBrief {
   voiceId: VoicePresetId;
   platform: ContentPlatform;
   topic: string;
+  referenceId?: string;
+  referenceUrl?: string;
+  referenceCaption?: string;
+  mascotId?: string;
+}
+
+/** A pulled Instagram post labeled for easy citation. */
+export interface InstagramPostRef {
+  /** Stable citation code shown in UI, e.g. IG-01 */
+  refId: string;
+  shortcode: string;
+  url: string;
+  caption: string;
+  author?: string;
+  thumbnailUrl?: string;
+  fetchedAt: string;
+  source: "oembed" | "og" | "manual";
+}
+
+export type MascotId =
+  | "none"
+  | "orb"
+  | "fox"
+  | "sprout"
+  | "bolt"
+  | "custom";
+
+export interface MascotOption {
+  id: MascotId;
+  label: string;
+  blurb: string;
 }
