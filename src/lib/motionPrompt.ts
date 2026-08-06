@@ -14,6 +14,12 @@ export const MOTION_PRESETS: {
     anims: ['idle'],
   },
   {
+    id: 'rpg4dir',
+    label: '4-Dir RPG Walk',
+    prompt: '4-direction RPG walk sheet, 8 frames',
+    anims: ['walk'],
+  },
+  {
     id: 'walk',
     label: 'Walk',
     prompt: 'walk cycle facing side, looping footsteps',

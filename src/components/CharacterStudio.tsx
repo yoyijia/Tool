@@ -11,6 +11,15 @@ import {
 } from '../lib/exportPack'
 import { MOTION_PRESETS, parseMotionPrompt } from '../lib/motionPrompt'
 import { downloadCanvas, loadImage } from '../lib/pixelate'
+import {
+  generateRpgWalkSheet,
+  generateVariantWalkSheet,
+  HAIR_VARIANT_COLORS,
+  SKIN_VARIANT_COLORS,
+  WALK_DIRS,
+  type DirectionalWalkSheet,
+  type WalkDir,
+} from '../lib/rpgWalkSheet'
 import type {
   AnimationType,
   CharacterAsset,
@@ -42,11 +51,16 @@ export function CharacterStudio({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [frameSize, setFrameSize] = useState<FrameSize>(128)
   const [motionPrompt, setMotionPrompt] = useState(
-    'walk cycle facing side, looping footsteps',
+    '4-direction RPG walk sheet, 8 frames',
   )
-  const [frameCount, setFrameCount] = useState(6)
+  const [frameCount, setFrameCount] = useState(8)
+  const [rpgMode, setRpgMode] = useState(true)
+  const [variants, setVariants] = useState(false)
   const [generated, setGenerated] = useState<GeneratedAnimation[]>([])
-  const [previewType, setPreviewType] = useState<AnimationType>('idle')
+  const [rpgSheet, setRpgSheet] = useState<DirectionalWalkSheet | null>(null)
+  const [rpgDir, setRpgDir] = useState<WalkDir>('down')
+  const [variantCanvas, setVariantCanvas] = useState<HTMLCanvasElement | null>(null)
+  const [previewType, setPreviewType] = useState<AnimationType>('walk')
   const [busy, setBusy] = useState(false)
   const [autoDone, setAutoDone] = useState(false)
 
@@ -60,7 +74,24 @@ export function CharacterStudio({
     [characters, selectedId],
   )
 
-  const preview = generated.find((g) => g.type === previewType) ?? generated[0] ?? null
+  const rpgPreviewAnim: GeneratedAnimation | null = useMemo(() => {
+    if (!rpgSheet) return null
+    const dirIndex = WALK_DIRS.indexOf(rpgDir)
+    const row = rpgSheet.frames[dirIndex] ?? rpgSheet.frames[0]
+    return {
+      type: 'walk',
+      frames: row.map((canvas, index) => ({ canvas, index })),
+      frameSize: rpgSheet.frameSize as FrameSize,
+      sheetCanvas: rpgSheet.sheetCanvas,
+      fps: rpgSheet.fps,
+    }
+  }, [rpgSheet, rpgDir])
+
+  const preview =
+    rpgMode && rpgPreviewAnim
+      ? rpgPreviewAnim
+      : generated.find((g) => g.type === previewType) ?? generated[0] ?? null
+
   const previewScale = frameSize === 512 ? 1 : frameSize === 128 ? 2.5 : 3.5
   const thumbScale = frameSize === 512 ? 0.35 : frameSize === 128 ? 0.7 : 1.2
 
@@ -76,7 +107,35 @@ export function CharacterStudio({
     return out
   }
 
+  const runRpgGenerate = (character: CharacterAsset) => {
+    const sheet = generateRpgWalkSheet({
+      frameSize,
+      frameCount,
+      loadout: character.loadout,
+    })
+    setRpgSheet(sheet)
+    setRpgDir('down')
+    setGenerated([])
+    if (variants) {
+      const { canvas } = generateVariantWalkSheet(
+        { frameSize, frameCount, loadout: character.loadout },
+        HAIR_VARIANT_COLORS.slice(0, 4),
+        [character.loadout?.skin ?? SKIN_VARIANT_COLORS[0], SKIN_VARIANT_COLORS[2]],
+      )
+      setVariantCanvas(canvas)
+    } else {
+      setVariantCanvas(null)
+    }
+    return sheet
+  }
+
   const runGenerate = async (character: CharacterAsset) => {
+    if (rpgMode) {
+      runRpgGenerate(character)
+      return [] as GeneratedAnimation[]
+    }
+    setRpgSheet(null)
+    setVariantCanvas(null)
     const poses = await resolvePoses(character)
     return generateAllAnimations(
       character.image,
@@ -90,13 +149,15 @@ export function CharacterStudio({
   }
 
   const handleGenerate = () => {
-    if (!selected || !selectedAnims.length) return
+    if (!selected) return
     setBusy(true)
     requestAnimationFrame(() => {
       setTimeout(() => {
         void runGenerate(selected).then((results) => {
-          setGenerated(results)
-          setPreviewType(results[0]?.type ?? 'idle')
+          if (!rpgMode) {
+            setGenerated(results)
+            setPreviewType(results[0]?.type ?? 'walk')
+          }
           setBusy(false)
         })
       }, 30)
@@ -111,8 +172,12 @@ export function CharacterStudio({
     setBusy(true)
     const timer = setTimeout(() => {
       void runGenerate(preferred).then((results) => {
-        setGenerated(results)
-        setPreviewType(results.find((r) => r.type === 'walk')?.type ?? results[0]?.type ?? 'idle')
+        if (!rpgMode) {
+          setGenerated(results)
+          setPreviewType(
+            results.find((r) => r.type === 'walk')?.type ?? results[0]?.type ?? 'idle',
+          )
+        }
         setBusy(false)
         setAutoDone(true)
       })
@@ -122,8 +187,37 @@ export function CharacterStudio({
   }, [autoGenerate, characters, autoDone])
 
   const handleExportPack = async () => {
-    if (!generated.length || !selected) return
+    if (!selected) return
     const base = slug(selected.name)
+
+    if (rpgMode && rpgSheet) {
+      downloadCanvas(rpgSheet.sheetCanvas, `${base}-rpg-4dir-${frameSize}.png`)
+      downloadText(
+        JSON.stringify(
+          {
+            character: selected.name,
+            style: 'nintendo-rpg-pixel',
+            ...rpgSheet.meta,
+            note: 'Rows: down, left, right, up. Columns: walk frames.',
+          },
+          null,
+          2,
+        ),
+        `${base}-rpg-4dir-${frameSize}.json`,
+      )
+      if (variantCanvas) {
+        downloadCanvas(variantCanvas, `${base}-rpg-variants-${frameSize}.png`)
+      }
+      if (rpgPreviewAnim) {
+        await exportAnimationGif(
+          rpgPreviewAnim,
+          `${base}-walk-${rpgDir}-${frameSize}.gif`,
+        )
+      }
+      return
+    }
+
+    if (!generated.length) return
     const { canvas } = packMultiAnimationSheet(generated)
     const pngName = `${base}-spritesheet-${frameSize}.png`
     downloadCanvas(canvas, pngName)
@@ -146,18 +240,29 @@ export function CharacterStudio({
     requestAnimationFrame(() => {
       setTimeout(async () => {
         for (const character of characters) {
-          const results = await runGenerate(character)
-          const { canvas } = packMultiAnimationSheet(results)
-          const base = slug(character.name)
-          const pngName = `${base}-spritesheet-${frameSize}.png`
-          downloadCanvas(canvas, pngName)
-          downloadText(
-            JSON.stringify(buildTexturePackerAtlas(results, pngName), null, 2),
-            `${base}-atlas-${frameSize}.json`,
-          )
-          if (character.id === (selected?.id ?? characters[0].id)) {
-            setGenerated(results)
-            setPreviewType(results[0]?.type ?? 'idle')
+          if (rpgMode) {
+            const sheet = generateRpgWalkSheet({
+              frameSize,
+              frameCount,
+              loadout: character.loadout,
+            })
+            downloadCanvas(
+              sheet.sheetCanvas,
+              `${slug(character.name)}-rpg-4dir-${frameSize}.png`,
+            )
+            if (character.id === (selected?.id ?? characters[0].id)) {
+              setRpgSheet(sheet)
+            }
+          } else {
+            const results = await runGenerate(character)
+            const { canvas } = packMultiAnimationSheet(results)
+            downloadCanvas(
+              canvas,
+              `${slug(character.name)}-spritesheet-${frameSize}.png`,
+            )
+            if (character.id === (selected?.id ?? characters[0].id)) {
+              setGenerated(results)
+            }
           }
         }
         setBusy(false)
@@ -168,19 +273,19 @@ export function CharacterStudio({
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Animate · Ludo.ai-style workflow</div>
+        <div className="ludo-badge">Animate · RPG 4-direction walk sheets</div>
         <h2>Animate Sprite</h2>
         <p>
-          Upload or pick a starting frame, write a motion prompt, get an
-          engine-ready spritesheet — walk cycles use real side-view limb
-          animation (like classic game walk sheets).
+          Generate Nintendo-style RPG walk sheets — <strong>down / left / right / up</strong>,
+          8 frames each, centered — like classic sprite templates. Or switch to
+          side-view cycles.
         </p>
       </header>
 
       <div className="steps-row">
-        <div className="step on"><span>1</span> Starting frame</div>
-        <div className="step on"><span>2</span> Motion prompt</div>
-        <div className="step"><span>3</span> Export pack</div>
+        <div className="step on"><span>1</span> Character</div>
+        <div className="step on"><span>2</span> Directions + frames</div>
+        <div className="step"><span>3</span> Export sheet</div>
       </div>
 
       {sheetPreviewUrl && (
@@ -188,8 +293,8 @@ export function CharacterStudio({
           <div className="sheet-banner-copy">
             <strong>Starting frames ready</strong>
             <span>
-              Embedded character sheet — Curly Hero · Red Cap · Backwards Cap
-              (directional poses for walk cycles).
+              Pick a character (or Builder custom). RPG mode packs a 4-row walk
+              sheet like RPG Maker templates.
             </span>
           </div>
           <img
@@ -202,7 +307,7 @@ export function CharacterStudio({
 
       <UploadZone
         label="Upload your own sprite"
-        hint="Clean vector / chibi PNG works best — like Ludo’s Animate tab"
+        hint="Or use Builder parts — hair/skin drive the RPG sheet variants"
         multiple
         onFiles={onAdd}
       />
@@ -217,6 +322,7 @@ export function CharacterStudio({
               onClick={() => {
                 setSelectedId(c.id)
                 setGenerated([])
+                setRpgSheet(null)
                 setAutoDone(true)
               }}
             >
@@ -241,36 +347,72 @@ export function CharacterStudio({
         </div>
       )}
 
-      <label className="field">
-        <span>Motion prompt</span>
-        <textarea
-          className="prompt-box"
-          rows={3}
-          value={motionPrompt}
-          onChange={(e) => setMotionPrompt(e.target.value)}
-          placeholder='e.g. "walk cycle facing side" or "soft idle breathing"'
-        />
-      </label>
-
-      <div className="field">
-        <span>Presets</span>
-        <div className="chip-row">
-          {MOTION_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={`chip ${motionPrompt === p.prompt ? 'on' : ''}`}
-              onClick={() => setMotionPrompt(p.prompt)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <p className="palette-note">
-          Will generate:{' '}
-          {selectedAnims.map((a) => ANIMATION_LABELS[a]).join(' · ')}
-        </p>
+      <div className="mode-toggles">
+        <label className="toggle-row">
+          <input
+            type="checkbox"
+            checked={rpgMode}
+            onChange={(e) => {
+              setRpgMode(e.target.checked)
+              if (e.target.checked) {
+                setFrameCount(8)
+                setMotionPrompt('4-direction RPG walk sheet, 8 frames')
+              }
+            }}
+          />
+          <span>
+            <strong>4-direction RPG walk sheet</strong>
+            <em>Rows: down · left · right · up — like the reference template</em>
+          </span>
+        </label>
+        {rpgMode && (
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={variants}
+              onChange={(e) => setVariants(e.target.checked)}
+            />
+            <span>
+              <strong>Hair / skin variants</strong>
+              <em>Pack multiple palette swaps side-by-side</em>
+            </span>
+          </label>
+        )}
       </div>
+
+      {!rpgMode && (
+        <>
+          <label className="field">
+            <span>Motion prompt</span>
+            <textarea
+              className="prompt-box"
+              rows={3}
+              value={motionPrompt}
+              onChange={(e) => setMotionPrompt(e.target.value)}
+              placeholder='e.g. "walk cycle facing side"'
+            />
+          </label>
+          <div className="field">
+            <span>Presets</span>
+            <div className="chip-row">
+              {MOTION_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`chip ${motionPrompt === p.prompt ? 'on' : ''}`}
+                  onClick={() => setMotionPrompt(p.prompt)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <p className="palette-note">
+              Will generate:{' '}
+              {selectedAnims.map((a) => ANIMATION_LABELS[a]).join(' · ')}
+            </p>
+          </div>
+        </>
+      )}
 
       <div className="controls-grid">
         <label className="field">
@@ -311,13 +453,15 @@ export function CharacterStudio({
         </label>
         <div className="field">
           <span>Framing</span>
-          <p className="palette-note">
-            All frames are center-anchored in the canvas
-          </p>
+          <p className="palette-note">Centered in every cell</p>
         </div>
         <div className="field">
-          <span>Export-ready for</span>
-          <p className="palette-note">Unity · Godot · GameMaker · PNG + JSON atlas + GIF</p>
+          <span>Layout</span>
+          <p className="palette-note">
+            {rpgMode
+              ? `${frameCount} cols × 4 rows (down/left/right/up)`
+              : 'Row per animation'}
+          </p>
         </div>
       </div>
 
@@ -325,10 +469,14 @@ export function CharacterStudio({
         <button
           type="button"
           className="primary-btn"
-          disabled={!selected || !selectedAnims.length || busy}
+          disabled={!selected || busy}
           onClick={handleGenerate}
         >
-          {busy ? 'Generating…' : 'Generate spritesheet'}
+          {busy
+            ? 'Generating…'
+            : rpgMode
+              ? 'Generate 4-dir walk sheet'
+              : 'Generate spritesheet'}
         </button>
         <button
           type="button"
@@ -341,14 +489,83 @@ export function CharacterStudio({
         <button
           type="button"
           className="secondary-btn"
-          disabled={!generated.length}
+          disabled={rpgMode ? !rpgSheet : !generated.length}
           onClick={() => void handleExportPack()}
         >
           Download export pack
         </button>
       </div>
 
-      {generated.length > 0 && (
+      {rpgMode && rpgSheet && (
+        <div className="gen-results">
+          <div className="preview-column">
+            <div className="chip-row">
+              {WALK_DIRS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`chip ${rpgDir === d ? 'on' : ''}`}
+                  onClick={() => setRpgDir(d)}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            <AnimationPreview animation={rpgPreviewAnim} scale={previewScale} />
+          </div>
+          <div className="sheet-column">
+            <h3>
+              {selected?.name} · RPG 4-dir · {frameCount} frames
+            </h3>
+            <div className="rpg-sheet-preview">
+              <canvas
+                width={rpgSheet.sheetCanvas.width}
+                height={rpgSheet.sheetCanvas.height}
+                ref={(node) => {
+                  if (!node) return
+                  const ctx = node.getContext('2d')!
+                  ctx.imageSmoothingEnabled = false
+                  ctx.clearRect(0, 0, node.width, node.height)
+                  ctx.drawImage(rpgSheet.sheetCanvas, 0, 0)
+                }}
+                style={{
+                  width: '100%',
+                  maxWidth: 640,
+                  height: 'auto',
+                  imageRendering: 'pixelated',
+                }}
+              />
+              <p className="palette-note">
+                Rows: down → left → right → up · Columns: walk frames
+              </p>
+            </div>
+            {variantCanvas && (
+              <div className="rpg-sheet-preview">
+                <h3>Hair / skin variants</h3>
+                <canvas
+                  width={variantCanvas.width}
+                  height={variantCanvas.height}
+                  ref={(node) => {
+                    if (!node) return
+                    const ctx = node.getContext('2d')!
+                    ctx.imageSmoothingEnabled = false
+                    ctx.clearRect(0, 0, node.width, node.height)
+                    ctx.drawImage(variantCanvas, 0, 0)
+                  }}
+                  style={{
+                    width: '100%',
+                    maxWidth: 720,
+                    height: 'auto',
+                    imageRendering: 'pixelated',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!rpgMode && generated.length > 0 && (
         <div className="gen-results">
           <div className="preview-column">
             <div className="chip-row">
@@ -365,7 +582,6 @@ export function CharacterStudio({
             </div>
             <AnimationPreview animation={preview} scale={previewScale} />
           </div>
-
           <div className="sheet-column">
             <h3>
               {selected?.name} · {frameSize}px spritesheet
