@@ -34,17 +34,17 @@ export interface CharacterLoadout {
 
 export const DEFAULT_LOADOUT: CharacterLoadout = {
   hair: 'curly',
-  eyes: 'oval',
+  eyes: 'dots',
   hands: 'relaxed',
   legs: 'straight',
   shirt: 'tee',
   pants: 'shorts',
   accessory: 'satchel',
-  skin: '#c68642',
-  hairColor: '#1a1420',
-  shirtColor: '#d62828',
-  pantsColor: '#2d3a6e',
-  accessoryColor: '#7cb342',
+  skin: '#ffd6ba',
+  hairColor: '#2a262e',
+  shirtColor: '#e23b45',
+  pantsColor: '#4696e6',
+  accessoryColor: '#a0dc50',
 }
 
 export const PART_OPTIONS: Record<PartSlot, PartOption[]> = {

@@ -3,15 +3,17 @@ import type { CharacterAsset, RGB } from '../types'
 import { extractPaletteFromImage } from './palette'
 import {
   createPixelCanvas,
+  drawPixelText,
   outlineCanvas,
-  pixelBlob,
+  pixelCircle,
   px,
   shadeHex,
   upscalePixel,
 } from './pixelArt'
 
+/** Export cell size (nearest-neighbor up from 32). */
 const CELL = 128
-const LOGICAL = 48
+const LOGICAL = 32
 
 export type PoseKey = 'down' | 'up' | 'left' | 'right' | 'wave' | 'thinking'
 
@@ -24,102 +26,104 @@ export interface SheetCharacter {
   image: HTMLImageElement
 }
 
-const SKIN = '#c68642'
-const SKIN_HI = '#d4a574'
-const HAIR = '#1a1420'
-const HAIR_HI = '#3a3338'
-const RED = '#d62828'
-const RED_HI = '#f04a4a'
-const NAVY = '#2d3a6e'
-const BAG = '#7cb342'
-const BAG_HI = '#9ccc65'
-const WHITE = '#f0f0f4'
-const JEAN = '#3f5f9e'
-const BLACK = '#1a1420'
-const INK = '#1a1420'
+// Classic chibi palette matching the reference sheet
+const SKIN = '#ffd6ba'
+const SKIN_SHADE = '#f0b898'
+const BLUSH = '#ff9eaa'
+const HAIR = '#2a262e'
+const RED = '#e23b45'
+const RED_SHADE = '#c43038'
+const BLUE = '#4696e6'
+const BLUE_SHADE = '#3578c0'
+const LIME = '#a0dc50'
+const WHITE = '#f5f5f8'
+const JEAN = '#3f78c8'
+const BLACK = '#2a262e'
+const INK = '#000000'
 
+/**
+ * Classic RPG chibi face: big round head, tiny 2px eyes, blush dots.
+ */
 function drawFace(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
-  s: number,
   opts: { away?: boolean; lookUp?: boolean } = {},
 ): void {
-  pixelBlob(ctx, cx, cy, 10 * s, 10 * s, SKIN)
-  px(ctx, cx - 4 * s, cy - 5 * s, 8 * s, 4 * s, SKIN_HI)
+  pixelCircle(ctx, cx, cy, 7, SKIN)
+  // chin shade
+  px(ctx, cx - 3, cy + 3, 6, 2, SKIN_SHADE)
   if (opts.away) return
 
-  px(ctx, cx - 7 * s, cy + 2 * s, 3 * s, 2 * s, '#e88890')
-  px(ctx, cx + 4 * s, cy + 2 * s, 3 * s, 2 * s, '#e88890')
+  // blush
+  px(ctx, cx - 5, cy + 1, 2, 1, BLUSH)
+  px(ctx, cx + 3, cy + 1, 2, 1, BLUSH)
 
-  const eyeY = opts.lookUp ? cy - 3 * s : cy - 1 * s
-  px(ctx, cx - 5 * s, eyeY, 3 * s, 4 * s, INK)
-  px(ctx, cx + 2 * s, eyeY, 3 * s, 4 * s, INK)
-  px(ctx, cx - 4 * s, eyeY, 1 * s, 1 * s, '#fff')
-  px(ctx, cx + 3 * s, eyeY, 1 * s, 1 * s, '#fff')
+  // eyes — 1×2 vertical pixels (classic chibi)
+  const eyeY = opts.lookUp ? cy - 2 : cy - 1
+  px(ctx, cx - 3, eyeY, 1, 2, INK)
+  px(ctx, cx + 2, eyeY, 1, 2, INK)
 
-  px(ctx, cx - 1 * s, cy + 2 * s, 2 * s, 1 * s, INK)
-  px(ctx, cx - 2 * s, cy + 5 * s, 4 * s, 1 * s, INK)
+  // tiny mouth
+  if (opts.lookUp) {
+    px(ctx, cx - 1, cy + 3, 2, 1, INK)
+  } else {
+    px(ctx, cx - 1, cy + 3, 3, 1, INK)
+  }
 }
 
-function curlyHair(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  s: number,
-  back = false,
-): void {
+function curlyHair(ctx: CanvasRenderingContext2D, cx: number, cy: number, back = false): void {
   const curls = back
     ? [
-        [0, -8, 7],
-        [-7, -5, 6],
-        [7, -5, 6],
-        [-9, 1, 5],
-        [9, 1, 5],
-        [0, -12, 5],
-        [-6, 5, 5],
-        [6, 5, 5],
+        [0, -5, 5],
+        [-5, -3, 4],
+        [5, -3, 4],
+        [-6, 1, 4],
+        [6, 1, 4],
+        [0, -8, 4],
+        [-4, 4, 3],
+        [4, 4, 3],
       ]
     : [
-        [0, -8, 7],
-        [-7, -6, 6],
-        [7, -6, 6],
-        [-9, 0, 5],
-        [9, 0, 5],
-        [-4, -11, 5],
-        [4, -11, 5],
-        [0, -13, 4],
-        [-7, 4, 4],
-        [7, 4, 4],
+        [0, -5, 5],
+        [-5, -4, 4],
+        [5, -4, 4],
+        [-6, 0, 4],
+        [6, 0, 4],
+        [-3, -7, 3],
+        [3, -7, 3],
+        [0, -8, 3],
+        [-5, 3, 3],
+        [5, 3, 3],
       ]
   for (const [x, y, r] of curls) {
-    pixelBlob(ctx, cx + x * s, cy + y * s, r * s, r * s, HAIR)
+    pixelCircle(ctx, cx + x, cy + y, r, HAIR)
   }
-  pixelBlob(ctx, cx - 2 * s, cy - 9 * s, 3 * s, 2 * s, HAIR_HI)
 }
 
 function legs(
   ctx: CanvasRenderingContext2D,
   cx: number,
   top: number,
-  s: number,
   color: string,
+  shade: string,
   stride = 0,
 ): void {
-  px(ctx, cx - 6 * s - stride, top, 5 * s, 9 * s, color)
-  px(ctx, cx + 1 * s + stride, top, 5 * s, 9 * s, color)
-  px(ctx, cx - 7 * s - stride, top + 8 * s, 6 * s, 3 * s, BLACK)
-  px(ctx, cx + 1 * s + stride, top + 8 * s, 6 * s, 3 * s, BLACK)
+  px(ctx, cx - 4 - stride, top, 3, 6, color)
+  px(ctx, cx + 1 + stride, top, 3, 6, color)
+  px(ctx, cx - 4 - stride, top + 3, 3, 3, shade)
+  px(ctx, cx + 1 + stride, top + 3, 3, 3, shade)
+  px(ctx, cx - 5 - stride, top + 5, 4, 2, BLACK)
+  px(ctx, cx + 1 + stride, top + 5, 4, 2, BLACK)
 }
 
-/** Grocery hero — curly hair, red polo, navy shorts, green bag */
-function drawShopper(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
-  const s = LOGICAL / 48
-  const cx = 24 * s
+/** Row 1 — curly afro, red tee, blue shorts, lime bag */
+function drawCurly(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
+  const cx = 16
   const away = pose === 'up'
   const profile = pose === 'left' || pose === 'right'
   const flip = pose === 'left'
-  const stride = profile ? 2 * s : 0
+  const stride = profile ? 1 : 0
 
   ctx.save()
   if (flip) {
@@ -127,51 +131,47 @@ function drawShopper(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
     ctx.scale(-1, 1)
   }
 
-  ctx.fillStyle = 'rgba(26,20,32,0.2)'
-  ctx.beginPath()
-  ctx.ellipse(cx, 44 * s, 10 * s, 2 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  // shadow
+  px(ctx, cx - 5, 29, 10, 2, 'rgba(0,0,0,0.15)')
 
-  legs(ctx, cx, 34 * s, s, NAVY, stride)
+  legs(ctx, cx, 22, BLUE, BLUE_SHADE, stride)
 
-  px(ctx, cx - 7 * s, 22 * s, 14 * s, 14 * s, RED)
-  px(ctx, cx - 6 * s, 22 * s, 12 * s, 3 * s, RED_HI)
+  // torso
+  px(ctx, cx - 4, 14, 8, 9, RED)
+  px(ctx, cx - 4, 20, 8, 3, RED_SHADE)
 
+  // arms
   if (profile) {
-    px(ctx, cx + 6 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx - 9 * s, 26 * s, 3 * s, 7 * s, SKIN)
-  } else if (!away) {
-    px(ctx, cx - 11 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx + 7 * s, 24 * s, 4 * s, 9 * s, SKIN)
+    px(ctx, cx + 4, 15, 3, 6, SKIN)
+    px(ctx, cx - 6, 16, 2, 5, SKIN)
   } else {
-    px(ctx, cx - 11 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx + 7 * s, 24 * s, 4 * s, 9 * s, SKIN)
+    px(ctx, cx - 7, 15, 3, 6, SKIN)
+    px(ctx, cx + 4, 15, 3, 6, SKIN)
   }
 
-  // Green shopping bag
+  // lime satchel
   if (!away || profile) {
-    const bx = profile ? cx + 8 * s : cx + 10 * s
-    px(ctx, bx, 28 * s, 7 * s, 9 * s, BAG)
-    px(ctx, bx + 1 * s, 28 * s, 5 * s, 2 * s, BAG_HI)
+    const bx = profile ? cx + 5 : cx + 6
+    px(ctx, bx, 18, 4, 5, LIME)
+    px(ctx, bx, 18, 4, 1, shadeHex(LIME, 30))
   }
 
-  if (away) curlyHair(ctx, cx, 14 * s, s, true)
-  drawFace(ctx, cx, 14 * s, s, { away })
-  if (!away) curlyHair(ctx, cx, 14 * s, s, false)
+  if (away) curlyHair(ctx, cx, 8, true)
+  drawFace(ctx, cx, 8, { away })
+  if (!away) curlyHair(ctx, cx, 8, false)
 
   ctx.restore()
 }
 
-/** Clerk — bun, red visor, overalls */
+/** Row 2 — clerk: bun, red visor, apron + badge */
 function drawClerk(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
-  const s = LOGICAL / 48
-  const cx = 24 * s
+  const cx = 16
   const away = pose === 'up'
   const profile = pose === 'left' || pose === 'right'
   const flip = pose === 'left'
   const waving = pose === 'wave'
   const thinking = pose === 'thinking'
-  const stride = profile ? 2 * s : 0
+  const stride = profile ? 1 : 0
 
   ctx.save()
   if (flip) {
@@ -179,56 +179,64 @@ function drawClerk(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
     ctx.scale(-1, 1)
   }
 
-  ctx.fillStyle = 'rgba(26,20,32,0.2)'
-  ctx.beginPath()
-  ctx.ellipse(cx, 44 * s, 10 * s, 2 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  px(ctx, cx - 5, 29, 10, 2, 'rgba(0,0,0,0.15)')
 
-  legs(ctx, cx, 34 * s, s, BLACK, stride)
-  px(ctx, cx - 7 * s, 22 * s, 14 * s, 14 * s, BLACK)
-  px(ctx, cx - 6 * s, 20 * s, 12 * s, 6 * s, RED)
+  legs(ctx, cx, 22, BLACK, '#1a1420', stride)
+
+  // black apron body
+  px(ctx, cx - 4, 14, 8, 9, BLACK)
+  // red shirt peek at collar
+  px(ctx, cx - 3, 13, 6, 4, RED)
+  // badge
+  if (!away && !profile) {
+    px(ctx, cx + 1, 17, 2, 2, WHITE)
+    px(ctx, cx + 1, 17, 2, 1, RED)
+  }
 
   if (waving) {
-    px(ctx, cx - 11 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx + 8 * s, 14 * s, 4 * s, 10 * s, SKIN)
+    px(ctx, cx - 7, 15, 3, 6, SKIN)
+    px(ctx, cx + 5, 8, 3, 7, SKIN)
   } else if (thinking) {
-    px(ctx, cx - 11 * s, 24 * s, 4 * s, 8 * s, SKIN)
-    px(ctx, cx + 7 * s, 18 * s, 4 * s, 8 * s, SKIN)
-    px(ctx, cx + 8 * s, 16 * s, 4 * s, 4 * s, SKIN)
+    px(ctx, cx - 7, 15, 3, 5, SKIN)
+    px(ctx, cx + 4, 11, 3, 5, SKIN)
+    px(ctx, cx + 5, 10, 3, 3, SKIN)
   } else if (profile) {
-    px(ctx, cx + 6 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx - 9 * s, 26 * s, 3 * s, 7 * s, SKIN)
+    px(ctx, cx + 4, 15, 3, 6, SKIN)
+    px(ctx, cx - 6, 16, 2, 5, SKIN)
   } else {
-    px(ctx, cx - 11 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx + 7 * s, 24 * s, 4 * s, 9 * s, SKIN)
+    px(ctx, cx - 7, 15, 3, 6, SKIN)
+    px(ctx, cx + 4, 15, 3, 6, SKIN)
   }
 
-  px(ctx, cx - 5 * s, 18 * s, 3 * s, 5 * s, BLACK)
-  px(ctx, cx + 2 * s, 18 * s, 3 * s, 5 * s, BLACK)
+  // straps
+  px(ctx, cx - 3, 12, 2, 3, BLACK)
+  px(ctx, cx + 1, 12, 2, 3, BLACK)
 
-  drawFace(ctx, cx, 13 * s, s, { away, lookUp: thinking })
+  drawFace(ctx, cx, 7, { away, lookUp: thinking })
 
-  pixelBlob(ctx, cx, 4 * s, 4 * s, 4 * s, HAIR)
+  // bun + hair bowl
+  pixelCircle(ctx, cx, 1, 3, HAIR)
   if (!away) {
-    pixelBlob(ctx, cx, 8 * s, 9 * s, 4 * s, HAIR)
+    px(ctx, cx - 6, 3, 12, 4, HAIR)
   } else {
-    pixelBlob(ctx, cx, 12 * s, 9 * s, 5 * s, HAIR)
+    pixelCircle(ctx, cx, 6, 6, HAIR)
   }
-  px(ctx, cx - 8 * s, 6 * s, 16 * s, 5 * s, RED)
-  if (!away) px(ctx, cx + 2 * s, 8 * s, 10 * s, 3 * s, RED)
-  else px(ctx, cx - 12 * s, 8 * s, 10 * s, 3 * s, RED)
+
+  // red visor
+  px(ctx, cx - 6, 2, 12, 4, RED)
+  if (!away) px(ctx, cx + 1, 4, 7, 2, RED)
+  else px(ctx, cx - 8, 4, 7, 2, RED)
 
   ctx.restore()
 }
 
-/** Backwards-cap shopper */
-function drawBagShopper(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
-  const s = LOGICAL / 48
-  const cx = 24 * s
+/** Row 3 — backwards cap, white tee, jeans, black bag */
+function drawCapKid(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
+  const cx = 16
   const away = pose === 'up'
   const profile = pose === 'left' || pose === 'right'
   const flip = pose === 'left'
-  const stride = profile ? 2 * s : 0
+  const stride = profile ? 1 : 0
 
   ctx.save()
   if (flip) {
@@ -236,33 +244,32 @@ function drawBagShopper(ctx: CanvasRenderingContext2D, pose: PoseKey): void {
     ctx.scale(-1, 1)
   }
 
-  ctx.fillStyle = 'rgba(26,20,32,0.2)'
-  ctx.beginPath()
-  ctx.ellipse(cx, 44 * s, 10 * s, 2 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  px(ctx, cx - 5, 29, 10, 2, 'rgba(0,0,0,0.15)')
 
-  legs(ctx, cx, 34 * s, s, JEAN, stride)
-  px(ctx, cx - 7 * s, 22 * s, 14 * s, 14 * s, WHITE)
-  px(ctx, cx - 6 * s, 22 * s, 12 * s, 3 * s, shadeHex(WHITE, -12))
+  legs(ctx, cx, 22, JEAN, shadeHex(JEAN, -25), stride)
+  px(ctx, cx - 4, 14, 8, 9, WHITE)
+  px(ctx, cx - 4, 20, 8, 3, shadeHex(WHITE, -18))
 
   if (profile) {
-    px(ctx, cx + 6 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx - 9 * s, 26 * s, 3 * s, 7 * s, SKIN)
+    px(ctx, cx + 4, 15, 3, 6, SKIN)
+    px(ctx, cx - 6, 16, 2, 5, SKIN)
   } else {
-    px(ctx, cx - 11 * s, 24 * s, 4 * s, 9 * s, SKIN)
-    px(ctx, cx + 7 * s, 24 * s, 4 * s, 9 * s, SKIN)
+    px(ctx, cx - 7, 15, 3, 6, SKIN)
+    px(ctx, cx + 4, 15, 3, 6, SKIN)
   }
 
-  // Crossbody bag
-  px(ctx, cx - 6 * s, 24 * s, 2 * s, 12 * s, BLACK)
-  px(ctx, cx + 6 * s, 32 * s, 6 * s, 5 * s, BLACK)
+  // crossbody strap + bag
+  px(ctx, cx - 3, 14, 1, 8, BLACK)
+  px(ctx, cx + 3, 20, 4, 4, BLACK)
 
-  drawFace(ctx, cx, 13 * s, s, { away })
-  pixelBlob(ctx, cx, 8 * s, 9 * s, 5 * s, HAIR)
-  px(ctx, cx - 8 * s, 5 * s, 16 * s, 5 * s, BLACK)
-  if (!away) px(ctx, cx - 11 * s, 7 * s, 6 * s, 3 * s, BLACK)
-  else px(ctx, cx + 5 * s, 7 * s, 6 * s, 3 * s, BLACK)
-  px(ctx, cx - 2 * s, 6 * s, 4 * s, 2 * s, '#8a9098')
+  drawFace(ctx, cx, 7, { away })
+  px(ctx, cx - 6, 2, 12, 5, HAIR)
+
+  // backwards cap
+  px(ctx, cx - 6, 1, 12, 4, BLACK)
+  if (!away) px(ctx, cx - 8, 3, 5, 2, BLACK)
+  else px(ctx, cx + 3, 3, 5, 2, BLACK)
+  px(ctx, cx - 1, 2, 3, 1, '#9aa3ad')
 
   ctx.restore()
 }
@@ -277,18 +284,11 @@ function makePoseCell(
   return upscalePixel(canvas, CELL)
 }
 
-function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
-  ctx.fillStyle = 'rgba(26,20,32,0.55)'
-  ctx.font = `700 ${Math.max(10, CELL * 0.08)}px Nunito, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.fillText(text, x, y)
-}
-
-/** Pixel RPG character sheet matching the FairPrice grocery reference. */
+/** Classic pixel RPG character sheet matching the uploaded reference. */
 export function buildSampleCharacterSheet(): HTMLCanvasElement {
   const cols = 5
   const rows = 3
-  const padTop = 28
+  const padTop = 14
   const sheet = createCanvas(cols * CELL, rows * CELL + padTop)
   const ctx = getCtx(sheet, false)
   ctx.imageSmoothingEnabled = false
@@ -299,20 +299,41 @@ export function buildSampleCharacterSheet(): HTMLCanvasElement {
   const row2: PoseKey[] = ['wave', 'left', 'right', 'up', 'thinking']
   const row3: PoseKey[] = ['down']
 
+  // Labels in blocky pixel font (scaled for 128 cells)
+  const labelScale = 2
+  const labelY = 2
+
   row1.forEach((pose, i) => {
-    const cell = makePoseCell(drawShopper, pose)
+    const cell = makePoseCell(drawCurly, pose)
     ctx.drawImage(cell, i * CELL, padTop)
-    label(ctx, pose, i * CELL + CELL / 2, padTop - 8)
+    const tw = pose.length * 4 * labelScale
+    drawPixelText(ctx, pose, i * CELL + (CELL - tw) / 2, labelY, 'rgba(0,0,0,0.4)', labelScale)
   })
   row2.forEach((pose, i) => {
     const cell = makePoseCell(drawClerk, pose)
     ctx.drawImage(cell, i * CELL, CELL + padTop)
-    label(ctx, pose, i * CELL + CELL / 2, CELL + padTop - 8)
+    const tw = pose.length * 4 * labelScale
+    drawPixelText(
+      ctx,
+      pose,
+      i * CELL + (CELL - tw) / 2,
+      CELL + labelY,
+      'rgba(0,0,0,0.4)',
+      labelScale,
+    )
   })
   row3.forEach((pose, i) => {
-    const cell = makePoseCell(drawBagShopper, pose)
+    const cell = makePoseCell(drawCapKid, pose)
     ctx.drawImage(cell, i * CELL, CELL * 2 + padTop)
-    label(ctx, pose, i * CELL + CELL / 2, CELL * 2 + padTop - 8)
+    const tw = pose.length * 4 * labelScale
+    drawPixelText(
+      ctx,
+      pose,
+      i * CELL + (CELL - tw) / 2,
+      CELL * 2 + labelY,
+      'rgba(0,0,0,0.4)',
+      labelScale,
+    )
   })
 
   return sheet
@@ -328,21 +349,22 @@ export async function loadSampleSheetCharacters(): Promise<{
   const sheetCanvas = buildSampleCharacterSheet()
   const sheetDataUrl = canvasToDataUrl(sheetCanvas)
 
-  const shopDown = makePoseCell(drawShopper, 'down')
-  const shopLeft = makePoseCell(drawShopper, 'left')
-  const shopRight = makePoseCell(drawShopper, 'right')
-  const shopUp = makePoseCell(drawShopper, 'up')
+  const curlyDown = makePoseCell(drawCurly, 'down')
+  const curlyLeft = makePoseCell(drawCurly, 'left')
+  const curlyRight = makePoseCell(drawCurly, 'right')
+  const curlyUp = makePoseCell(drawCurly, 'up')
 
   const clerkWave = makePoseCell(drawClerk, 'wave')
   const clerkLeft = makePoseCell(drawClerk, 'left')
   const clerkRight = makePoseCell(drawClerk, 'right')
   const clerkUp = makePoseCell(drawClerk, 'up')
   const clerkThink = makePoseCell(drawClerk, 'thinking')
+  const clerkDown = makePoseCell(drawClerk, 'down')
 
-  const bagDown = makePoseCell(drawBagShopper, 'down')
-  const bagLeft = makePoseCell(drawBagShopper, 'left')
-  const bagRight = makePoseCell(drawBagShopper, 'right')
-  const bagUp = makePoseCell(drawBagShopper, 'up')
+  const bagDown = makePoseCell(drawCapKid, 'down')
+  const bagLeft = makePoseCell(drawCapKid, 'left')
+  const bagRight = makePoseCell(drawCapKid, 'right')
+  const bagUp = makePoseCell(drawCapKid, 'up')
 
   const defs: {
     id: string
@@ -353,30 +375,30 @@ export async function loadSampleSheetCharacters(): Promise<{
   }[] = [
     {
       id: 'sheet-curly',
-      name: 'Curly Shopper',
-      primary: shopDown,
-      poses: { down: shopDown, left: shopLeft, right: shopRight, up: shopUp },
+      name: 'Curly Hero',
+      primary: curlyDown,
+      poses: { down: curlyDown, left: curlyLeft, right: curlyRight, up: curlyUp },
       loadout: {
         hair: 'curly',
-        eyes: 'oval',
+        eyes: 'dots',
         hands: 'relaxed',
         legs: 'straight',
         shirt: 'tee',
         pants: 'shorts',
         accessory: 'satchel',
-        skin: '#c68642',
-        hairColor: '#1a1420',
-        shirtColor: '#d62828',
-        pantsColor: '#2d3a6e',
-        accessoryColor: '#7cb342',
+        skin: '#ffd6ba',
+        hairColor: '#2a262e',
+        shirtColor: '#e23b45',
+        pantsColor: '#4696e6',
+        accessoryColor: '#a0dc50',
       },
     },
     {
       id: 'sheet-cap',
-      name: 'Market Clerk',
+      name: 'Red Cap',
       primary: clerkWave,
       poses: {
-        down: clerkWave,
+        down: clerkDown,
         wave: clerkWave,
         left: clerkLeft,
         right: clerkRight,
@@ -385,17 +407,17 @@ export async function loadSampleSheetCharacters(): Promise<{
       },
       loadout: {
         hair: 'cap',
-        eyes: 'oval',
+        eyes: 'dots',
         hands: 'wave',
         legs: 'straight',
         shirt: 'tee',
         pants: 'overalls',
         accessory: 'none',
-        skin: '#c68642',
-        hairColor: '#1a1420',
-        shirtColor: '#d62828',
-        pantsColor: '#1a1420',
-        accessoryColor: '#7cb342',
+        skin: '#ffd6ba',
+        hairColor: '#2a262e',
+        shirtColor: '#e23b45',
+        pantsColor: '#2a262e',
+        accessoryColor: '#a0dc50',
       },
     },
     {
@@ -405,17 +427,17 @@ export async function loadSampleSheetCharacters(): Promise<{
       poses: { down: bagDown, left: bagLeft, right: bagRight, up: bagUp },
       loadout: {
         hair: 'backwards',
-        eyes: 'oval',
+        eyes: 'dots',
         hands: 'relaxed',
         legs: 'straight',
         shirt: 'tee',
         pants: 'jeans',
         accessory: 'backpack',
-        skin: '#c68642',
-        hairColor: '#1a1420',
-        shirtColor: '#f0f0f4',
-        pantsColor: '#3f5f9e',
-        accessoryColor: '#1a1420',
+        skin: '#ffd6ba',
+        hairColor: '#2a262e',
+        shirtColor: '#f5f5f8',
+        pantsColor: '#3f78c8',
+        accessoryColor: '#2a262e',
       },
     },
   ]
@@ -447,7 +469,7 @@ export async function loadSampleSheetCharacters(): Promise<{
   }
 
   const palette = await extractPaletteFromImage(
-    await loadImage(canvasToDataUrl(shopDown)),
+    await loadImage(canvasToDataUrl(curlyDown)),
     16,
   )
 

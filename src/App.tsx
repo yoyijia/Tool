@@ -95,9 +95,8 @@ export default function App() {
           <p className="brand-mark">SpriteNest</p>
           <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            High-fidelity pixel RPG style — outlined chibi heroes, shaded
-            sprites, modular supermarket tiles. Animate walk cycles and build
-            FairPrice-style worlds. Inspired by{' '}
+            Classic chibi pixel RPG style — big heads, 1px outlines, tiny eyes.
+            Animate walk cycles and build modular supermarket tiles. Inspired by{' '}
             <a href="https://ludo.ai" target="_blank" rel="noreferrer">
               Ludo.ai
             </a>

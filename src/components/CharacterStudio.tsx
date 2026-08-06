@@ -273,11 +273,11 @@ export function CharacterStudio({
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Animate · pixel RPG style</div>
+        <div className="ludo-badge">Animate · classic chibi pixel</div>
         <h2>Animate Sprite</h2>
         <p>
-          Outlined chibi pixel heroes with shading — like the FairPrice grocery
-          scene. Side-view walk by default; optional 4-direction sheets too.
+          RPG Maker–style chibi pixels — oversized heads, solid black outlines,
+          stepped shade. Side-view walk by default; optional 4-direction sheets.
         </p>
       </header>
 
@@ -292,8 +292,8 @@ export function CharacterStudio({
           <div className="sheet-banner-copy">
             <strong>Starting frames ready</strong>
             <span>
-              Curly Shopper · Market Clerk · Backwards Cap — pixel RPG walk
-              cycles with outlines and shading.
+              Curly Hero · Red Cap · Backwards Cap — classic chibi pixel sheet
+              with directional poses.
             </span>
           </div>
           <img

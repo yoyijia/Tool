@@ -6,7 +6,7 @@ import {
   createPixelCanvas,
   logicalSizeFor,
   outlineCanvas,
-  pixelBlob,
+  pixelCircle,
   px,
   shadeHex,
   upscalePixel,
@@ -18,7 +18,7 @@ export type WalkDir = 'down' | 'left' | 'right' | 'up'
 export const WALK_DIRS: WalkDir[] = ['down', 'left', 'right', 'up']
 
 export const HAIR_VARIANT_COLORS = [
-  '#1a1420',
+  '#2a262e',
   '#2a3a6e',
   '#6b3e1a',
   '#e88ab0',
@@ -55,7 +55,7 @@ function resolveLoadout(opts: RpgWalkOptions): CharacterLoadout {
   return base as CharacterLoadout
 }
 
-/** Pixel ¾ front / back walk frame. */
+/** Classic chibi front / back walk frame (32-grid). */
 function drawPixelFrontBack(
   size: number,
   dir: 'down' | 'up',
@@ -64,59 +64,59 @@ function drawPixelFrontBack(
 ): HTMLCanvasElement {
   const logical = logicalSizeFor(size)
   const { canvas, ctx } = createPixelCanvas(logical)
-  const s = logical / 48
-  const cx = 24 * s
+  const scale = logical / 32
+  const S = (n: number) => Math.round(n * scale)
+  const cx = S(16)
   const swing = Math.sin(phase * Math.PI * 2)
-  const bob = Math.abs(Math.cos(phase * Math.PI * 2)) * 1.1 * s
-  const stride = swing * 2.2 * s
+  const bob = Math.abs(Math.cos(phase * Math.PI * 2))
+  const stride = Math.round(swing)
   const away = dir === 'up'
 
   const skin = loadout.skin
-  const skinHi = shadeHex(skin, 28)
+  const skinShade = shadeHex(skin, -28)
   const shirt = loadout.shirtColor
+  const shirtShade = shadeHex(shirt, -28)
   const pants = loadout.pantsColor
+  const pantsShade = shadeHex(pants, -28)
   const hair = loadout.hairColor
-  const shoe = '#1a1420'
+  const shoe = '#000000'
 
-  ctx.fillStyle = 'rgba(26,20,32,0.2)'
-  ctx.beginPath()
-  ctx.ellipse(cx, 44 * s, 10 * s, 2 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
+  px(ctx, cx - S(5), S(29), S(10), S(2), 'rgba(0,0,0,0.15)')
 
-  const bodyY = 22 * s - bob
-  const headY = 13 * s - bob
+  const bodyY = S(14) - S(bob)
+  const headY = S(7) - S(bob)
 
   // Arms
-  px(ctx, cx - 11 * s - stride * 0.4, bodyY + 2 * s, 4 * s, 9 * s, skin)
-  px(ctx, cx + 7 * s + stride * 0.4, bodyY + 2 * s, 4 * s, 9 * s, skin)
+  px(ctx, cx - S(7) - S(stride), bodyY + S(1), S(3), S(6), skin)
+  px(ctx, cx + S(4) + S(stride), bodyY + S(1), S(3), S(6), skin)
 
   // Legs
-  px(ctx, cx - 6 * s - stride, bodyY + 12 * s, 5 * s, 9 * s, pants)
-  px(ctx, cx + 1 * s + stride, bodyY + 12 * s, 5 * s, 9 * s, pants)
-  px(ctx, cx - 7 * s - stride, bodyY + 20 * s, 6 * s, 3 * s, shoe)
-  px(ctx, cx + 1 * s + stride, bodyY + 20 * s, 6 * s, 3 * s, shoe)
+  px(ctx, cx - S(4) - S(stride), bodyY + S(8), S(3), S(6), pants)
+  px(ctx, cx + S(1) + S(stride), bodyY + S(8), S(3), S(6), pants)
+  px(ctx, cx - S(4) - S(stride), bodyY + S(11), S(3), S(3), pantsShade)
+  px(ctx, cx + S(1) + S(stride), bodyY + S(11), S(3), S(3), pantsShade)
+  px(ctx, cx - S(5) - S(stride), bodyY + S(13), S(4), S(2), shoe)
+  px(ctx, cx + S(1) + S(stride), bodyY + S(13), S(4), S(2), shoe)
 
   // Torso
-  px(ctx, cx - 7 * s, bodyY, 14 * s, 14 * s, shirt)
-  px(ctx, cx - 6 * s, bodyY, 12 * s, 3 * s, shadeHex(shirt, 30))
+  px(ctx, cx - S(4), bodyY, S(8), S(9), shirt)
+  px(ctx, cx - S(4), bodyY + S(6), S(8), S(3), shirtShade)
 
   // Head
-  pixelBlob(ctx, cx, headY, 10 * s, 10 * s, skin)
+  pixelCircle(ctx, cx, headY, S(7), skin)
   if (!away) {
-    px(ctx, cx - 4 * s, headY - 5 * s, 8 * s, 4 * s, skinHi)
-    px(ctx, cx - 7 * s, headY + 2 * s, 3 * s, 2 * s, '#e88890')
-    px(ctx, cx + 4 * s, headY + 2 * s, 3 * s, 2 * s, '#e88890')
-    px(ctx, cx - 5 * s, headY - 1 * s, 3 * s, 4 * s, '#1a1420')
-    px(ctx, cx + 2 * s, headY - 1 * s, 3 * s, 4 * s, '#1a1420')
-    px(ctx, cx - 1 * s, headY + 2 * s, 2 * s, 1 * s, '#1a1420')
-    px(ctx, cx - 2 * s, headY + 5 * s, 4 * s, 1 * s, '#1a1420')
+    px(ctx, cx - S(3), headY + S(3), S(6), S(2), skinShade)
+    px(ctx, cx - S(5), headY + S(1), S(2), S(1), '#ff9eaa')
+    px(ctx, cx + S(3), headY + S(1), S(2), S(1), '#ff9eaa')
+    px(ctx, cx - S(3), headY - S(1), S(1), S(2), '#000000')
+    px(ctx, cx + S(2), headY - S(1), S(1), S(2), '#000000')
+    px(ctx, cx - S(1), headY + S(3), S(3), S(1), '#000000')
   }
 
-  drawFrontHair(ctx, cx, headY, s, loadout.hair, hair, shirt, away)
+  drawFrontHair(ctx, cx, headY, S, loadout.hair, hair, shirt, away)
 
   if (loadout.accessory !== 'none' && !away) {
-    px(ctx, cx + 8 * s, bodyY + 6 * s, 7 * s, 9 * s, loadout.accessoryColor)
-    px(ctx, cx + 9 * s, bodyY + 6 * s, 5 * s, 2 * s, shadeHex(loadout.accessoryColor, 30))
+    px(ctx, cx + S(5), bodyY + S(4), S(4), S(5), loadout.accessoryColor)
   }
 
   outlineCanvas(canvas)
@@ -127,7 +127,7 @@ function drawFrontHair(
   ctx: CanvasRenderingContext2D,
   cx: number,
   hy: number,
-  s: number,
+  S: (n: number) => number,
   style: string,
   color: string,
   accent: string,
@@ -137,52 +137,51 @@ function drawFrontHair(
 
   if (style === 'curly') {
     for (const [x, y, r] of [
-      [0, -8, 7],
-      [-7, -5, 6],
-      [7, -5, 6],
-      [-9, 1, 5],
-      [9, 1, 5],
-      [0, -12, 5],
-      [-6, 4, 4],
-      [6, 4, 4],
+      [0, -5, 5],
+      [-5, -3, 4],
+      [5, -3, 4],
+      [-6, 1, 3],
+      [6, 1, 3],
+      [0, -8, 3],
+      [-4, 3, 3],
+      [4, 3, 3],
     ] as const) {
-      pixelBlob(ctx, cx + x * s, hy + y * s, r * s, r * s, color)
+      pixelCircle(ctx, cx + S(x), hy + S(y), S(r), color)
     }
-    pixelBlob(ctx, cx - 2 * s, hy - 9 * s, 3 * s, 2 * s, shadeHex(color, 40))
     return
   }
 
   if (style === 'cap') {
-    pixelBlob(ctx, cx, hy - 12 * s, 4 * s, 4 * s, color)
-    pixelBlob(ctx, cx, hy - 4 * s, 9 * s, 4 * s, color)
-    px(ctx, cx - 8 * s, hy - 7 * s, 16 * s, 5 * s, accent)
-    if (!back) px(ctx, cx + 2 * s, hy - 5 * s, 10 * s, 3 * s, accent)
-    else px(ctx, cx - 12 * s, hy - 5 * s, 10 * s, 3 * s, accent)
+    pixelCircle(ctx, cx, hy - S(8), S(3), color)
+    px(ctx, cx - S(6), hy - S(4), S(12), S(4), color)
+    px(ctx, cx - S(6), hy - S(5), S(12), S(4), accent)
+    if (!back) px(ctx, cx + S(1), hy - S(3), S(7), S(2), accent)
+    else px(ctx, cx - S(8), hy - S(3), S(7), S(2), accent)
     return
   }
 
   if (style === 'backwards') {
-    px(ctx, cx - 8 * s, hy - 8 * s, 16 * s, 6 * s, '#1a1420')
-    px(ctx, cx - 10 * s, hy - 6 * s, 6 * s, 3 * s, '#1a1420')
+    px(ctx, cx - S(6), hy - S(6), S(12), S(4), '#2a262e')
+    px(ctx, cx - S(8), hy - S(4), S(5), S(2), '#2a262e')
     return
   }
 
   if (style === 'explorer') {
-    px(ctx, cx - 9 * s, hy - 8 * s, 18 * s, 5 * s, '#c4a574')
-    px(ctx, cx - 11 * s, hy - 5 * s, 22 * s, 3 * s, '#c4a574')
+    px(ctx, cx - S(7), hy - S(6), S(14), S(4), '#c4a574')
+    px(ctx, cx - S(8), hy - S(4), S(16), S(2), '#c4a574')
     return
   }
 
   if (style === 'spiky') {
-    px(ctx, cx - 6 * s, hy - 10 * s, 4 * s, 8 * s, color)
-    px(ctx, cx - 1 * s, hy - 12 * s, 4 * s, 9 * s, color)
-    px(ctx, cx + 4 * s, hy - 9 * s, 4 * s, 7 * s, color)
+    px(ctx, cx - S(4), hy - S(8), S(3), S(6), color)
+    px(ctx, cx - S(1), hy - S(9), S(3), S(7), color)
+    px(ctx, cx + S(3), hy - S(7), S(3), S(5), color)
     return
   }
 
-  pixelBlob(ctx, cx, hy - 5 * s, 9 * s, 5 * s, color)
+  px(ctx, cx - S(6), hy - S(5), S(12), S(5), color)
   if (style === 'bun' || back) {
-    pixelBlob(ctx, cx, hy - 11 * s, 4 * s, 4 * s, color)
+    pixelCircle(ctx, cx, hy - S(8), S(3), color)
   }
 }
 
@@ -221,7 +220,7 @@ export interface DirectionalWalkSheet {
   fps: number
   meta: {
     layout: 'pixel-rpg-4dir'
-    style: 'pixel-art'
+    style: 'classic-chibi-pixel'
     directions: WalkDir[]
     frameWidth: number
     frameHeight: number
@@ -255,7 +254,7 @@ export function generateRpgWalkSheet(opts: RpgWalkOptions): DirectionalWalkSheet
     fps: 10,
     meta: {
       layout: 'pixel-rpg-4dir',
-      style: 'pixel-art',
+      style: 'classic-chibi-pixel',
       directions: [...WALK_DIRS],
       frameWidth: opts.frameSize,
       frameHeight: opts.frameSize,
@@ -269,7 +268,7 @@ export function generateRpgWalkSheet(opts: RpgWalkOptions): DirectionalWalkSheet
 export function generateVariantWalkSheet(
   opts: RpgWalkOptions,
   hairColors: string[] = HAIR_VARIANT_COLORS.slice(0, 4),
-  skinColors: string[] = [opts.loadout?.skin ?? SKIN_VARIANT_COLORS[3]],
+  skinColors: string[] = [opts.loadout?.skin ?? SKIN_VARIANT_COLORS[0]],
 ): { canvas: HTMLCanvasElement; meta: Record<string, unknown> } {
   const frameCount = Math.max(2, Math.min(48, opts.frameCount))
   const variants: { hair: string; skin: string }[] = []
@@ -301,7 +300,7 @@ export function generateVariantWalkSheet(
     canvas,
     meta: {
       layout: 'pixel-rpg-4dir-variants',
-      style: 'pixel-art',
+      style: 'classic-chibi-pixel',
       directions: WALK_DIRS,
       frameWidth: opts.frameSize,
       frameHeight: opts.frameSize,
