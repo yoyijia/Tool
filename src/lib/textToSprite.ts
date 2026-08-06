@@ -10,8 +10,8 @@ export const ART_STYLES: {
 }[] = [
   {
     id: 'pixel-rpg',
-    label: 'Pixel RPG',
-    blurb: 'Outlined chibi, shaded — FairPrice / indie RPG',
+    label: 'Classic Chibi Pixel',
+    blurb: 'Big head, 1px outline, tiny eyes — RPG Maker vibe',
   },
   {
     id: 'nintendo-clean-vector',
