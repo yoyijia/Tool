@@ -1,4 +1,10 @@
 import type { BrandReport, TrendSignal } from "../types";
+import {
+  audienceKindFromLabel,
+  audienceKinds,
+  primaryAudienceLabel,
+  type AudienceKind,
+} from "./audience";
 
 export type BrandLane =
   | "healthcare"
@@ -28,7 +34,147 @@ export interface BrandProfile {
   corpus: string;
   primaryOffer: string;
   audienceLabel: string;
+  audiences: AudienceKind[];
 }
+
+/** What each audience actually wants to see on TikTok/Reels. */
+const AUDIENCE_AFFINITY: Record<AudienceKind, Partial<Record<TrendLane, number>>> = {
+  healthcare: {
+    skit_documentary: 32,
+    list_value: 28,
+    ai_tech: 26,
+    pov_bts: 22,
+    culture_news: 24,
+    comparison: 16,
+    reveal_product: 8,
+    lifestyle_comedy: 2,
+    personal_story: -10,
+    beauty_fashion: -34,
+    travel_summer: -18,
+    audio_only: -12,
+    other: 0,
+  },
+  marketers: {
+    ai_tech: 30,
+    comparison: 26,
+    list_value: 24,
+    skit_documentary: 24,
+    pov_bts: 22,
+    culture_news: 18,
+    reveal_product: 12,
+    lifestyle_comedy: 8,
+    personal_story: 0,
+    beauty_fashion: -10,
+    travel_summer: -4,
+    audio_only: -2,
+    other: 2,
+  },
+  founders: {
+    list_value: 32,
+    comparison: 28,
+    skit_documentary: 26,
+    ai_tech: 24,
+    pov_bts: 18,
+    reveal_product: 14,
+    culture_news: 6,
+    lifestyle_comedy: 4,
+    personal_story: -8,
+    beauty_fashion: -26,
+    travel_summer: -14,
+    audio_only: -10,
+    other: 0,
+  },
+  b2b: {
+    list_value: 32,
+    skit_documentary: 30,
+    ai_tech: 28,
+    comparison: 26,
+    pov_bts: 16,
+    reveal_product: 12,
+    culture_news: 4,
+    lifestyle_comedy: 0,
+    personal_story: -14,
+    beauty_fashion: -32,
+    travel_summer: -18,
+    audio_only: -14,
+    other: 0,
+  },
+  developers: {
+    ai_tech: 34,
+    skit_documentary: 28,
+    list_value: 26,
+    comparison: 24,
+    pov_bts: 16,
+    reveal_product: 10,
+    culture_news: 0,
+    lifestyle_comedy: 2,
+    personal_story: -16,
+    beauty_fashion: -36,
+    travel_summer: -20,
+    audio_only: -16,
+    other: 0,
+  },
+  designers: {
+    reveal_product: 30,
+    comparison: 26,
+    pov_bts: 24,
+    skit_documentary: 18,
+    list_value: 14,
+    beauty_fashion: 12,
+    lifestyle_comedy: 10,
+    personal_story: 8,
+    ai_tech: 12,
+    audio_only: 8,
+    culture_news: 2,
+    travel_summer: 6,
+    other: 4,
+  },
+  athletes: {
+    reveal_product: 32,
+    personal_story: 28,
+    lifestyle_comedy: 22,
+    beauty_fashion: 16,
+    comparison: 16,
+    travel_summer: 14,
+    audio_only: 14,
+    pov_bts: 14,
+    list_value: 10,
+    skit_documentary: 8,
+    ai_tech: -2,
+    culture_news: 0,
+    other: 4,
+  },
+  consumers: {
+    beauty_fashion: 34,
+    reveal_product: 30,
+    personal_story: 28,
+    lifestyle_comedy: 24,
+    travel_summer: 22,
+    audio_only: 18,
+    comparison: 14,
+    list_value: 12,
+    pov_bts: 12,
+    skit_documentary: 8,
+    ai_tech: 0,
+    culture_news: 2,
+    other: 4,
+  },
+  general: {
+    skit_documentary: 12,
+    list_value: 12,
+    comparison: 10,
+    pov_bts: 10,
+    reveal_product: 10,
+    lifestyle_comedy: 8,
+    personal_story: 6,
+    culture_news: 6,
+    ai_tech: 6,
+    beauty_fashion: 4,
+    travel_summer: 4,
+    audio_only: 2,
+    other: 4,
+  },
+};
 
 export function brandCorpus(report: BrandReport): string {
   return [
@@ -53,7 +199,7 @@ function inferOffer(report: BrandReport, corpus: string, lanes: BrandLane[]): st
     return "payments & financial infrastructure";
   }
   if (/shoe|sneaker|athlete|just do it|sport|nike/.test(corpus)) {
-    return "sport & footwear culture";
+    return "sport & footwear";
   }
   if (/design|figma|collaborat|canvas|prototype/.test(corpus)) {
     return "design collaboration";
@@ -64,9 +210,7 @@ function inferOffer(report: BrandReport, corpus: string, lanes: BrandLane[]): st
   if (/canva|template|visual creat/.test(corpus)) {
     return "visual content creation";
   }
-  if (report.keywords?.length) {
-    return report.keywords.slice(0, 2).join(" / ");
-  }
+  if (report.keywords?.length) return report.keywords.slice(0, 2).join(" / ");
   if (report.tagline && report.tagline.length < 80) return report.tagline;
   const desc = (report.description || "").replace(/\s+/g, " ").trim();
   if (desc) return desc.slice(0, 60);
@@ -75,51 +219,38 @@ function inferOffer(report: BrandReport, corpus: string, lanes: BrandLane[]): st
 
 export function classifyBrand(report: BrandReport): BrandProfile {
   const corpus = brandCorpus(report);
+  const audiences = audienceKinds(report);
   const lanes: BrandLane[] = [];
 
   const isAgency =
     /digital marketing agency|marketing agency|advertising agency|activa media|healthcare marketing|medical marketing/.test(
       corpus,
     );
-  const isHealthcare =
-    isAgency &&
-    /healthcare|medical marketing|clinic|hospital|pharma|dental|patient/.test(corpus);
-  const isB2b =
-    /saas|b2b|api\b|cloud platform|fintech|payment|stripe|software platform|developer|enterprise software|financial infrastructure/.test(
-      corpus,
-    ) && !/just do it|sneaker|footwear/.test(corpus);
-  const isConsumer =
-    /fashion|beauty|cosmetic|apparel|retail|ecommerce|sneaker|footwear|athlete|just do it|sport|nike|consumer|shop now/.test(
-      corpus,
-    );
-  const isCreative =
-    /design tool|figma|creative suite|canva|prototype|whiteboard/.test(corpus) &&
-    !isAgency;
-
-  if (isHealthcare) lanes.push("healthcare");
-  if (isAgency) lanes.push("agency");
-  if (isB2b) lanes.push("b2b");
-  if (isConsumer) lanes.push("consumer");
-  if (isCreative) lanes.push("creative");
+  if (audiences.includes("healthcare") || (isAgency && /healthcare|medical/.test(corpus))) {
+    lanes.push("healthcare");
+  }
+  if (isAgency || audiences.includes("marketers")) lanes.push("agency");
+  if (
+    audiences.includes("b2b") ||
+    audiences.includes("developers") ||
+    audiences.includes("founders")
+  ) {
+    if (!audiences.includes("athletes") && !audiences.includes("consumers")) {
+      lanes.push("b2b");
+    }
+  }
+  if (audiences.includes("consumers") || audiences.includes("athletes")) {
+    lanes.push("consumer");
+  }
+  if (audiences.includes("designers")) lanes.push("creative");
   if (!lanes.length) lanes.push("general");
-
-  const audienceLabel =
-    report.audiences?.slice(0, 2).join(" + ") ||
-    (lanes.includes("healthcare")
-      ? "healthcare decision-makers"
-      : lanes.includes("b2b")
-        ? "B2B buyers"
-        : lanes.includes("agency")
-          ? "marketers & clients"
-          : lanes.includes("consumer")
-            ? "consumers"
-            : "your audience");
 
   return {
     lanes,
     corpus,
     primaryOffer: inferOffer(report, corpus, lanes),
-    audienceLabel,
+    audienceLabel: primaryAudienceLabel(report),
+    audiences,
   };
 }
 
@@ -130,8 +261,6 @@ export function classifyTrend(signal: TrendSignal): TrendLane {
   if (signal.tag === "live-sg" || /news sg|trends sg|google trends/i.test(signal.source)) {
     return "culture_news";
   }
-
-  // Naked audio charts (Buffer / SocialBee song titles)
   if (
     (/buffer sounds|socialbee sounds/i.test(signal.source) ||
       /^(original (audio|sound)|freaked out|saxophones|petal|u \+ me|mind blank|on a mission|august by|prayer instrumental|dolce nonna)/i.test(
@@ -143,7 +272,6 @@ export function classifyTrend(signal: TrendSignal): TrendLane {
   ) {
     return "audio_only";
   }
-
   if (
     /responding to bullies|favorite person|same age as my parents|paparazzi|fishin|girlhood|too shy|summon me|tell me more about yourself/i.test(
       title,
@@ -157,22 +285,22 @@ export function classifyTrend(signal: TrendSignal): TrendLane {
   if (/spain|travel|beach|summer|where are you|vacation|fishin/i.test(text)) {
     return "travel_summer";
   }
-  if (/chatgpt|ai\b|script|seo|search|geo/i.test(text)) {
+  if (/chatgpt|ai\b|script|seo|search|geo|api|changelog|integration/i.test(text)) {
     return "ai_tech";
   }
-  if (/documentary|netflix|describe your job|make it illegal/i.test(text)) {
+  if (/documentary|netflix|describe your job|make it illegal|myth vs fact|trust-stack/i.test(text)) {
     return "skit_documentary";
   }
-  if (/worth the money|reasons to|what i did|hour-by-hour|subtitle gratitude/i.test(text)) {
+  if (/worth the money|worth the stack|reasons to|what i did|hour-by-hour|subtitle gratitude|roi/i.test(text)) {
     return "list_value";
   }
-  if (/pov|ghosting|hands are full|camera roll|behind|desk|office|reaching out|influencer/i.test(text)) {
-    return "pov_bts";
-  }
-  if (/transition|reveal|tap to|stomp|spark|ugly-to-hot|shoe transition/i.test(text)) {
+  if (/transition|reveal|tap to|stomp|spark|ugly-to-hot|shoe transition|before\/after|locker-room|on-body|fit check/i.test(text)) {
     return "reveal_product";
   }
-  if (/how different|two personalit|comparison|vs\b|side by side/i.test(text)) {
+  if (/pov|ghosting|hands are full|camera roll|behind|desk|office|reaching out|influencer|day in the life/i.test(text)) {
+    return "pov_bts";
+  }
+  if (/how different|two personalit|comparison|vs\b|side by side|teardown|campaign teardown/i.test(text)) {
     return "comparison";
   }
   if (/ghosting|joke|comedy|personalit/i.test(text)) {
@@ -181,111 +309,78 @@ export function classifyTrend(signal: TrendSignal): TrendLane {
   return "other";
 }
 
-const LANE_AFFINITY: Record<BrandLane, Partial<Record<TrendLane, number>>> = {
-  healthcare: {
-    skit_documentary: 28,
-    list_value: 24,
-    pov_bts: 18,
-    ai_tech: 22,
-    culture_news: 18,
-    comparison: 14,
-    reveal_product: 8,
-    lifestyle_comedy: 4,
-    personal_story: -6,
-    beauty_fashion: -24,
-    travel_summer: -14,
-    audio_only: -8,
-    other: 0,
-  },
-  agency: {
-    skit_documentary: 26,
-    list_value: 22,
-    pov_bts: 20,
-    ai_tech: 24,
-    culture_news: 20,
-    comparison: 16,
-    reveal_product: 10,
-    lifestyle_comedy: 8,
-    personal_story: 2,
-    beauty_fashion: -12,
-    travel_summer: -6,
-    audio_only: -4,
-    other: 2,
-  },
-  b2b: {
-    skit_documentary: 30,
-    list_value: 28,
-    ai_tech: 26,
-    comparison: 20,
-    pov_bts: 18,
-    culture_news: 8,
-    reveal_product: 12,
-    lifestyle_comedy: 2,
-    personal_story: -10,
-    beauty_fashion: -28,
-    travel_summer: -16,
-    audio_only: -12,
-    other: 0,
-  },
-  consumer: {
-    beauty_fashion: 28,
-    lifestyle_comedy: 20,
-    personal_story: 22,
-    travel_summer: 18,
-    reveal_product: 24,
-    comparison: 14,
-    audio_only: 14,
-    list_value: 12,
-    pov_bts: 12,
-    skit_documentary: 10,
-    culture_news: 4,
-    ai_tech: 2,
-    other: 4,
-  },
-  creative: {
-    reveal_product: 24,
-    comparison: 18,
-    beauty_fashion: 14,
-    pov_bts: 16,
-    skit_documentary: 14,
-    lifestyle_comedy: 12,
-    personal_story: 10,
-    audio_only: 10,
-    list_value: 10,
-    ai_tech: 10,
-    culture_news: 4,
-    travel_summer: 6,
-    other: 4,
-  },
-  general: {
-    skit_documentary: 12,
-    list_value: 12,
-    comparison: 10,
-    pov_bts: 10,
-    culture_news: 8,
-    reveal_product: 8,
-    lifestyle_comedy: 6,
-    personal_story: 4,
-    ai_tech: 6,
-    beauty_fashion: 0,
-    travel_summer: 0,
-    audio_only: 0,
-    other: 4,
-  },
-};
+function bestAudienceForLane(
+  audiences: AudienceKind[],
+  trendLane: TrendLane,
+  signal?: TrendSignal,
+): { kind: AudienceKind; score: number } {
+  const text = `${signal?.title ?? ""} ${signal?.summary ?? ""} ${signal?.source ?? ""}`.toLowerCase();
+  let best: AudienceKind = audiences[0] ?? "general";
+  let score = AUDIENCE_AFFINITY[best][trendLane] ?? 0;
+  for (const kind of audiences) {
+    let s = AUDIENCE_AFFINITY[kind][trendLane] ?? 0;
+    // Soft hints from copy / playbook labels
+    if (kind === "healthcare" && /patient|clinic|medical|trust-stack|myth/.test(text)) s += 8;
+    if (kind === "marketers" && /marketer|campaign teardown|stitch bait/.test(text)) s += 10;
+    if (kind === "developers" && /developer|changelog|api|integration|tooling/.test(text)) s += 8;
+    if (kind === "athletes" && /athlete|locker-room|on-body|fit check|sport/.test(text)) s += 8;
+    if (kind === "consumers" && /consumer|ootd|bob|shop/.test(text)) s += 6;
+    if (kind === "founders" && /founder|operator|roi|stack vs/.test(text)) s += 6;
+    if (s > score) {
+      score = s;
+      best = kind;
+    }
+  }
+  return { kind: best, score };
+}
+
+function labelForKind(kind: AudienceKind, report: BrandReport): string {
+  const match = (report.audiences ?? []).find((a) => audienceKindFromLabel(a) === kind);
+  if (match) return match;
+  switch (kind) {
+    case "healthcare":
+      return "Healthcare & medical decision-makers";
+    case "marketers":
+      return "Marketers & brand teams";
+    case "founders":
+      return "SME founders & operators";
+    case "b2b":
+      return "B2B / corporate buyers";
+    case "developers":
+      return "Developers & technical buyers";
+    case "designers":
+      return "Designers & product teams";
+    case "athletes":
+      return "Athletes & sports consumers";
+    case "consumers":
+      return "Consumer audiences";
+    default:
+      return primaryAudienceLabel(report);
+  }
+}
 
 export function scoreBrandTrendFit(
   report: BrandReport,
   signal: TrendSignal,
-): { score: number; reason: string; trendLane: TrendLane; brandLanes: BrandLane[] } {
+): {
+  score: number;
+  reason: string;
+  trendLane: TrendLane;
+  brandLanes: BrandLane[];
+  targetAudience: string;
+  audienceKind: AudienceKind;
+} {
   const profile = classifyBrand(report);
   const trendLane = classifyTrend(signal);
-  let score = 30 + Math.round(signal.heat / 10);
+  const { kind: audienceKind, score: audienceScore } = bestAudienceForLane(
+    profile.audiences,
+    trendLane,
+    signal,
+  );
+  const targetAudience = labelForKind(audienceKind, report);
 
-  // Average affinity across lanes so consumer+b2b mistakes don't max() their way out
-  const affs = profile.lanes.map((lane) => LANE_AFFINITY[lane][trendLane] ?? 0);
-  const affinity = Math.round(affs.reduce((a, b) => a + b, 0) / affs.length);
-  score += affinity;
+  // Audience is the main driver; heat is secondary
+  let score = 18 + Math.round(signal.heat / 14) + audienceScore;
 
   const text = `${signal.title} ${signal.summary}`.toLowerCase();
   const offerBits = profile.primaryOffer
@@ -293,122 +388,248 @@ export function scoreBrandTrendFit(
     .split(/\W+/)
     .filter((w) => w.length > 4);
   const hits = offerBits.filter((w) => text.includes(w));
-  if (hits.length) score += Math.min(12, hits.length * 4);
+  if (hits.length) score += Math.min(10, hits.length * 3);
 
-  let reason = `Possible adaptation for ${report.name}.`;
+  let reason = `Matched to ${targetAudience}.`;
   if (trendLane === "culture_news") {
     const isWatchlist = signal.tag === "live-sg";
-    const isLocalBrand = /singapore|\.sg\b|activa|clinic|healthcare/.test(profile.corpus);
-    if (isWatchlist && isLocalBrand) {
-      score += 14;
-      reason = `Live Singapore moment relevant to ${profile.audienceLabel}.`;
-    } else if (isWatchlist && !isLocalBrand) {
-      score -= 10;
-      reason = "Live SG watchlist item — optional unless you sell into Singapore.";
-    } else if (isLocalBrand) {
-      // Raw Google search spike — keep below real format trends
-      score -= 6;
-      reason = "SG search spike — only use if you can bridge to the offer cleanly.";
+    const localAudience =
+      audienceKind === "healthcare" ||
+      profile.audiences.includes("healthcare") ||
+      /singapore|\.sg\b|activa/.test(profile.corpus);
+    if (isWatchlist && localAudience) {
+      score += 16;
+      reason = `Live SG moment for ${targetAudience}.`;
+    } else if (isWatchlist) {
+      score -= 14;
+      reason = `Live SG watchlist — weak for ${targetAudience}.`;
+    } else if (localAudience) {
+      score -= 8;
+      reason = `SG search spike — only if it bridges to ${profile.primaryOffer}.`;
     } else {
-      score -= 18;
-      reason = "SG search spike — weak fit for this company.";
+      score -= 22;
+      reason = `SG search spike — not for ${targetAudience}.`;
     }
-  } else if (affinity >= 18) {
-    reason = `Strong format fit for ${profile.audienceLabel} (${trendLane.replace(/_/g, " ")}).`;
-  } else if (affinity >= 6) {
-    reason = `Usable for ${report.name} with a clear “${profile.primaryOffer}” angle.`;
-  } else if (affinity < 0) {
-    reason = `Weak literal fit for ${profile.audienceLabel} — only if you parody/adapt hard.`;
+  } else if (audienceScore >= 22) {
+    reason = `Strong for ${targetAudience} (${trendLane.replace(/_/g, " ")}).`;
+  } else if (audienceScore >= 8) {
+    reason = `Usable for ${targetAudience} with a “${profile.primaryOffer}” angle.`;
+  } else if (audienceScore < 0) {
+    reason = `Poor fit for ${targetAudience} — hide unless you parody hard.`;
   }
 
-  if (
-    trendLane === "audio_only" &&
-    (profile.lanes.includes("b2b") || profile.lanes.includes("healthcare"))
-  ) {
-    score -= 8;
+  // Playbook rows are already audience-native
+  if (/audience playbook/i.test(signal.source)) {
+    score += 12;
+    reason = `Built for ${targetAudience}.`;
   }
 
   return {
-    score: Math.max(8, Math.min(98, score)),
+    score: Math.max(6, Math.min(98, score)),
     reason,
     trendLane,
     brandLanes: profile.lanes,
+    targetAudience,
+    audienceKind,
   };
 }
 
-/** Concrete brand adaptation — not “Brand does the trend” literally. */
+/** Audience-native formats so feeds differ even when viral charts overlap. */
+export function audiencePlaybookSignals(report: BrandReport): TrendSignal[] {
+  const kinds = audienceKinds(report);
+  const brand = report.name;
+  const offer = classifyBrand(report).primaryOffer;
+  const out: TrendSignal[] = [];
+
+  const add = (
+    id: string,
+    platform: "tiktok" | "instagram",
+    title: string,
+    summary: string,
+    audience: string,
+  ) => {
+    out.push({
+      id: `playbook-${id}`,
+      title,
+      category: platform,
+      platform,
+      source: `Audience playbook · ${audience}`,
+      heat: 90,
+      summary,
+      tag: "audience-playbook",
+    });
+  };
+
+  if (kinds.includes("healthcare")) {
+    add(
+      "hc-myth",
+      "tiktok",
+      "Myth vs fact (patient FAQ)",
+      `3 myths ${brand}'s healthcare clients still hear — calm corrections for medical decision-makers.`,
+      "Healthcare & medical decision-makers",
+    );
+    add(
+      "hc-trust",
+      "instagram",
+      "Trust-stack carousel",
+      `Review → process → team → soft CTA. ORM-safe proof for clinic owners evaluating ${offer}.`,
+      "Healthcare & medical decision-makers",
+    );
+  }
+  if (kinds.includes("marketers")) {
+    add(
+      "mkt-teardown",
+      "tiktok",
+      "Campaign teardown stitch bait",
+      `Marketer-facing teardown: what worked, what we’d cut, one tactic to steal from ${brand}.`,
+      "Marketers & brand teams",
+    );
+  }
+  if (kinds.includes("developers")) {
+    add(
+      "dev-doc",
+      "tiktok",
+      "Changelog as documentary",
+      `Deadpan “documentary” on a real ${offer} changelog / integration win for developers.`,
+      "Developers & technical buyers",
+    );
+    add(
+      "dev-worth",
+      "instagram",
+      "Worth the stack (tooling ROI)",
+      `Listicle: what in the ${offer} stack is actually worth paying for — for technical buyers & founders.`,
+      "Developers & technical buyers",
+    );
+  }
+  if (kinds.includes("founders") || kinds.includes("b2b")) {
+    if (!kinds.includes("developers")) {
+      add(
+        "founder-worth",
+        "instagram",
+        "Worth it for operators",
+        `Founder/B2B “worth the money” list tied to ${offer} outcomes, not lifestyle flex.`,
+        kinds.includes("founders")
+          ? "SME founders & operators"
+          : "B2B / corporate buyers",
+      );
+    }
+    add(
+      "founder-compare",
+      "tiktok",
+      "Old stack vs new stack",
+      `Side-by-side: DIY ops vs ${brand} for ${offer}. Built for founders and buyers.`,
+      kinds.includes("founders")
+        ? "SME founders & operators"
+        : "B2B / corporate buyers",
+    );
+  }
+  if (kinds.includes("athletes") || kinds.includes("consumers")) {
+    add(
+      "ath-reveal",
+      "tiktok",
+      "Locker-room product reveal",
+      `Reveal/transition built for athletes & sports consumers — product proof in motion for ${brand}.`,
+      kinds.includes("athletes")
+        ? "Athletes & sports consumers"
+        : "Consumer audiences",
+    );
+    add(
+      "ath-ootd",
+      "instagram",
+      "Fit check / on-body transition",
+      `OOTD or shoe-transition native to ${brand}'s consumer audience — show the product on a real body.`,
+      kinds.includes("athletes")
+        ? "Athletes & sports consumers"
+        : "Consumer audiences",
+    );
+  }
+  if (kinds.includes("designers")) {
+    add(
+      "des-reveal",
+      "instagram",
+      "File → final reveal",
+      `Design process reveal for product/design teams using ${offer}.`,
+      "Designers & product teams",
+    );
+  }
+
+  return out;
+}
+
+/** Concrete brand + audience adaptation. */
 export function adaptTrendForBrand(
   report: BrandReport,
   signal: TrendSignal,
-): { angle: string; hooks: string[]; topicPrompt: string; voiceBlend: string } {
+): { angle: string; hooks: string[]; topicPrompt: string; voiceBlend: string; targetAudience: string } {
   const profile = classifyBrand(report);
-  const trendLane = classifyTrend(signal);
+  const fit = scoreBrandTrendFit(report, signal);
+  const trendLane = fit.trendLane;
   const brand = report.name;
   const trait = report.personality[0]?.label ?? "Bold";
   const offer = profile.primaryOffer;
-  const audience = profile.audienceLabel;
+  const audience = fit.targetAudience;
   const title = signal.title;
 
-  const voiceBlend = `Keep the native “${title}” format, but rewrite every beat for ${brand} → ${audience} (${offer}). Voice: ${trait} / ${report.archetype}.`;
+  const voiceBlend = `Format “${title}” → rewrite every beat for ${brand}'s ${audience} (${offer}). Voice: ${trait} / ${report.archetype}.`;
 
   let angle = "";
   let hooks: string[] = [];
 
   switch (trendLane) {
     case "skit_documentary":
-      angle = `Deadpan “documentary” confessional about ${offer} for ${audience} — mundane ops made cinematic.`;
+      angle = `Deadpan documentary confessional about ${offer}, aimed at ${audience}.`;
       hooks = [
-        `Netflix would cast our ${offer} process as a thriller.`,
-        `${brand} documentary episode 1: the brief that wouldn’t die.`,
-        `Sit-down confession: what ${audience} still get wrong about ${offer}.`,
+        `Netflix would cast ${offer} as a thriller for ${audience}.`,
+        `${brand} ep.1 for ${audience}: the brief that wouldn’t die.`,
+        `Confession booth: what ${audience} still get wrong.`,
       ];
       break;
     case "list_value":
-      angle = `Quick-fire “worth it” list tied to ${offer} proof points ${audience} actually care about.`;
+      angle = `“Worth it” list of ${offer} proof points ${audience} will actually save.`;
       hooks = [
-        `5 things worth the money in ${offer} (from ${brand}).`,
-        `Skip the fluff — what ${audience} should actually pay for.`,
+        `5 things worth the money in ${offer} — for ${audience}.`,
+        `${audience}: skip the fluff, pay for this.`,
         `${brand}'s worth-it list for ${audience}.`,
       ];
       break;
     case "comparison":
-      angle = `Split comparison: old way vs ${brand}'s way for ${offer}.`;
+      angle = `Old way vs ${brand} — comparison built for ${audience}.`;
       hooks = [
-        `How different our lives are: DIY vs ${brand}.`,
-        `Two personalities: chaos brief vs ${brand} process.`,
-        `${audience}: before ${brand} / after ${brand}.`,
+        `How different our lives are: DIY vs ${brand} (${audience}).`,
+        `Two personalities: chaos vs ${brand} process.`,
+        `${audience} before/after ${brand}.`,
       ];
       break;
     case "pov_bts":
-      angle = `POV / BTS of real ${brand} work — show the craft behind ${offer}.`;
+      angle = `POV/BTS of ${offer} work that ${audience} respects.`;
       hooks = [
-        `POV: you’re ghosting Slack because the ${offer} deck is due.`,
+        `POV: ${audience} waiting on the ${offer} deliverable.`,
         `Me and my POV: ${brand} building for ${audience}.`,
-        `Sorry, hands full — shipping ${offer}.`,
+        `Hands full — shipping ${offer}.`,
       ];
       break;
     case "ai_tech":
-      angle = `AI/script trend reframed as a smart ${offer} workflow ${brand} would actually ship.`;
+      angle = `AI/script format reframed as a ${offer} workflow ${audience} would use.`;
       hooks = [
-        `We asked ChatGPT for a ${offer} plan. Then ${brand} fixed it.`,
-        `AI drafted it. ${brand} made it client-ready.`,
-        `${audience}: here’s the AI step we’d keep — and cut.`,
+        `ChatGPT drafted a ${offer} plan. ${brand} fixed it for ${audience}.`,
+        `AI step we’d keep for ${audience} — and the one we’d cut.`,
+        `${audience}: the integration tip inside the skit.`,
       ];
       break;
     case "reveal_product":
-      angle = `Use the reveal/transition mechanic to unveil a ${offer} result or product proof.`;
+      angle = `Reveal/transition that shows ${offer} to ${audience}.`;
       hooks = [
-        `Tap to reveal: the ${offer} moment.`,
-        `Transition: messy before → ${brand} after.`,
-        `Before/after the ${offer} glow-up.`,
+        `Tap to reveal: the ${offer} moment for ${audience}.`,
+        `Before → after with ${brand}.`,
+        `${audience} product proof in under 8s.`,
       ];
       break;
     case "culture_news":
-      angle = `Timely take on “${title}” with a useful ${offer} angle for ${audience} — no empty newsjacking.`;
+      angle = `Timely “${title}” take with a useful ${offer} bridge for ${audience}.`;
       hooks = [
         `${title}: what ${audience} should do this week.`,
-        `${brand}'s practical take on ${title}.`,
-        `Don’t just comment on ${title} — here’s the ${offer} move.`,
+        `${brand} → ${audience} on ${title}.`,
+        `Newsjack only if it sells ${offer}.`,
       ];
       break;
     case "personal_story":
@@ -416,52 +637,93 @@ export function adaptTrendForBrand(
     case "travel_summer":
     case "lifestyle_comedy":
       if (
-        profile.lanes.includes("b2b") ||
-        profile.lanes.includes("healthcare") ||
-        profile.lanes.includes("agency")
+        fit.audienceKind === "healthcare" ||
+        fit.audienceKind === "b2b" ||
+        fit.audienceKind === "developers" ||
+        fit.audienceKind === "founders" ||
+        fit.audienceKind === "marketers"
       ) {
-        angle = `Don’t copy the consumer literal — parody the format to talk ${offer} for ${audience}.`;
+        angle = `Parody “${title}” — same beats, message = ${offer} for ${audience}.`;
         hooks = [
-          `“${title}” but make it ${offer}.`,
-          `${brand} version for ${audience}: same beats, different joke.`,
+          `“${title}” but make it ${offer} for ${audience}.`,
+          `${brand} parody cut for ${audience}.`,
           `Steal the format, skip the lifestyle flex.`,
         ];
       } else {
-        angle = `Ride “${title}” natively for ${brand}'s ${audience} and ${offer}.`;
+        angle = `Native “${title}” for ${audience} shopping / following ${brand}.`;
         hooks = [
-          `${brand} on “${title}”.`,
-          `Our take on ${title} for ${audience}.`,
-          `${title} → shop / save / follow ${brand}.`,
+          `${brand} × “${title}” for ${audience}.`,
+          `On-body / in-community take for ${audience}.`,
+          `${title} → shop / save ${brand}.`,
         ];
       }
       break;
     case "audio_only":
-      angle = `If you use this sound, pair it with a ${offer} storyboard for ${audience} — audio alone isn’t the idea.`;
+      angle = `Trending sound + ${offer} storyboard written for ${audience}.`;
       hooks = [
-        `Sound is trending — ${brand}'s script still has to earn the view.`,
-        `Use the audio; sell ${offer} in the text overlays.`,
-        `${audience} don’t care about the sound unless the tip is clear.`,
+        `Sound is borrowed — script sells ${offer} to ${audience}.`,
+        `Text overlays do the work for ${audience}.`,
+        `${audience} need the tip, not just the audio.`,
       ];
       break;
     default:
       angle = `Adapt “${title}” into a ${offer} story for ${audience}.`;
       hooks = [
-        `${brand}'s angle on “${title}”.`,
+        `${brand} → ${audience} on “${title}”.`,
         `Format: ${title}. Message: ${offer}.`,
-        `For ${audience}: ${title}, rewritten.`,
+        `For ${audience} only.`,
       ];
   }
 
   const topicPrompt = [
-    `Adapt the trend “${title}” (${signal.source}) for ${brand}.`,
-    `Audiences: ${audience}. Offer/angle: ${offer}.`,
-    `Trend type: ${trendLane.replace(/_/g, " ")}. ${angle}`,
+    `Adapt trend “${title}” (${signal.source}) for ${brand}.`,
+    `TARGET AUDIENCE (required): ${audience}.`,
+    `Offer: ${offer}. Trend type: ${trendLane.replace(/_/g, " ")}.`,
+    angle,
     `Voice: ${trait} / ${report.archetype}. ${report.voiceSummary}`,
-    `Do NOT do a literal consumer copy — every beat should feel like ${brand}.`,
+    `Every hook and CTA must speak to ${audience} — not a generic follower.`,
     signal.summary ? `Trend context: ${signal.summary}` : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  return { angle, hooks, topicPrompt, voiceBlend };
+  return { angle, hooks, topicPrompt, voiceBlend, targetAudience: audience };
+}
+
+/** Keep feeds varied: high audience fit first, then diversify trend lanes. */
+export function rankSignalsForBrand(
+  report: BrandReport,
+  signals: TrendSignal[],
+  options?: { minScore?: number; limit?: number; maxPerLane?: number },
+): TrendSignal[] {
+  const minScore = options?.minScore ?? 46;
+  const limit = options?.limit ?? 16;
+  const maxPerLane = options?.maxPerLane ?? 2;
+
+  const scored = signals
+    .map((s) => ({ s, fit: scoreBrandTrendFit(report, s) }))
+    .filter((x) => x.fit.score >= minScore)
+    .sort((a, b) => b.fit.score - a.fit.score || b.s.heat - a.s.heat);
+
+  const picked: TrendSignal[] = [];
+  const laneCounts = new Map<string, number>();
+
+  for (const row of scored) {
+    if (picked.length >= limit) break;
+    const lane = row.fit.trendLane;
+    const n = laneCounts.get(lane) ?? 0;
+    if (n >= maxPerLane) continue;
+    laneCounts.set(lane, n + 1);
+    picked.push(row.s);
+  }
+
+  // If diversification was too strict, fill with next-best fits
+  if (picked.length < Math.min(limit, scored.length)) {
+    for (const row of scored) {
+      if (picked.length >= limit) break;
+      if (!picked.some((p) => p.id === row.s.id)) picked.push(row.s);
+    }
+  }
+
+  return picked;
 }

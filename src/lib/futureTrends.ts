@@ -1,5 +1,5 @@
 import type { BrandReport, TrendSuggestion } from "../types";
-import { audienceLine } from "./audience";
+import { audienceKinds, audienceLine, primaryAudienceLabel } from "./audience";
 
 export interface FutureTrend {
   id: string;
@@ -119,38 +119,56 @@ const FUTURE_TRENDS: FutureTrend[] = [
   },
 ];
 
-function brandMatchesTrend(report: BrandReport, trend: FutureTrend): number {
+function brandMatchesTrend(report: BrandReport, trend: FutureTrend): {
+  score: number;
+  targetAudience: string;
+} {
+  const kinds = audienceKinds(report);
   const corpus = [
     report.name,
     report.domain,
     report.description,
-    report.tagline,
-    ...(report.keywords ?? []),
     ...(report.audiences ?? []),
     ...(report.services ?? []),
   ]
     .join(" ")
     .toLowerCase();
 
-  const isHealthcare = /healthcare|medical|clinic|hospital|patient|pharma/.test(corpus);
-  const isAgency = /agency|marketing|seo|sem|advertising|activa/.test(corpus);
-  const isB2b = /saas|b2b|api|payment|fintech|software|enterprise|stripe/.test(corpus);
+  let score = 24;
+  let targetAudience = primaryAudienceLabel(report);
 
-  let score = 28;
   for (const tag of trend.forAudiences) {
-    if (corpus.includes(tag)) score += 14;
+    if (corpus.includes(tag)) score += 16;
+    if (tag === "healthcare" && kinds.includes("healthcare")) {
+      score += 10;
+      targetAudience = "Healthcare & medical decision-makers";
+    }
+    if (tag === "marketers" && kinds.includes("marketers")) {
+      score += 8;
+      if (!kinds.includes("healthcare")) targetAudience = "Marketers & brand teams";
+    }
   }
-  // Healthcare-coded bets should not dominate fintech/SaaS brands
-  if (!isHealthcare && !isAgency && /clinic|medical|patient|healthcare/.test(trend.title + trend.summary)) {
-    score -= 22;
+
+  const healthcareTrend = /clinic|medical|patient|healthcare|consent|doctor/.test(
+    `${trend.title} ${trend.summary}`,
+  );
+  if (healthcareTrend && !kinds.includes("healthcare")) score -= 28;
+  if (!healthcareTrend && (kinds.includes("developers") || kinds.includes("founders"))) {
+    score += 8;
   }
-  if (isB2b && /marketer|seo|case-study|ai intake|duo/i.test(trend.title + trend.id)) {
-    score += 10;
+  if (
+    (kinds.includes("athletes") || kinds.includes("consumers")) &&
+    /ugc|duo|case-study|seo|clinic/i.test(trend.id)
+  ) {
+    score -= 18;
   }
-  if (isHealthcare || isAgency) score += 8;
   if (trend.horizon === "near") score += 6;
   if (trend.horizon === "emerging") score += 2;
-  return Math.max(10, Math.min(96, score));
+
+  return {
+    score: Math.max(8, Math.min(96, score)),
+    targetAudience,
+  };
 }
 
 export function suggestFutureTrends(report: BrandReport): TrendSuggestion[] {
@@ -159,23 +177,23 @@ export function suggestFutureTrends(report: BrandReport): TrendSuggestion[] {
   const service = report.services?.[0] || report.keywords?.[0] || "your offer";
 
   return FUTURE_TRENDS.map((t) => {
-    const fitScore = brandMatchesTrend(report, t);
+    const { score: fitScore, targetAudience } = brandMatchesTrend(report, t);
     const fit: "high" | "medium" | "low" =
       fitScore >= 70 ? "high" : fitScore >= 48 ? "medium" : "low";
 
-    const voiceBlend = `Run “${t.title}” for ${audience} in ${report.name}'s ${trait.toLowerCase()} voice — ${report.archetype}. Anchor every beat in ${service}.`;
-    const angle = `${t.summary} ${t.why} Fit for ${report.name}: ${fit}.`;
+    const voiceBlend = `Run “${t.title}” for ${targetAudience} in ${report.name}'s ${trait.toLowerCase()} voice — ${report.archetype}. Anchor every beat in ${service}.`;
+    const angle = `${t.summary} Written for ${targetAudience}. ${t.why}`;
     const hooks = [
-      `POV: ${report.name} shows ${audience} how “${t.title}” works for ${service}.`,
-      `${t.platform === "tiktok" ? "TikTok" : "Reels"} play for ${report.name}: ${t.title}.`,
-      `${t.title}: what ${report.name} would ship for ${audience} this month.`,
+      `POV: ${report.name} shows ${targetAudience} how “${t.title}” works.`,
+      `${t.platform === "tiktok" ? "TikTok" : "Reels"} for ${targetAudience}: ${t.title}.`,
+      `${t.title}: what ${report.name} would ship for ${targetAudience}.`,
     ];
     const topicPrompt = [
       `Create a ${t.platform === "tiktok" ? "TikTok" : "Instagram Reels"} concept: “${t.title}”.`,
-      `Brand: ${report.name}. Audiences: ${audience}. Service: ${service}.`,
+      `Brand: ${report.name}. TARGET AUDIENCE: ${targetAudience}.`,
+      `Also consider: ${audience}. Service: ${service}.`,
       `Horizon: ${t.horizon}. ${t.summary}`,
       `Voice: ${trait} / ${report.archetype}. ${voiceBlend}`,
-      `Adapt away from generic clinic talk unless ${report.name} is healthcare.`,
     ].join(" ");
 
     return {
@@ -184,7 +202,7 @@ export function suggestFutureTrends(report: BrandReport): TrendSuggestion[] {
       trendTitle: t.title,
       category: t.platform,
       platform: t.platform,
-      headline: `Future · ${t.title} → ${report.name}`,
+      headline: `Future · ${t.title} → ${targetAudience}`,
       angle,
       platforms:
         t.platform === "tiktok"
@@ -195,15 +213,16 @@ export function suggestFutureTrends(report: BrandReport): TrendSuggestion[] {
       fitScore,
       fitReason:
         fit === "high"
-          ? `Strong match for ${audience}.`
+          ? `Strong match for ${targetAudience}.`
           : fit === "medium"
-            ? `Usable if rewritten for ${report.name}.`
-            : `Weak for ${report.name} — skip unless you adapt hard.`,
+            ? `Usable if rewritten for ${targetAudience}.`
+            : `Weak for ${targetAudience}.`,
       timing: t.horizon === "near" ? "this_week" : "seasonal",
       voiceBlend,
+      targetAudience,
     } satisfies TrendSuggestion;
   })
-    .filter((s) => s.fitScore >= 36)
+    .filter((s) => s.fitScore >= 40)
     .sort((a, b) => b.fitScore - a.fitScore);
 }
 

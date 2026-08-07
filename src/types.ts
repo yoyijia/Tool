@@ -184,4 +184,6 @@ export interface TrendSuggestion {
   timing: "now" | "this_week" | "seasonal";
   /** How this trend maps onto the company's detected voice */
   voiceBlend: string;
+  /** Which detected audience this adaptation is written for */
+  targetAudience?: string;
 }

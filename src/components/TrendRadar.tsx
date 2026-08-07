@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { audienceLine } from "../lib/audience";
 import { futureTrendsNote, suggestFutureTrends } from "../lib/futureTrends";
@@ -21,9 +21,11 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const [instagramFeed, setInstagramFeed] = useState<TrendSignal[]>([]);
   const [liveFeed, setLiveFeed] = useState<TrendSignal[]>([]);
   const [fitById, setFitById] = useState<Record<string, number>>({});
+  const [audienceById, setAudienceById] = useState<Record<string, string>>({});
+  const [audienceFocus, setAudienceFocus] = useState(audienceLine(report));
   const [dataNote, setDataNote] = useState<string | null>(null);
   const [listenedAt, setListenedAt] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("live");
+  const [tab, setTab] = useState<Tab>("tiktok");
   const [selectedTrendId, setSelectedTrendId] = useState<string | null>(null);
   const [selectedFutureId, setSelectedFutureId] = useState<string | null>(null);
 
@@ -40,9 +42,10 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       setInstagramFeed(result.instagramFeed);
       setLiveFeed(result.liveFeed);
       setFitById(result.fitById);
+      setAudienceById(result.audienceById);
+      setAudienceFocus(result.audienceFocus);
       setDataNote(result.dataNote);
       setListenedAt(result.listenedAt);
-      // Open on best brand-matched TikTok/IG, not a random live spike
       const best =
         result.suggestions[0]?.trendId ||
         result.tiktokFeed[0]?.id ||
@@ -54,11 +57,11 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       setTab(
         bestSug?.platform === "instagram"
           ? "instagram"
-          : bestSug?.platform === "tiktok"
+          : bestSug?.platform === "tiktok" || result.tiktokFeed.length
             ? "tiktok"
-            : result.tiktokFeed.length
-              ? "tiktok"
-              : "live",
+            : result.liveFeed.length
+              ? "live"
+              : "future",
       );
     } catch (err) {
       setError(
@@ -70,6 +73,12 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       setBusy(false);
     }
   }
+
+  // Auto-load matched trends whenever the analyzed company changes
+  useEffect(() => {
+    void listen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on brand change only
+  }, [report.domain, report.name]);
 
   const otherFeed = useMemo(
     () =>
@@ -108,18 +117,19 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
 
   return (
     <fieldset className="studio-field">
-      <legend>Trends · TikTok, Instagram & future bets</legend>
+      <legend>Trends · matched to audiences</legend>
       <p className="platform-tip">
-        For <strong>{report.name}</strong> ({audienceLine(report)}): refresh ranks
-        TikTok/Reels by <strong>company fit</strong> first, then freshness — not a
-        generic viral list.
+        For <strong>{report.name}</strong>, trends are filtered and rewritten for{" "}
+        <strong>{audienceFocus}</strong> — not a one-size viral list.
       </p>
 
       <div className="studio-actions">
         <p className="voice-hint">
-          {listenedAt
-            ? `Updated ${new Date(listenedAt).toLocaleTimeString()} · Live ${liveFeed.length} · TT ${tiktokFeed.length} · IG ${instagramFeed.length}`
-            : `${futureIdeas.length} future bets ready · load live SG + TikTok/IG anytime`}
+          {busy
+            ? "Matching trends to this company’s audiences…"
+            : listenedAt
+              ? `Updated ${new Date(listenedAt).toLocaleTimeString()} · TT ${tiktokFeed.length} · IG ${instagramFeed.length} · Live ${liveFeed.length}`
+              : `${futureIdeas.length} future bets ready`}
         </p>
         <button
           type="button"
@@ -127,7 +137,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
           disabled={busy}
           onClick={() => void listen()}
         >
-          {busy ? "Refreshing…" : "Refresh live SG + TikTok/IG"}
+          {busy ? "Matching…" : "Refresh for this audience"}
         </button>
       </div>
 
@@ -144,11 +154,11 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       <div className="platform-row" style={{ marginTop: 12 }}>
         {(
           [
+            ["tiktok", `TikTok for you (${tiktokFeed.length})`],
+            ["instagram", `Reels for you (${instagramFeed.length})`],
             ["live", `Live SG (${liveFeed.length})`],
             ["future", `Future bets (${futureIdeas.length})`],
-            ["tiktok", `TikTok now (${tiktokFeed.length})`],
-            ["instagram", `Reels now (${instagramFeed.length})`],
-            ["other", `Search / calendar (${otherFeed.length})`],
+            ["other", `Other (${otherFeed.length})`],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -181,14 +191,14 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
         <div className="trend-feed">
           <h4 className="trend-feed-title">
             {tab === "live"
-              ? "Live Singapore · news & search (GST, Spider-Man, …)"
+              ? `Live SG filtered for ${report.name}`
               : tab === "future"
-                ? "Upcoming TikTok / Instagram format bets"
+                ? "Upcoming format bets for these audiences"
                 : tab === "tiktok"
-                  ? `TikTok ranked for ${report.name}`
+                  ? `TikTok for ${audienceFocus}`
                   : tab === "instagram"
-                    ? `Reels ranked for ${report.name}`
-                    : "Not TikTok/IG — search & calendar only"}
+                    ? `Reels for ${audienceFocus}`
+                    : "Other signals"}
           </h4>
           <div className="trend-feed-list">
             {tab === "future"
@@ -203,8 +213,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                     <span className="trend-feed-body">
                       <strong>{s.trendTitle}</strong>
                       <em>
-                        {s.platform} · {s.timing === "this_week" ? "near-term" : "next wave"} ·
-                        fit {s.fitScore}
+                        {s.targetAudience || audienceLine(report)} · fit {s.fitScore}
                       </em>
                     </span>
                   </button>
@@ -220,29 +229,32 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                     <span className="trend-feed-body">
                       <strong>{s.title}</strong>
                       <em>
-                        fit {fitById[s.id] ?? "—"} · {s.source}
+                        {audienceById[s.id] ?? "—"} · fit {fitById[s.id] ?? "—"}
                       </em>
                     </span>
                   </button>
                 ))}
-            {tab !== "future" && feed.length === 0 && (
+            {tab !== "future" && !busy && feed.length === 0 && (
               <p className="empty-social">
-                {tab === "live"
-                  ? "Hit Refresh to pull GST vouchers, Spider-Man: Brand New Day, and other SG spikes."
-                  : "Load roundups, or open Live SG / Future bets."}
+                No strong matches for these audiences yet — try Refresh, or open Future bets.
               </p>
             )}
           </div>
         </div>
 
         <div className="trend-blend">
-          <h4 className="trend-feed-title">Combine with {report.name}’s voice</h4>
+          <h4 className="trend-feed-title">
+            Brief for{" "}
+            {activeBlend?.targetAudience ||
+              (selectedSignal ? audienceById[selectedSignal.id] : null) ||
+              audienceFocus}
+          </h4>
           {activeBlend ? (
             <article className="trend-sug-card blend-card">
               <div className="trend-sug-top">
                 <span className="trend-cat">
                   {tab === "future" ? "FUTURE BET" : activeBlend.platform.toUpperCase()} ·{" "}
-                  {audienceLine(report)}
+                  {activeBlend.targetAudience || audienceFocus}
                 </span>
                 <span
                   className={`badge ${activeBlend.fitScore >= 70 ? "high" : activeBlend.fitScore >= 48 ? "medium" : "low"}`}
@@ -264,9 +276,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                 {activeBlend.platforms.map((p) => (
                   <span key={p}>{p}</span>
                 ))}
-                {(report.audiences ?? []).slice(0, 2).map((a) => (
-                  <span key={a}>{a}</span>
-                ))}
+                <span>{activeBlend.targetAudience || audienceFocus}</span>
               </div>
               <ul className="engage-tips">
                 {activeBlend.hookIdeas.slice(0, 3).map((h) => (
@@ -279,7 +289,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                   className="copy-post accent-outline"
                   onClick={() => onUseSuggestion(activeBlend.topicPrompt, activeBlend)}
                 >
-                  Use with brand voice
+                  Use for this audience
                 </button>
                 <button
                   type="button"
@@ -289,7 +299,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                       [
                         `${tab === "future" ? "Future trend" : "Trend"}: ${activeBlend.trendTitle}`,
                         `Brand: ${report.name} · ${report.archetype}`,
-                        `Audiences: ${audienceLine(report)}`,
+                        `Target audience: ${activeBlend.targetAudience || audienceFocus}`,
                         activeBlend.voiceBlend,
                         activeBlend.angle,
                         ...activeBlend.hookIdeas.map((h) => `• ${h}`),
@@ -303,7 +313,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
               </div>
             </article>
           ) : (
-            <p className="empty-social">Select a trend on the left.</p>
+            <p className="empty-social">
+              {busy ? "Matching…" : "Select a trend on the left."}
+            </p>
           )}
         </div>
       </div>

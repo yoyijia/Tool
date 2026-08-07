@@ -1,7 +1,10 @@
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { activeCalendarMoments } from "./calendarMoments";
+import { audienceLine } from "./audience";
 import {
   adaptTrendForBrand,
+  audiencePlaybookSignals,
+  rankSignalsForBrand,
   scoreBrandTrendFit,
 } from "./brandTrendFit";
 import { fetchLiveCultureTrends, liveTrendsToSignals } from "./liveCulture";
@@ -405,7 +408,7 @@ function buildSuggestion(
   signal: TrendSignal,
   index: number,
 ): TrendSuggestion {
-  const { score, reason } = scoreBrandTrendFit(report, signal);
+  const { score, reason, targetAudience } = scoreBrandTrendFit(report, signal);
   const adapted = adaptTrendForBrand(report, signal);
   const title = signal.title;
 
@@ -431,7 +434,7 @@ function buildSuggestion(
     trendTitle: title,
     category: signal.category,
     platform: signal.platform,
-    headline: `${platformLabel} · ${title} → ${report.name}`,
+    headline: `${platformLabel} · ${title} → ${adapted.targetAudience}`,
     angle: adapted.angle,
     platforms,
     hookIdeas: adapted.hooks,
@@ -440,6 +443,7 @@ function buildSuggestion(
     fitReason: reason,
     timing: signal.heat >= 85 ? "now" : signal.heat >= 65 ? "this_week" : "seasonal",
     voiceBlend: adapted.voiceBlend,
+    targetAudience: adapted.targetAudience || targetAudience,
   };
 }
 
@@ -450,29 +454,33 @@ export function suggestFromTrends(
 ): TrendSuggestion[] {
   const scored = signals
     .map((s, i) => buildSuggestion(report, s, i))
-    .filter((s) => s.fitScore >= 42)
+    .filter((s) => s.fitScore >= 48)
     .sort((a, b) => b.fitScore - a.fitScore);
 
   const picked: TrendSuggestion[] = [];
-  // Best brand-matched TikTok + IG first
+  const seenAudiences = new Set<string>();
+
+  // Prefer one strong hit per platform, covering different audiences when possible
   for (const platform of ["tiktok", "instagram"] as const) {
-    const hit = scored.find((s) => s.platform === platform && s.fitScore >= 50);
-    if (hit) picked.push(hit);
+    const hit = scored.find(
+      (s) =>
+        s.platform === platform &&
+        s.fitScore >= 52 &&
+        (!s.targetAudience || !seenAudiences.has(s.targetAudience) || seenAudiences.size >= 2),
+    );
+    if (hit) {
+      picked.push(hit);
+      if (hit.targetAudience) seenAudiences.add(hit.targetAudience);
+    }
   }
   for (const s of scored) {
     if (picked.length >= limit) break;
-    if (!picked.some((p) => p.id === s.id)) picked.push(s);
+    if (!picked.some((p) => p.id === s.id)) {
+      picked.push(s);
+      if (s.targetAudience) seenAudiences.add(s.targetAudience);
+    }
   }
   return picked.slice(0, limit);
-}
-
-function sortByBrandFit(report: BrandReport, signals: TrendSignal[]): TrendSignal[] {
-  return [...signals].sort((a, b) => {
-    const sa = scoreBrandTrendFit(report, a).score;
-    const sb = scoreBrandTrendFit(report, b).score;
-    if (sb !== sa) return sb - sa;
-    return b.heat - a.heat;
-  });
 }
 
 export async function runSocialListening(report: BrandReport): Promise<{
@@ -483,40 +491,66 @@ export async function runSocialListening(report: BrandReport): Promise<{
   instagramFeed: TrendSignal[];
   liveFeed: TrendSignal[];
   fitById: Record<string, number>;
+  audienceById: Record<string, string>;
+  audienceFocus: string;
   dataNote: string;
 }> {
-  const signals = await listenToTrends(report);
-  const suggestions = suggestFromTrends(report, signals);
-  const fitById: Record<string, number> = {};
+  const chartSignals = await listenToTrends(report);
+  const playbooks = audiencePlaybookSignals(report);
+  const signals = [...playbooks, ...chartSignals];
+
+  // Dedupe by title (playbooks win if same name)
+  const seenTitles = new Set<string>();
+  const deduped: TrendSignal[] = [];
   for (const s of signals) {
-    fitById[s.id] = scoreBrandTrendFit(report, s).score;
+    const key = s.title.toLowerCase();
+    if (seenTitles.has(key)) continue;
+    seenTitles.add(key);
+    deduped.push(s);
   }
-  const tiktokFeed = sortByBrandFit(
+
+  const suggestions = suggestFromTrends(report, deduped);
+  const fitById: Record<string, number> = {};
+  const audienceById: Record<string, string> = {};
+  for (const s of deduped) {
+    const fit = scoreBrandTrendFit(report, s);
+    fitById[s.id] = fit.score;
+    audienceById[s.id] = fit.targetAudience;
+  }
+
+  const tiktokFeed = rankSignalsForBrand(
     report,
-    signals.filter((s) => s.platform === "tiktok"),
+    deduped.filter((s) => s.platform === "tiktok"),
+    { minScore: 48, limit: 14, maxPerLane: 2 },
   );
-  const instagramFeed = sortByBrandFit(
+  const instagramFeed = rankSignalsForBrand(
     report,
-    signals.filter((s) => s.platform === "instagram"),
+    deduped.filter((s) => s.platform === "instagram"),
+    { minScore: 48, limit: 14, maxPerLane: 2 },
   );
-  const liveFeed = sortByBrandFit(
+  const liveFeed = rankSignalsForBrand(
     report,
-    signals.filter(
+    deduped.filter(
       (s) =>
         s.tag === "live-sg" ||
         s.source.includes("News SG") ||
         s.source.includes("Trends SG"),
     ),
+    { minScore: 40, limit: 10, maxPerLane: 3 },
   );
+
+  const audienceFocus = audienceLine(report);
+
   return {
-    signals,
+    signals: deduped,
     suggestions,
     listenedAt: new Date().toISOString(),
     tiktokFeed,
     instagramFeed,
     liveFeed,
     fitById,
-    dataNote:
-      "Trends are ranked for this company (industry + audiences + services), then freshness. Sources: Later, New Engen, Buffer/SocialBee, Google Trends/News SG — not in-app Creative Center charts.",
+    audienceById,
+    audienceFocus,
+    dataNote: `Ranked for ${report.name}'s audiences (${audienceFocus}). Weak mismatches are filtered; audience playbook formats fill gaps so feeds differ by company.`,
   };
 }
