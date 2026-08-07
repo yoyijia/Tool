@@ -172,6 +172,16 @@ export function ContentStudio({ report, onCopy }: Props) {
         platform,
         topic,
         targetAudience: activeAudience,
+        listening: activeTrend
+          ? {
+              trendTitle: activeTrend.trendTitle,
+              angle: activeTrend.angle,
+              hookIdeas: activeTrend.hookIdeas,
+              voiceBlend: activeTrend.voiceBlend,
+              fitReason: activeTrend.fitReason,
+              source: `Social listening · ${activeTrend.category}`,
+            }
+          : undefined,
         referenceId: selectedRef?.refId,
         referenceUrl: selectedRef?.url,
         referenceCaption: selectedRef?.caption,
@@ -255,8 +265,10 @@ export function ContentStudio({ report, onCopy }: Props) {
         <fieldset className="studio-field audience-field">
           <legend>Type your audience</legend>
           <p className="platform-tip">
-            Who should this post speak to? Type freely — change it for every draft. Detected
-            for <strong>{report.name}</strong>: {audienceLine(report)}.
+            Who should this post speak to? Type freely — change it for every draft. Drafts
+            use an audience playbook (hooks, proof, CTA) plus social listening — not just a
+            renamed label. Detected for <strong>{report.name}</strong>:{" "}
+            {audienceLine(report)}.
           </p>
           <label className="audience-label" htmlFor="target-audience-input">
             Target audience
@@ -278,7 +290,10 @@ export function ContentStudio({ report, onCopy }: Props) {
                 className={
                   activeAudience.toLowerCase() === a.toLowerCase() ? "active-pick" : undefined
                 }
-                onClick={() => setAudience(a)}
+                onClick={() => {
+                  setActiveTrend(null);
+                  setAudience(a);
+                }}
               >
                 {a}
               </button>
@@ -286,6 +301,9 @@ export function ContentStudio({ report, onCopy }: Props) {
           </div>
           <p className="voice-hint audience-live">
             This post targets: <em>{activeAudience || "— type an audience above —"}</em>
+            {activeTrend
+              ? ` · listening “${activeTrend.trendTitle}”`
+              : " · audience playbook + listening seed"}
           </p>
         </fieldset>
 
@@ -456,6 +474,7 @@ export function ContentStudio({ report, onCopy }: Props) {
                   const base = selectedRef
                     ? `${prompt} referencing ${selectedRef.refId}`
                     : prompt;
+                  setActiveTrend(null);
                   applyTopic(base);
                 }}
               >
@@ -558,7 +577,13 @@ export function ContentStudio({ report, onCopy }: Props) {
             if (suggestion.targetAudience) {
               setAudience(suggestion.targetAudience);
             }
-            applyTopic(topicPrompt);
+            // Short creative brief — structured listening fields drive generation
+            const shortTopic =
+              suggestion.headline?.trim() ||
+              suggestion.angle?.trim() ||
+              suggestion.hookIdeas[0] ||
+              topicPrompt;
+            applyTopic(shortTopic);
           }}
         />
 

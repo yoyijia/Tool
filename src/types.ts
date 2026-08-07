@@ -123,6 +123,18 @@ export interface ContentBrief {
   topic: string;
   /** Per-post audience override (each draft can target different people). */
   targetAudience?: string;
+  /**
+   * Social-listening / playbook signal. When set, drafts use the trend angle
+   * and hook ideas — not just a renamed audience label.
+   */
+  listening?: {
+    trendTitle: string;
+    angle: string;
+    hookIdeas: string[];
+    voiceBlend: string;
+    fitReason: string;
+    source?: string;
+  };
   referenceId?: string;
   referenceUrl?: string;
   referenceCaption?: string;

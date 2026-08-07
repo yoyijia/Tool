@@ -7,6 +7,14 @@ import type {
   VoicePresetId,
 } from "../types";
 import { resolveTargetAudience } from "./audience";
+import {
+  fillAudienceLine,
+  listeningSeedForAudience,
+  platformBeats,
+  scriptForAudience,
+  type ListeningBrief,
+} from "./audienceContent";
+import { classifyBrand } from "./brandTrendFit";
 import { servicesLine } from "./services";
 
 export const VOICE_PRESETS: VoicePreset[] = [
@@ -176,7 +184,21 @@ function hashSeed(s: string): number {
 function titleCaseTopic(topic: string): string {
   const t = topic.trim().replace(/\s+/g, " ");
   if (!t) return "your next launch";
-  return t.length > 80 ? `${t.slice(0, 77)}…` : t;
+  return t.length > 90 ? `${t.slice(0, 87)}…` : t;
+}
+
+/** Strip meta topic prompts down to a usable short brief. */
+function cleanTopic(raw: string): string {
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (!t) return "your next launch";
+  if (t.length > 120 && /TARGET AUDIENCE|Adapt trend/i.test(t)) {
+    const angle = t.match(
+      /(?:Parody|Adapt|Deadpan|Worth|POV|Reveal|Timely|Native|Format)[^.]+/i,
+    );
+    if (angle) return titleCaseTopic(angle[0]!.slice(0, 100));
+    return titleCaseTopic(t.slice(0, 90));
+  }
+  return titleCaseTopic(t);
 }
 
 function detectedVoiceFromReport(report: BrandReport): VoicePreset {
@@ -222,6 +244,24 @@ function brandAccent(report: BrandReport): string {
   );
 }
 
+function resolveListening(
+  report: BrandReport,
+  audience: string,
+  brief: ContentBrief,
+): ListeningBrief {
+  if (brief.listening?.trendTitle) {
+    return {
+      trendTitle: brief.listening.trendTitle,
+      angle: brief.listening.angle,
+      hookIdeas: brief.listening.hookIdeas ?? [],
+      voiceBlend: brief.listening.voiceBlend,
+      fitReason: brief.listening.fitReason,
+      source: brief.listening.source,
+    };
+  }
+  return listeningSeedForAudience(report, audience);
+}
+
 function hashtagPack(
   report: BrandReport,
   topic: string,
@@ -229,6 +269,7 @@ function hashtagPack(
   audience: string,
 ): string[] {
   const brand = report.name.replace(/\s+/g, "");
+  const script = scriptForAudience(report, audience);
   const topicTag = topic
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, "")
@@ -238,34 +279,17 @@ function hashtagPack(
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join("");
 
-  const audienceTag = /health|medical|clinic|patient/i.test(audience)
-    ? "HealthcareMarketing"
-    : /market/i.test(audience)
-      ? "MarketingStrategy"
-      : /developer|technical|api/i.test(audience)
-        ? "DevTools"
-        : /founder|sme|operator/i.test(audience)
-          ? "FounderTips"
-          : /athlete|sport/i.test(audience)
-            ? "SportsCulture"
-            : "BrandStory";
-
   const pool = [
     brand,
-    topicTag || audienceTag,
-    report.keywords[0] ? report.keywords[0].replace(/[^a-z0-9]/gi, "") : "Marketing",
-    pick(["SocialStrategy", "ContentThatConverts", "BrandVoice", "Engagement"], seed),
-    pick(
-      /health|medical|clinic/i.test(audience)
-        ? ["MedicalMarketing", "ClinicGrowth", "PatientTrust", "HealthcareSEO"]
-        : /developer|technical/i.test(audience)
-          ? ["BuildInPublic", "DevRel", "APITips", "ShipFast"]
-          : ["GrowthTips", "Storytelling", "AudienceFirst", "CreatorEconomy"],
-      seed + 3,
-    ),
+    topicTag || script.hashtags[0] || "BrandStory",
+    report.keywords[0]
+      ? report.keywords[0].replace(/[^a-z0-9]/gi, "")
+      : script.hashtags[1],
+    pick(script.hashtags, seed),
+    pick(script.hashtags, seed + 3),
   ]
     .filter(Boolean)
-    .map((t) => `#${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+    .map((t) => `#${String(t).charAt(0).toUpperCase()}${String(t).slice(1)}`);
 
   return [...new Set(pool)].slice(0, 5);
 }
@@ -273,45 +297,80 @@ function hashtagPack(
 function engagementTips(
   platform: ContentPlatform,
   voice: VoicePreset,
+  scriptTip: string,
+  listening: ListeningBrief,
 ): string[] {
   const shared = [
-    "Ask a binary or ranking question to spark replies.",
-    "Pin a comment with the CTA + link.",
+    scriptTip,
+    `Listening angle: ${listening.trendTitle} — ${listening.fitReason}`,
     `Lean into ${voice.styleNotes[0] ?? "clear voice"} — consistency builds recognition.`,
   ];
   const specific: Record<ContentPlatform, string[]> = {
     instagram: [
-      "Put the strongest line on slide 1 of a carousel.",
-      "Use a save-worthy tip list to boost saves.",
+      "Put the strongest audience-specific line on slide 1.",
+      "Use a save-worthy tip list tuned to this audience.",
     ],
     linkedin: [
-      "Post midweek mornings; reply to every comment in the first hour.",
+      "Open with the audience’s pain, not the brand name.",
       "Native document/carousel often beats link posts.",
     ],
     tiktok: [
-      "Start mid-action; add on-screen text for silent viewers.",
-      "Duet/stitch bait: leave a clear opinion to react to.",
+      "Say the audience out loud in the first 2 seconds.",
+      "Duet/stitch bait: leave an opinion this audience will argue with.",
     ],
     x: [
-      "Quote-tweet yourself later with a new angle.",
-      "End the thread with a poll for easy engagement.",
+      "Tweet 1 = audience pain, Tweet 2 = proof, Tweet 3 = CTA.",
+      "End the thread with a poll this audience can answer fast.",
     ],
     youtube: [
-      "Front-load the payoff; pattern interrupt at 0:08.",
-      "End screen / pinned comment with the next Short.",
+      "Title must name who it’s for — not just the topic.",
+      "Front-load the payoff this audience cares about.",
     ],
   };
-  return [...specific[platform].slice(0, 2), shared[0]!];
-}
-
-function articleFor(word: string): string {
-  return /^[aeiou]/i.test(word.trim()) ? "an" : "a";
+  return [shared[0]!, ...specific[platform].slice(0, 1), shared[1]!];
 }
 
 function fillHook(template: string, topic: string, brand: string): string {
-  return template
-    .replaceAll("{topic}", topic)
-    .replaceAll("{brand}", brand);
+  return template.replaceAll("{topic}", topic).replaceAll("{brand}", brand);
+}
+
+function pickHook(
+  voice: VoicePreset,
+  script: ReturnType<typeof scriptForAudience>,
+  listening: ListeningBrief,
+  report: BrandReport,
+  audience: string,
+  topic: string,
+  seed: number,
+): string {
+  const fromListening = listening.hookIdeas.filter(Boolean);
+  if (fromListening.length) {
+    return fillAudienceLine(pick(fromListening, seed), report, audience, topic);
+  }
+  const audienceHooks = script.hooks.map((h) =>
+    fillAudienceLine(h, report, audience, topic),
+  );
+  if (voice.hooks.length > 0 && seed % 3 === 0) {
+    return fillHook(pick(voice.hooks, seed), topic, report.name);
+  }
+  return pick(audienceHooks, seed);
+}
+
+function pickCta(
+  voice: VoicePreset,
+  script: ReturnType<typeof scriptForAudience>,
+  report: BrandReport,
+  audience: string,
+  topic: string,
+  seed: number,
+): string {
+  const audienceClosers = script.closers.map((c) =>
+    fillAudienceLine(c, report, audience, topic),
+  );
+  if (voice.closers.length > 0 && seed % 2 === 0) {
+    return fillHook(pick(voice.closers, seed), topic, report.name);
+  }
+  return pick(audienceClosers, seed);
 }
 
 function buildBodies(
@@ -319,50 +378,54 @@ function buildBodies(
   voice: VoicePreset,
   report: BrandReport,
   topic: string,
-  _seed: number,
+  seed: number,
   targetAudience: string,
+  listening: ListeningBrief,
 ): { body: string; cta: string; hook: string } {
   const brand = report.name;
   const trait = report.personality[0]?.label ?? "focused";
-  const trend = report.trends[0]?.title ?? "owned-channel storytelling";
-  const keyword = report.keywords[0] ?? "brand";
+  const offer = classifyBrand(report).primaryOffer;
+  const keyword = report.keywords[0] ?? offer;
   const accent = brandAccent(report);
-  const audiences = targetAudience;
   const services = servicesLine(report);
-
-  const hooks =
-    voice.hooks.length > 0
-      ? voice.hooks
-      : [
-          `${brand} on ${topic}:`,
-          `A ${trait.toLowerCase()} take on ${topic}.`,
-          `What ${brand} believes about ${topic}:`,
-        ];
-  const closers =
-    voice.closers.length > 0
-      ? voice.closers
-      : [
-          "What’s your take?",
-          "Follow for more.",
-          "Link in bio — start today.",
-        ];
-
-  const hook = fillHook(hooks[0] ?? `${brand} on ${topic}:`, topic, brand);
-  const cta = fillHook(closers[0] ?? "What’s your take?", topic, brand);
+  const script = scriptForAudience(report, targetAudience);
+  const vars = {
+    brand,
+    audience: targetAudience,
+    topic,
+    offer,
+  };
+  const beats = platformBeats(platform, script, vars);
+  const hook = pickHook(
+    voice,
+    script,
+    listening,
+    report,
+    targetAudience,
+    topic,
+    seed,
+  );
+  const cta = pickCta(voice, script, report, targetAudience, topic, seed + 5);
+  const listenLine = listening.source
+    ? `Social listening: “${listening.trendTitle}” (${listening.source})`
+    : `Social listening playbook: “${listening.trendTitle}”`;
 
   if (platform === "linkedin") {
     const body = [
       hook,
       "",
-      `At ${brand}, we keep coming back to one idea: ${topic}.`,
+      `For ${targetAudience} — not a generic feed post.`,
+      `Pain we’re solving: ${script.pain}.`,
       "",
-      `Written for ${audiences}. Services in frame: ${services}.`,
-      `Here’s the angle that travels:`,
-      `→ Lead with ${articleFor(trait)} ${trait.toLowerCase()} promise people can feel in 3 seconds.`,
-      `→ Proof it with a real moment (demo, client line, or behind-the-scenes).`,
-      `→ Close on a question — not a brochure.`,
+      `Angle (from listening): ${listening.angle}`,
       "",
-      `We’re seeing ${trend.toLowerCase()} win attention right now. ${topic} is a natural fit.`,
+      `How ${brand} shows up on ${topic}:`,
+      ...beats.map((b) => `→ ${b}`),
+      "",
+      `Proof style: ${script.proof}.`,
+      `Services in frame: ${services}.`,
+      `${listenLine}.`,
+      `Voice: ${trait.toLowerCase()} / ${voice.blurb}`,
       "",
       cta,
     ].join("\n");
@@ -373,16 +436,16 @@ function buildBodies(
     const body = [
       hook,
       "",
-      `${topic} — told the ${brand} way for ${audiences}.`,
+      `${script.formatName} for ${targetAudience}.`,
+      `Topic: ${topic}`,
       "",
-      `Slide / Reel beat ideas:`,
-      `1. Hook line on-brand (${accent})`,
-      `2. The tension / myth your audience believes`,
-      `3. How ${brand} approaches it`,
-      `4. One actionable tip`,
-      `5. CTA card (save / DM / book)`,
+      `Carousel / Reel beats:`,
+      ...beats.map((b, i) => `${i + 1}. ${b}`),
       "",
-      `Caption energy: ${voice.blurb}`,
+      `Listening angle: ${listening.angle}`,
+      `On-image color cue: ${accent}`,
+      `Caption energy: speak to ${script.speakAs}.`,
+      `${listenLine}.`,
       "",
       cta,
     ].join("\n");
@@ -391,42 +454,43 @@ function buildBodies(
 
   if (platform === "tiktok") {
     const body = [
-      `[0–1s VISUAL] Text on screen: “${hook}”`,
-      `[1–8s] Talk to camera: “Okay — ${topic}. Here’s what ${brand} actually does differently for ${audiences}.”`,
-      `[8–18s] Demo or B-roll: show one concrete moment tied to ${keyword}.`,
-      `[18–25s] Punchline: “That’s the whole play. ${trait}, not complicated.”`,
-      `[25–30s] CTA to camera: “${cta}”`,
+      `[0–1s VISUAL] Text: “${hook}”`,
+      `[1–8s] Talk to ${targetAudience}: “${topic}. Here’s the ${offer} take from ${brand}.”`,
+      `[8–18s] ${beats[1] ?? script.proof}`,
+      `[18–25s] ${beats[2] ?? `Show one concrete ${keyword} moment.`}`,
+      `[25–30s] CTA: “${cta}”`,
       "",
+      `Format: ${script.formatName}. Listening: ${listening.trendTitle}.`,
+      `Voice blend: ${listening.voiceBlend}`,
       `On-screen text color cue: ${accent}`,
-      `Mascot tip: place it opposite the talking head so Reels stay readable.`,
+      `Do not just rename the audience — every line must sound like it’s for ${targetAudience}.`,
     ].join("\n");
     return { hook, body, cta };
   }
 
   if (platform === "x") {
     const t1 = hook.length > 220 ? `${hook.slice(0, 217)}…` : hook;
-    const t2 = `${brand} take: ${topic} works when you sound ${trait.toLowerCase()} and show proof — not when you sound like every other feed. Signal we’re watching: ${trend.toLowerCase()}.`;
-    const t3 = `${cta} / ${brand}`;
-    const body = [
-      `1/ ${t1}`,
-      "",
-      `2/ ${t2.slice(0, 240)}`,
-      "",
-      `3/ ${t3.slice(0, 240)}`,
-    ].join("\n");
+    const t2 =
+      `${targetAudience}: ${script.pain}. ${brand} angle on ${topic} → ${listening.angle}`.slice(
+        0,
+        240,
+      );
+    const t3 = `${cta} · ${script.formatName}`.slice(0, 240);
+    const body = [`1/ ${t1}`, "", `2/ ${t2}`, "", `3/ ${t3}`].join("\n");
     return { hook: t1, body, cta };
   }
 
-  // youtube
   const body = [
-    `Title: ${hook.replace(/:$/, "")} | ${brand}`,
+    `Title: ${hook.replace(/:$/, "")} | for ${targetAudience} | ${brand}`,
     "",
-    `Script:`,
+    `Script (${script.formatName}):`,
     `HOOK: “${hook}”`,
-    `SETUP: “If you care about ${topic}, watch this.”`,
-    `VALUE: Walk through one ${brand} move — tied to ${keyword} — in under 20 seconds.`,
-    `PAYOFF: “That’s how ${trait.toLowerCase()} brands earn the scroll.”`,
-    `CTA: “${cta} Subscribe for the next drop.”`,
+    `SETUP: “If you’re ${targetAudience}, this is for you — ${topic}.”`,
+    `VALUE: ${beats[1] ?? `Walk through one ${brand} move on ${offer}.`}`,
+    `PROOF: ${script.proof}`,
+    `LISTENING: ${listening.trendTitle} — ${listening.angle}`,
+    `PAYOFF: “That’s how ${brand} talks to ${targetAudience} — not everyone.”`,
+    `CTA: “${cta}”`,
   ].join("\n");
   return { hook, body, cta };
 }
@@ -436,50 +500,43 @@ export function generateSocialContent(
   report: BrandReport,
   brief: ContentBrief,
 ): GeneratedPost[] {
-  const topic = titleCaseTopic(brief.topic);
   if (!brief.topic.trim()) {
     throw new Error("Describe the content you want to create.");
   }
 
+  const topic = cleanTopic(brief.topic);
   const voice = resolveVoice(brief.voiceId, report);
   const platform = brief.platform;
   const audience = resolveTargetAudience(report, brief.targetAudience);
+  const listening = resolveListening(report, audience, brief);
+  const script = scriptForAudience(report, audience);
   const meta = PLATFORM_META[platform];
   const baseSeed = hashSeed(
-    `${report.domain}|${voice.id}|${platform}|${topic}|${audience}`,
+    `${report.domain}|${voice.id}|${platform}|${topic}|${audience}|${listening.trendTitle}`,
   );
 
   return [0, 1, 2].map((variant) => {
     const seed = baseSeed + variant * 17;
-    const hookPool =
-      voice.hooks.length > 0
-        ? voice.hooks
-        : [
-            `${report.name} on {topic}:`,
-            `A fresh take on {topic}.`,
-            `What ${report.name} believes about {topic}:`,
-          ];
-    const closerPool =
-      voice.closers.length > 0
-        ? voice.closers
-        : ["What’s your take?", "Follow for more.", "Start today."];
-
-    const variantVoice = {
-      ...voice,
-      hooks: [hookPool[variant % hookPool.length]!, ...hookPool],
-      closers: [closerPool[variant % closerPool.length]!, ...closerPool],
-    };
-
     const { hook, body: baseBody, cta } = buildBodies(
       platform,
-      variantVoice,
+      voice,
       report,
       topic,
-      seed,
+      seed + variant,
       audience,
+      {
+        ...listening,
+        hookIdeas: [
+          ...listening.hookIdeas.slice(variant),
+          ...listening.hookIdeas.slice(0, variant),
+          ...script.hooks.map((h) =>
+            fillAudienceLine(h, report, audience, topic),
+          ),
+        ],
+      },
     );
     const hashtags = hashtagPack(report, topic, seed + variant, audience);
-    const tips = [...engagementTips(platform, voice)];
+    const tips = engagementTips(platform, voice, script.tip, listening);
     if (brief.referenceId) {
       tips.unshift(
         `Reference ${brief.referenceId}${brief.referenceUrl ? ` → ${brief.referenceUrl}` : ""} when briefing design or recycling creative.`,
@@ -509,7 +566,7 @@ export function generateSocialContent(
     return {
       id: `${platform}-${variant}-${seed}`,
       platform,
-      format: `${meta.format} · variant ${variant + 1}`,
+      format: `${meta.format} · ${script.formatName} · v${variant + 1}`,
       hook,
       body,
       cta,
