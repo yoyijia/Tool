@@ -69,7 +69,7 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
     }
   }
 
-  // Auto-load live SG trends once so GST / Spider-Man appear without an extra click
+  // Auto-load full live SG trends once
   useEffect(() => {
     void refreshLive();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only refresh for this brand
@@ -99,9 +99,9 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
     <fieldset className="studio-field">
       <legend>August schedule · live trends + carousels</legend>
       <p className="platform-tip">
-        Refresh <strong>live Singapore trends</strong> (GST Vouchers, Spider-Man: Brand New
-        Day, NDP, search spikes) into this calendar. Posts are angled for{" "}
-        <strong>{report.name}</strong>. Times in SGT for peak engagement.
+        Refresh <strong>live Singapore trends</strong> — Google Trends SG, news
+        (business / tech / entertainment / sports / health), CNA, and Reddit — not just
+        GST or National Day. Angled for <strong>{report.name}</strong>. Times in SGT.
       </p>
 
       <div className="studio-actions schedule-actions">
@@ -133,7 +133,7 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
       {live && live.length > 0 && (
         <div className="live-trend-strip">
           <span className="live-pill">LIVE</span>
-          {live.slice(0, 6).map((t) => (
+          {live.slice(0, 12).map((t) => (
             <button
               key={t.id}
               type="button"

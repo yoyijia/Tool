@@ -392,23 +392,24 @@ export function scoreBrandTrendFit(
 
   let reason = `Matched to ${targetAudience}.`;
   if (trendLane === "culture_news") {
-    const isWatchlist = signal.tag === "live-sg";
+    const isLiveSg = signal.tag === "live-sg" || /Trends SG|News SG|CNA|Reddit r\/singapore/i.test(signal.source);
     const localAudience =
       audienceKind === "healthcare" ||
       profile.audiences.includes("healthcare") ||
       /singapore|\.sg\b|activa/.test(profile.corpus);
-    if (isWatchlist && localAudience) {
-      score += 16;
+    if (isLiveSg && localAudience) {
+      score += 14;
       reason = `Live SG moment for ${targetAudience}.`;
-    } else if (isWatchlist) {
-      score -= 14;
-      reason = `Live SG watchlist — weak for ${targetAudience}.`;
+    } else if (isLiveSg) {
+      // Still usable — soft bridge, don’t bury the whole SG feed
+      score += 2;
+      reason = `Live SG trend — bridge carefully to ${profile.primaryOffer}.`;
     } else if (localAudience) {
-      score -= 8;
-      reason = `SG search spike — only if it bridges to ${profile.primaryOffer}.`;
+      score -= 4;
+      reason = `SG culture spike — only if it bridges to ${profile.primaryOffer}.`;
     } else {
-      score -= 22;
-      reason = `SG search spike — not for ${targetAudience}.`;
+      score -= 10;
+      reason = `SG culture spike — weak for ${targetAudience} unless adapted.`;
     }
   } else if (audienceScore >= 22) {
     reason = `Strong for ${targetAudience} (${trendLane.replace(/_/g, " ")}).`;

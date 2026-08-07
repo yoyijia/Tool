@@ -358,26 +358,35 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
     "instagram",
   );
 
-  // Live SG culture (GST vouchers, Spider-Man Brand New Day, NDP, …)
+  // Live SG culture — full Trends/News/CNA/Reddit set (not GST/NDP-only)
   liveTrendsToSignals(liveCulture).forEach((s) => {
     if (isSensitiveTopic(s.title)) return;
     signals.push(s);
   });
 
-  // SG search spikes — clearly labeled
+  // SG search spikes — clearly labeled (dedupe against live culture)
   if (searchSgXml) {
-    parseRssTitles(searchSgXml, 8).forEach((item, i) => {
+    parseRssTitles(searchSgXml, 20).forEach((item, i) => {
       if (isSensitiveTopic(item.title)) return;
-      if (liveCulture.some((l) => l.label.toLowerCase() === item.title.toLowerCase())) return;
+      if (
+        liveCulture.some(
+          (l) =>
+            l.label.toLowerCase() === item.title.toLowerCase() ||
+            l.headline.toLowerCase() === item.title.toLowerCase(),
+        )
+      ) {
+        return;
+      }
       signals.push({
         id: slugId("search", item.title, i),
         title: item.title,
         category: "search",
         platform: "other",
         source: "Google Trends SG (search)",
-        heat: Math.max(40, 85 - i * 5),
+        heat: Math.max(40, 88 - i * 3),
         summary: `Singapore is searching for “${item.title}” right now.`,
         url: item.link,
+        tag: "live-sg",
       });
     });
   }
@@ -528,16 +537,20 @@ export async function runSocialListening(report: BrandReport): Promise<{
     deduped.filter((s) => s.platform === "instagram"),
     { minScore: 48, limit: 14, maxPerLane: 2 },
   );
-  const liveFeed = rankSignalsForBrand(
-    report,
-    deduped.filter(
-      (s) =>
-        s.tag === "live-sg" ||
-        s.source.includes("News SG") ||
-        s.source.includes("Trends SG"),
-    ),
-    { minScore: 40, limit: 10, maxPerLane: 3 },
+  const liveRaw = deduped.filter(
+    (s) =>
+      s.tag === "live-sg" ||
+      /News SG|Trends SG|CNA Singapore|Reddit r\/singapore|Google Trends SG/i.test(
+        s.source,
+      ),
   );
+  // Live SG tab shows the broad current set (not GST/NDP-only, not heavy brand filter)
+  const liveFeed = [...liveRaw]
+    .sort(
+      (a, b) =>
+        (fitById[b.id] ?? 0) - (fitById[a.id] ?? 0) || b.heat - a.heat,
+    )
+    .slice(0, 28);
 
   const audienceFocus = audienceLine(report);
 
@@ -551,6 +564,6 @@ export async function runSocialListening(report: BrandReport): Promise<{
     fitById,
     audienceById,
     audienceFocus,
-    dataNote: `Ranked for ${report.name}'s audiences (${audienceFocus}). Weak mismatches are filtered; audience playbook formats fill gaps so feeds differ by company.`,
+    dataNote: `TikTok/IG ranked for ${report.name}'s audiences (${audienceFocus}). Live SG shows current Singapore trends (search, news, CNA, Reddit) — not limited to GST/National Day.`,
   };
 }

@@ -191,7 +191,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
         <div className="trend-feed">
           <h4 className="trend-feed-title">
             {tab === "live"
-              ? `Live SG filtered for ${report.name}`
+              ? `Live Singapore right now (${liveFeed.length})`
               : tab === "future"
                 ? "Upcoming format bets for these audiences"
                 : tab === "tiktok"
