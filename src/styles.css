@@ -857,16 +857,30 @@ textarea {
     var(--bg-2);
 }
 
-.idea-fit-card.verdict-strong {
-  border-color: rgba(200, 245, 66, 0.35);
+.idea-fit-card.verdict-works {
+  border-color: rgba(200, 245, 66, 0.45);
 }
 
-.idea-fit-card.verdict-ok {
-  border-color: rgba(255, 196, 80, 0.35);
+.idea-fit-card.verdict-maybe {
+  border-color: rgba(255, 196, 80, 0.4);
 }
 
-.idea-fit-card.verdict-weak {
-  border-color: rgba(255, 120, 120, 0.35);
+.idea-fit-card.verdict-wont {
+  border-color: rgba(255, 120, 120, 0.45);
+}
+
+.idea-fit-answer {
+  margin: 8px 0 4px;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.idea-fit-pending {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 .idea-fit-list {

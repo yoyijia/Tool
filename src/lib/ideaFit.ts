@@ -1,17 +1,18 @@
 import type { BrandReport, ContentPlatform } from "../types";
 import {
   audienceKinds,
-  audienceLine,
   primaryAudienceLabel,
   type AudienceKind,
 } from "./audience";
 import { classifyBrand } from "./brandTrendFit";
 
-export type IdeaVerdict = "strong" | "ok" | "weak";
+export type IdeaVerdict = "works" | "maybe" | "wont";
 
 export interface IdeaFitResult {
   score: number;
   verdict: IdeaVerdict;
+  /** Plain-language answer to “does this work?” */
+  answer: string;
   targetAudience: string;
   summary: string;
   works: string[];
@@ -21,9 +22,19 @@ export interface IdeaFitResult {
 }
 
 function verdictFor(score: number): IdeaVerdict {
-  if (score >= 72) return "strong";
-  if (score >= 48) return "ok";
-  return "weak";
+  if (score >= 70) return "works";
+  if (score >= 45) return "maybe";
+  return "wont";
+}
+
+function answerFor(verdict: IdeaVerdict, audience: string, brand: string): string {
+  if (verdict === "works") {
+    return `Yes — this can work for ${audience} from ${brand}.`;
+  }
+  if (verdict === "maybe") {
+    return `Maybe — usable for ${audience}, but tighten it before you shoot.`;
+  }
+  return `No — this won’t land well for ${audience} as written.`;
 }
 
 /** Many concrete example briefs tailored to this company + audiences. */
@@ -44,7 +55,6 @@ export function exampleIdeas(
     }
   };
 
-  // When the user typed a specific audience for this post, lead with that
   if (focus) {
     push(
       `Reel for ${focus}: one myth about ${offer}, calmly corrected`,
@@ -74,7 +84,7 @@ export function exampleIdeas(
       `Marketer tip: hook formulas that don’t sound salesy`,
       `Steal this brief — how ${brand} scopes a social sprint`,
       `GEO / AI search: what brand teams should do this quarter`,
-      `Carousal: 5 metrics marketers should stop worshipping`,
+      `Carousel: 5 metrics marketers should stop worshipping`,
     );
   }
   if (kinds.includes("developers")) {
@@ -113,7 +123,6 @@ export function exampleIdeas(
     );
   }
 
-  // Universal brand-safe fillers
   push(
     `Behind the scenes: how ${brand} ships ${offer}`,
     `Customer win story aimed at ${primaryAudienceLabel(report)}`,
@@ -158,9 +167,35 @@ function pickAudienceForIdea(report: BrandReport, idea: string): string {
   return primaryAudienceLabel(report);
 }
 
+function ideaMentionsAudience(idea: string, audience: string): boolean {
+  const t = idea.toLowerCase();
+  const bits = audience
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 3);
+  if (bits.some((w) => t.includes(w))) return true;
+  return /\bfor\b.{0,40}\b(clinic|founder|developer|marketer|athlete|buyer|patient|owner|shopper|gen z)/i.test(
+    idea,
+  );
+}
+
+function ideaMentionsOffer(idea: string, offer: string, report: BrandReport): boolean {
+  const t = idea.toLowerCase();
+  const bits = offer
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 3);
+  if (bits.some((w) => t.includes(w))) return true;
+  if (report.keywords.some((k) => k.length > 3 && t.includes(k.toLowerCase()))) return true;
+  if (t.includes(report.domain.split(".")[0] ?? "")) return true;
+  return /seo|sem|marketing|payment|api|product|campaign|brand|service|clinic|gear|shoe/i.test(
+    t,
+  );
+}
+
 /**
  * Score a freeform content idea against this company + a chosen audience.
- * Pass `targetAudience` when the user typed who this post is for.
+ * Returns a clear yes / maybe / no so users can see if the concept works.
  */
 export function scoreIdea(
   report: BrandReport,
@@ -169,18 +204,20 @@ export function scoreIdea(
   targetAudienceOverride?: string,
 ): IdeaFitResult {
   const idea = rawIdea.trim();
-  const chosenAudience =
-    targetAudienceOverride?.trim() || primaryAudienceLabel(report);
-  const examples = exampleIdeas(report, 12, chosenAudience);
+  const targetAudience =
+    targetAudienceOverride?.trim() ||
+    (idea ? pickAudienceForIdea(report, idea) : primaryAudienceLabel(report));
+  const examples = exampleIdeas(report, 12, targetAudience);
 
   if (!idea) {
     return {
       score: 0,
-      verdict: "weak",
-      targetAudience: chosenAudience,
-      summary: "Type an idea first — we’ll score it for your chosen audience.",
+      verdict: "wont",
+      answer: "Type a rough concept first — then we’ll say if it works.",
+      targetAudience,
+      summary: "No idea yet.",
       works: [],
-      risks: ["Empty brief"],
+      risks: ["Empty concept"],
       rewrite: examples[0] ?? `Customer win story for ${report.name}`,
       examples,
     };
@@ -190,145 +227,130 @@ export function scoreIdea(
   const kinds = audienceKinds(report);
   const offer = profile.primaryOffer;
   const t = idea.toLowerCase();
-  const targetAudience =
-    targetAudienceOverride?.trim() || pickAudienceForIdea(report, idea);
 
-  let score = 40;
+  let score = 28;
   const works: string[] = [];
   const risks: string[] = [];
 
-  // Offer / keyword overlap
-  const offerBits = offer
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((w) => w.length > 3);
-  const offerHits = offerBits.filter((w) => t.includes(w));
-  if (offerHits.length) {
-    score += Math.min(18, offerHits.length * 6);
-    works.push(`Ties to ${report.name}'s offer (${offerHits.slice(0, 2).join(", ")}).`);
-  } else if (report.keywords.some((k) => t.includes(k.toLowerCase()))) {
-    score += 10;
-    works.push("Uses language close to the brand’s keywords.");
+  // 1) Specificity — rough one-liners need more meat
+  if (idea.length < 18 || /^(idea|post|content|video|reel)\b/i.test(idea)) {
+    score -= 14;
+    risks.push("Too vague — say what happens in the post (hook + point).");
+  } else if (idea.length >= 40) {
+    score += 8;
+    works.push("Specific enough to brief a creator.");
   } else {
-    score -= 8;
-    risks.push(`Doesn’t clearly mention ${offer} — audience may not get why ${report.name} is posting.`);
+    score += 2;
   }
 
-  // Audience clarity — typed override always counts as intentional targeting
-  if (targetAudienceOverride?.trim()) {
-    score += 16;
-    works.push(`Locked to your chosen audience: ${targetAudience}.`);
-    if (!t.includes(targetAudience.toLowerCase().slice(0, 8)) && !/\bfor\b/i.test(idea)) {
-      score += 0;
-      // gentle nudge only
-      if (!risks.some((r) => /audience/i.test(r))) {
-        risks.push(`Mention “for ${targetAudience}” in the hook so the post feels intentional.`);
-      }
-    }
+  // 2) Does it connect to the brand offer?
+  if (ideaMentionsOffer(idea, offer, report)) {
+    score += 18;
+    works.push(`Links to what ${report.name} sells (${offer}).`);
   } else {
-    const audienceBits = targetAudience
-      .toLowerCase()
-      .split(/\W+/)
-      .filter((w) => w.length > 4);
-    if (
-      audienceBits.some((w) => t.includes(w)) ||
-      /for (clinic|founder|developer|marketer|athlete|buyer)/i.test(idea)
-    ) {
-      score += 14;
-      works.push(`Speaks to ${targetAudience}.`);
-    } else {
-      score -= 6;
-      risks.push(`Name the audience in the brief (e.g. “for ${targetAudience}”).`);
-    }
-  }
-
-  // Format / platform clarity
-  const hasFormat =
-    /reel|tiktok|carousel|story|linkedin|skit|documentary|listicle|hook|cta|pov|transition/i.test(
-      idea,
+    score -= 16;
+    risks.push(
+      `Doesn’t connect to ${report.name}'s offer (${offer}) — ${targetAudience} won’t know why you’re posting.`,
     );
-  if (hasFormat) {
-    score += 10;
-    works.push("Has a clear format (easier to produce).");
-  } else {
-    score -= 4;
-    risks.push(`Add a format (“${platform} Reel / carousel / skit”).`);
   }
 
-  // Mismatch: consumer fluff for B2B / healthcare
+  // 3) Does the concept fit THIS audience?
+  const audienceHit = ideaMentionsAudience(idea, targetAudience);
+  if (audienceHit) {
+    score += 14;
+    works.push(`Clearly aimed at ${targetAudience}.`);
+  } else {
+    score -= 10;
+    risks.push(
+      `Not clearly written for ${targetAudience} — add “for ${targetAudience}” or their pain point.`,
+    );
+  }
+
+  // Extra: lifestyle fluff that won't work for serious audiences
   const lifestyle =
-    /vacation|spain|ootd|bob haircut|girlhood|pilates|beach day|dating|ghosting you/i.test(t);
+    /vacation|spain|ootd|bob haircut|girlhood|pilates|beach|dating|ghosting you|party vibes|just for fun/i.test(
+      t,
+    );
   const serious =
+    /clinic|medical|health|founder|b2b|developer|enterprise|buyer|marketer|patient|seo|sem/i.test(
+      targetAudience,
+    ) ||
     kinds.includes("healthcare") ||
     kinds.includes("b2b") ||
     kinds.includes("developers") ||
     kinds.includes("founders");
-  if (lifestyle && serious && !/parody|adapt|but make it/i.test(t)) {
-    score -= 22;
+
+  if (lifestyle && serious && !/parody|adapt|but make it|myth/i.test(t)) {
+    score -= 24;
     risks.push(
-      "Reads like a consumer lifestyle trend — parody it or swap for a format your buyers trust.",
+      `Lifestyle / vacation energy won’t work for ${targetAudience} — parody the format or pick a proof-led angle.`,
     );
+  } else if (!lifestyle && serious) {
+    score += 4;
   }
 
-  // Healthcare compliance soft check
-  if (kinds.includes("healthcare") && /guaranteed|cure|miracle|#1 doctor/i.test(t)) {
-    score -= 20;
-    risks.push("Risky medical claim language — keep outcomes soft and consent-first.");
-  } else if (kinds.includes("healthcare") && /consent|myth|trust|review|process/i.test(t)) {
+  // 4) Format clarity
+  const hasFormat =
+    /reel|tiktok|carousel|story|linkedin|skit|documentary|listicle|hook|cta|pov|transition|short|thread/i.test(
+      idea,
+    );
+  if (hasFormat) {
+    score += 10;
+    works.push("Names a format (easier to produce).");
+  } else {
+    score -= 6;
+    risks.push(`Add a format (“${platform} Reel / carousel / skit”).`);
+  }
+
+  // 5) Healthcare claim risk
+  if (
+    (/health|clinic|medical|patient/i.test(targetAudience) || kinds.includes("healthcare")) &&
+    /guaranteed|cure|miracle|#1 doctor|100% results/i.test(t)
+  ) {
+    score -= 22;
+    risks.push("Risky medical claim — keep outcomes soft and consent-first.");
+  } else if (
+    (/health|clinic|medical/i.test(targetAudience) || kinds.includes("healthcare")) &&
+    /consent|myth|trust|review|process|faq/i.test(t)
+  ) {
     score += 8;
     works.push("Healthcare-safe angle (trust / myth / process).");
   }
 
-  // Brand name presence (nice-to-have)
-  if (t.includes(report.name.toLowerCase().slice(0, 6)) || t.includes(report.domain.split(".")[0] ?? "")) {
-    score += 4;
-    works.push("Anchored to the brand name/domain.");
+  // 6) Platform mismatch
+  if (platform === "linkedin" && /meme|dance|duet|stitch|thirst/i.test(t)) {
+    score -= 12;
+    risks.push("Won’t work on LinkedIn — drop the meme/dance energy.");
   }
 
-  // Platform nudge
-  if (platform === "linkedin" && /meme|dance|duet|stitch/i.test(t)) {
-    score -= 10;
-    risks.push("LinkedIn rarely loves dance/meme formats — keep it proof-led.");
-  }
-  if ((platform === "tiktok" || platform === "instagram") && /whitepaper|ebook|webinar only/i.test(t)) {
-    score -= 6;
-    risks.push("Heavy gated-asset energy — lead with a hook, soft-CTA the download.");
+  // Nonsense / gibberish
+  if (/^[a-z]{8,}$/i.test(idea.replace(/\s/g, "")) && !/[aeiou]{2}/i.test(idea)) {
+    score = 8;
+    risks.push("Looks like placeholder text — write a real concept.");
   }
 
-  // Length
-  if (idea.length < 24) {
-    score -= 8;
-    risks.push("Too thin — add audience + offer + format in one line.");
-  } else if (idea.length > 40) {
-    score += 4;
-  }
-
-  score = Math.max(8, Math.min(96, score));
+  score = Math.max(5, Math.min(96, Math.round(score)));
   const verdict = verdictFor(score);
-
   const rewrite = buildRewrite(report, idea, targetAudience, offer, platform, risks);
+  const answer = answerFor(verdict, targetAudience, report.name);
 
   const summary =
-    verdict === "strong"
-      ? `Strong fit for ${report.name} → ${targetAudience}.`
-      : verdict === "ok"
-        ? `Usable for ${targetAudience} — tighten offer + format.`
-        : `Weak for ${audienceLine(report)} — rewrite before you shoot.`;
-
-  // Prefer examples that aren't identical to the idea
-  const filteredExamples = examples.filter(
-    (e) => e.toLowerCase() !== idea.toLowerCase(),
-  );
+    verdict === "works"
+      ? `Good fit for ${targetAudience}.`
+      : verdict === "maybe"
+        ? `Borderline for ${targetAudience} — fix the gaps below.`
+        : `Poor fit for ${targetAudience} — use the rewrite.`;
 
   return {
     score,
     verdict,
+    answer,
     targetAudience,
     summary,
     works: works.slice(0, 4),
     risks: risks.slice(0, 4),
     rewrite,
-    examples: filteredExamples.slice(0, 10),
+    examples: examples.filter((e) => e.toLowerCase() !== idea.toLowerCase()).slice(0, 10),
   };
 }
 
@@ -341,12 +363,14 @@ function buildRewrite(
   risks: string[],
 ): string {
   const base = idea.replace(/\s+/g, " ").trim();
-  const needsAudience = !new RegExp(audience.split(/\s+/)[0] ?? "Audience", "i").test(base);
+  const needsAudience = !ideaMentionsAudience(base, audience);
   const needsOffer = !offer
     .split(/\W+/)
     .filter((w) => w.length > 4)
     .some((w) => base.toLowerCase().includes(w));
-  const needsFormat = !/reel|tiktok|carousel|skit|documentary|listicle|pov|story/i.test(base);
+  const needsFormat = !/reel|tiktok|carousel|skit|documentary|listicle|pov|story|short|thread/i.test(
+    base,
+  );
 
   const format =
     platform === "linkedin"
@@ -357,21 +381,23 @@ function buildRewrite(
           ? "YouTube Short"
           : "IG Reel / carousel";
 
+  if (risks.some((r) => /lifestyle|vacation/i.test(r))) {
+    return `${format} for ${audience}: parody a viral format to explain ${offer} (proof + soft CTA — not a lifestyle flex)`;
+  }
+  if (risks.some((r) => /medical claim/i.test(r))) {
+    return `${format}: myth vs fact for ${audience} about ${offer} — no outcome guarantees, consent-first CTA`;
+  }
+  if (risks.some((r) => /vague|placeholder/i.test(r))) {
+    return `${format} for ${audience}: one clear problem with ${offer} → ${_report.name} fix → soft CTA`;
+  }
+
   let out = base;
   if (needsFormat) out = `${format}: ${out}`;
   if (needsAudience) out = `${out} — for ${audience}`;
-  if (needsOffer) out = `${out}. Anchor in ${offer}`;
-  if (risks.some((r) => /lifestyle|parody/i.test(r))) {
-    out = `${format} parody of a viral format, rewritten for ${offer} / ${audience} (not a literal lifestyle flex)`;
-  }
-  if (risks.some((r) => /medical claim/i.test(r))) {
-    out = `${format}: myth vs fact for ${audience} about ${offer} — no outcome guarantees, consent-first CTA`;
-  }
-
-  // Keep rewrite punchy
-  if (out.length > 220) out = out.slice(0, 217) + "…";
+  if (needsOffer) out = `${out}. Make ${offer} the proof point`;
+  if (out.length > 220) out = `${out.slice(0, 217)}…`;
   if (out === base) {
-    out = `${format} for ${audience}: ${base}. Make the ${offer} proof obvious in 3 beats + soft CTA.`;
+    out = `${format} for ${audience}: ${base}. Show ${offer} in 3 beats + soft CTA.`;
   }
   return out;
 }

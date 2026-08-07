@@ -78,7 +78,6 @@ export function ContentStudio({ report, onCopy }: Props) {
 
   function applyTopic(next: string, alsoPose = true) {
     setTopic(next);
-    setIdeaResult(null);
     if (alsoPose) {
       setMascotPose(suggestMascotPose(next, platform, report.services ?? []));
     }
@@ -102,26 +101,58 @@ export function ContentStudio({ report, onCopy }: Props) {
   useEffect(() => {
     setTargetAudience(primaryAudienceLabel(report));
     setIdeaResult(null);
+    setTopic("");
   }, [report.domain, report.name]);
 
   function setAudience(next: string) {
     setTargetAudience(next);
-    setIdeaResult(null);
   }
 
-  function checkIdea() {
+  function runIdeaCheck(raw: string) {
     setIdeaBusy(true);
     setError(null);
     try {
-      const result = scoreIdea(report, topic, platform, activeAudience);
-      setIdeaResult(result);
+      setIdeaResult(scoreIdea(report, raw, platform, activeAudience));
     } catch (err) {
       setIdeaResult(null);
       setError(err instanceof Error ? err.message : "Could not score that idea.");
     } finally {
-      window.setTimeout(() => setIdeaBusy(false), 120);
+      setIdeaBusy(false);
     }
   }
+
+  function checkIdea() {
+    if (!topic.trim()) {
+      setIdeaResult(null);
+      return;
+    }
+    runIdeaCheck(topic);
+  }
+
+  // Auto-evaluate as the user types (and when audience/platform changes)
+  useEffect(() => {
+    const trimmed = topic.trim();
+    if (!trimmed) {
+      setIdeaResult(null);
+      setIdeaBusy(false);
+      return;
+    }
+
+    setIdeaBusy(true);
+    const timer = window.setTimeout(() => {
+      try {
+        setIdeaResult(scoreIdea(report, topic, platform, activeAudience));
+        setError(null);
+      } catch (err) {
+        setIdeaResult(null);
+        setError(err instanceof Error ? err.message : "Could not score that idea.");
+      } finally {
+        setIdeaBusy(false);
+      }
+    }, 550);
+
+    return () => window.clearTimeout(timer);
+  }, [topic, activeAudience, platform, report]);
 
   const selectedRef = useMemo(
     () => igRefs.find((r) => r.refId === selectedRefId) ?? null,
@@ -288,17 +319,16 @@ export function ContentStudio({ report, onCopy }: Props) {
         <fieldset className="studio-field">
           <legend>Your idea — type anything</legend>
           <p className="platform-tip">
-            Write a rough concept aimed at <strong>{activeAudience}</strong>. Check if it
-            works, grab a stronger rewrite, or tap more examples below.
+            Write a rough concept aimed at <strong>{activeAudience}</strong>. We check as
+            you type whether it works, then suggest a stronger rewrite. Tap examples below
+            anytime.
           </p>
           <textarea
             value={topic}
-            onChange={(e) => {
-              setTopic(e.target.value);
-              setIdeaResult(null);
-            }}
+            onChange={(e) => setTopic(e.target.value)}
             onBlur={() => {
               if (topic.trim()) {
+                runIdeaCheck(topic);
                 setMascotPose(
                   suggestMascotPose(topic, platform, report.services ?? []),
                 );
@@ -322,21 +352,39 @@ export function ContentStudio({ report, onCopy }: Props) {
             </button>
           </div>
 
-          {ideaResult && (
+          {ideaBusy && !ideaResult && topic.trim() ? (
+            <p className="idea-fit-pending" aria-live="polite">
+              Checking if this works for {activeAudience}…
+            </p>
+          ) : null}
+
+          {ideaResult && topic.trim() ? (
             <article
               className={`idea-fit-card verdict-${ideaResult.verdict}`}
               aria-live="polite"
             >
               <div className="trend-sug-top">
                 <span className="trend-cat">
-                  {ideaResult.verdict.toUpperCase()} · {ideaResult.targetAudience}
+                  {ideaResult.verdict === "works"
+                    ? "WORKS"
+                    : ideaResult.verdict === "maybe"
+                      ? "MAYBE"
+                      : "WON’T WORK"}{" "}
+                  · {ideaResult.targetAudience}
                 </span>
                 <span
-                  className={`badge ${ideaResult.verdict === "strong" ? "high" : ideaResult.verdict === "ok" ? "medium" : "low"}`}
+                  className={`badge ${
+                    ideaResult.verdict === "works"
+                      ? "high"
+                      : ideaResult.verdict === "maybe"
+                        ? "medium"
+                        : "low"
+                  }`}
                 >
                   fit {ideaResult.score}
                 </span>
               </div>
+              <p className="idea-fit-answer">{ideaResult.answer}</p>
               <p className="trend-angle">{ideaResult.summary}</p>
               {ideaResult.works.length > 0 && (
                 <ul className="engage-tips idea-fit-list works">
@@ -370,6 +418,7 @@ export function ContentStudio({ report, onCopy }: Props) {
                     onCopy(
                       [
                         `Idea fit for ${report.name}`,
+                        ideaResult.answer,
                         `Score: ${ideaResult.score} (${ideaResult.verdict})`,
                         `Audience: ${ideaResult.targetAudience}`,
                         ideaResult.summary,
@@ -384,7 +433,7 @@ export function ContentStudio({ report, onCopy }: Props) {
                 </button>
               </div>
             </article>
-          )}
+          ) : null}
 
           <div className="examples-head">
             <h4 className="trend-feed-title">

@@ -39,22 +39,39 @@ console.log(
       weak: {
         score: weak.score,
         verdict: weak.verdict,
+        answer: weak.answer,
         audience: weak.targetAudience,
         rewrite: weak.rewrite,
       },
       strong: {
         score: strong.score,
         verdict: strong.verdict,
+        answer: strong.answer,
         audience: strong.targetAudience,
       },
       foundersPost: {
         score: founders.score,
         verdict: founders.verdict,
+        answer: founders.answer,
         audience: founders.targetAudience,
         summary: founders.summary,
+      },
+      asserts: {
+        weakIsWontOrMaybe: weak.verdict === "wont" || weak.verdict === "maybe",
+        strongWorks: strong.verdict === "works",
+        weakScoreBelowStrong: weak.score < strong.score,
       },
     },
     null,
     2,
   ),
 );
+
+if (weak.verdict === "works") {
+  console.error("FAIL: beach vacation should not WORK for clinic owners");
+  process.exit(1);
+}
+if (strong.verdict !== "works") {
+  console.error("FAIL: clear clinic SEO myth carousel should WORK");
+  process.exit(1);
+}
