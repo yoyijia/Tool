@@ -137,7 +137,7 @@ const WATCHLIST: {
       beats: [
         "0–1s: Spidey emoji / “Brand New Day” text",
         "Punchline tied to a service (new site = new day, GEO = great power)",
-        "Optional Gucci cameo as “friendly neighbourhood office dog”",
+        "Optional culture cameo if it fits the brand",
         "CTA: which hero is your brand?",
       ],
     }),
@@ -321,7 +321,7 @@ export function liveTrendsToSignals(trends: LiveCultureTrend[]): TrendSignal[] {
   }));
 }
 
-/** Splice top live trends into the next few calendar days (keeps Gucci Dog Day intact). */
+/** Splice top live trends into the next few calendar days (keeps spotlights intact). */
 export function mergeLiveTrendsIntoSchedule(
   base: ScheduleSlot[],
   live: LiveCultureTrend[],

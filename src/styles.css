@@ -1618,30 +1618,6 @@ textarea {
 }
 
 /* —— August content schedule —— */
-.dog-name-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.dog-name-field input {
-  min-width: 120px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--ink);
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
 .schedule-list {
   display: flex;
   flex-direction: column;

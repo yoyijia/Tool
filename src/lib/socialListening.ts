@@ -1,5 +1,9 @@
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { activeCalendarMoments } from "./calendarMoments";
+import {
+  adaptTrendForBrand,
+  scoreBrandTrendFit,
+} from "./brandTrendFit";
 import { fetchLiveCultureTrends, liveTrendsToSignals } from "./liveCulture";
 
 const LATER_TIKTOK = "https://later.com/blog/tiktok-trends/";
@@ -396,93 +400,14 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
   return signals;
 }
 
-function describeVoice(report: BrandReport): string {
-  const top = report.personality
-    .slice(0, 2)
-    .map((p) => p.label.toLowerCase())
-    .join(" + ");
-  const dims = report.voiceDimensions
-    .map((d) => (d.value >= 55 ? d.right : d.left).toLowerCase())
-    .slice(0, 3)
-    .join(", ");
-  return `${report.archetype} (${top || "bold"}; ${dims || "clear"})`;
-}
-
-function voiceBlendLine(report: BrandReport, signal: TrendSignal): string {
-  const trait = report.personality[0]?.label ?? "Bold";
-  if (signal.platform === "tiktok") {
-    return `Keep the native TikTok format of “${signal.title}”, but deliver the punchline in ${report.name}'s ${trait.toLowerCase()} voice — ${describeVoice(report)}.`;
-  }
-  if (signal.platform === "instagram") {
-    return `Shoot it as a Reel/carousel beat for “${signal.title}”, caption in ${report.name}'s voice: ${report.voiceSummary}`;
-  }
-  return `If you use this moment, filter it through ${describeVoice(report)}. ${report.voiceSummary}`;
-}
-
-function scoreFit(report: BrandReport, signal: TrendSignal): {
-  score: number;
-  reason: string;
-} {
-  const topTrait = report.personality[0]?.label ?? "Bold";
-  const text = `${signal.title} ${signal.summary}`.toLowerCase();
-  const tokens = [
-    ...report.keywords.map((k) => k.toLowerCase()),
-    report.name.toLowerCase(),
-  ];
-  const isB2b = /ai|saas|pay|bank|cloud|dev|api|software|fintech|stripe|payments/.test(
-    `${tokens.join(" ")} ${report.domain} ${report.description}`.toLowerCase(),
-  );
-
-  let score = 48;
-  let reason = `Solid creative prompt for ${report.name} if adapted carefully.`;
-
-  if (signal.tag === "live-sg" || /News SG|Trends SG/i.test(signal.source)) {
-    score += 24;
-    reason = "Live Singapore news/search trend — timely if you post soon.";
-    if (/gst|voucher|spider|ndp/i.test(text)) score += 8;
-  }
-  if (signal.platform === "tiktok") {
-    score += 22;
-    reason = /Buffer|New Engen|Later/i.test(signal.source)
-      ? "From a current TikTok format/sound roundup."
-      : "From a dated TikTok trend roundup — higher confidence than generic news.";
-  }
-  if (signal.platform === "instagram") {
-    score += 20;
-    reason = /SocialBee|New Engen|Later/i.test(signal.source)
-      ? "From a current Instagram Reels format/sound roundup."
-      : "From a dated Instagram Reels trend roundup.";
-  }
-  if (signal.heat >= 88) {
-    score += 10;
-    reason += " Fresh (updated in the last few days).";
-  }
-  if (tokens.some((t) => text.includes(t))) {
-    score += 12;
-    reason = "Overlaps your brand language.";
-  }
-  if (isB2b && /horror|bob|spain|ghosting|girlhood|pilates/i.test(text)) {
-    score -= 8;
-    reason = "Playful consumer trend — works if you lean witty, not literal.";
-  }
-  if (/playful|bold|innovative/i.test(topTrait) && signal.platform !== "other") {
-    score += 6;
-  }
-
-  score += Math.round(signal.heat / 30);
-  return { score: Math.max(20, Math.min(98, score)), reason };
-}
-
 function buildSuggestion(
   report: BrandReport,
   signal: TrendSignal,
   index: number,
 ): TrendSuggestion {
-  const { score, reason } = scoreFit(report, signal);
-  const brand = report.name;
-  const trait = report.personality[0]?.label ?? "Bold";
+  const { score, reason } = scoreBrandTrendFit(report, signal);
+  const adapted = adaptTrendForBrand(report, signal);
   const title = signal.title;
-  const blend = voiceBlendLine(report, signal);
 
   const platforms =
     signal.platform === "tiktok"
@@ -491,52 +416,14 @@ function buildSuggestion(
         ? ["Instagram Reels", "TikTok"]
         : ["LinkedIn", "X", "Instagram"];
 
-  let headline = "";
-  let angle = "";
-  let hooks: string[] = [];
-  let topicPrompt = "";
-
-  if (signal.platform === "tiktok") {
-    headline = `TikTok · ${title}`;
-    angle = `${blend} Context: ${signal.summary}`;
-    hooks = [
-      `POV: ${brand} does “${title}”…`,
-      `“${title}” but make it ${trait.toLowerCase()} — ${brand} edition.`,
-      `Stop scrolling. ${brand}'s version of ${title}:`,
-    ];
-    topicPrompt = `Use the TikTok trend “${title}” (${signal.source}) in ${brand}'s ${trait.toLowerCase()} voice. ${signal.summary}`;
-  } else if (signal.platform === "instagram") {
-    headline = `Instagram · ${title}`;
-    angle = `${blend} Context: ${signal.summary}`;
-    hooks = [
-      `“${title}” — told the ${brand} way.`,
-      `Reels beat: ${title}. Caption energy = ${trait.toLowerCase()}.`,
-      `Save this if you’re into ${title} + ${brand}.`,
-    ];
-    topicPrompt = `Use the Instagram Reels trend “${title}” (${signal.source}) with ${brand}'s ${report.archetype} voice.`;
-  } else if (signal.tag === "live-sg" || /News SG|Trends SG/i.test(signal.source)) {
-    headline = `Live SG · ${title}`;
-    angle = `${blend} ${signal.summary}`;
-    hooks = [
-      `Everyone’s on “${title}” — ${brand}'s take:`,
-      `Singapore right now: ${title}. Here’s the useful angle.`,
-      `${title} → one tip for ${report.audiences?.[0] ?? "your audience"}.`,
-    ];
-    topicPrompt = `Create a timely post on live Singapore trend “${title}” for ${brand}. ${signal.summary} Voice: ${trait}. Keep it brand-safe and useful.`;
-  } else if (signal.category === "festival" || signal.source === "Cultural calendar") {
-    headline = `${title} for ${brand}`;
-    angle = blend;
-    hooks = [`${title} energy, but make it ${brand}.`, `Our ${title} shortlist.`];
-    topicPrompt = `${title} campaign angle for ${brand}`;
-  } else {
-    headline = `Search spike · ${title}`;
-    angle = `${blend} This is search interest, not a TikTok/IG official trend.`;
-    hooks = [
-      `Everyone’s searching ${title}. ${brand}'s take:`,
-      `${title}, explained in 15 seconds.`,
-    ];
-    topicPrompt = `Explainer on search spike “${title}” in ${brand}'s voice`;
-  }
+  const platformLabel =
+    signal.platform === "tiktok"
+      ? "TikTok"
+      : signal.platform === "instagram"
+        ? "Instagram"
+        : signal.tag === "live-sg" || /News SG|Trends SG/i.test(signal.source)
+          ? "Live SG"
+          : "Moment";
 
   return {
     id: `sug-${signal.id}-${index}`,
@@ -544,15 +431,15 @@ function buildSuggestion(
     trendTitle: title,
     category: signal.category,
     platform: signal.platform,
-    headline,
-    angle,
+    headline: `${platformLabel} · ${title} → ${report.name}`,
+    angle: adapted.angle,
     platforms,
-    hookIdeas: hooks,
-    topicPrompt,
+    hookIdeas: adapted.hooks,
+    topicPrompt: adapted.topicPrompt,
     fitScore: score,
     fitReason: reason,
     timing: signal.heat >= 85 ? "now" : signal.heat >= 65 ? "this_week" : "seasonal",
-    voiceBlend: blend,
+    voiceBlend: adapted.voiceBlend,
   };
 }
 
@@ -563,12 +450,13 @@ export function suggestFromTrends(
 ): TrendSuggestion[] {
   const scored = signals
     .map((s, i) => buildSuggestion(report, s, i))
-    .filter((s) => s.fitScore >= 28)
+    .filter((s) => s.fitScore >= 42)
     .sort((a, b) => b.fitScore - a.fitScore);
 
   const picked: TrendSuggestion[] = [];
+  // Best brand-matched TikTok + IG first
   for (const platform of ["tiktok", "instagram"] as const) {
-    const hit = scored.find((s) => s.platform === platform);
+    const hit = scored.find((s) => s.platform === platform && s.fitScore >= 50);
     if (hit) picked.push(hit);
   }
   for (const s of scored) {
@@ -578,6 +466,15 @@ export function suggestFromTrends(
   return picked.slice(0, limit);
 }
 
+function sortByBrandFit(report: BrandReport, signals: TrendSignal[]): TrendSignal[] {
+  return [...signals].sort((a, b) => {
+    const sa = scoreBrandTrendFit(report, a).score;
+    const sb = scoreBrandTrendFit(report, b).score;
+    if (sb !== sa) return sb - sa;
+    return b.heat - a.heat;
+  });
+}
+
 export async function runSocialListening(report: BrandReport): Promise<{
   signals: TrendSignal[];
   suggestions: TrendSuggestion[];
@@ -585,14 +482,31 @@ export async function runSocialListening(report: BrandReport): Promise<{
   tiktokFeed: TrendSignal[];
   instagramFeed: TrendSignal[];
   liveFeed: TrendSignal[];
+  fitById: Record<string, number>;
   dataNote: string;
 }> {
   const signals = await listenToTrends(report);
   const suggestions = suggestFromTrends(report, signals);
-  const tiktokFeed = signals.filter((s) => s.platform === "tiktok");
-  const instagramFeed = signals.filter((s) => s.platform === "instagram");
-  const liveFeed = signals.filter(
-    (s) => s.tag === "live-sg" || s.source.includes("News SG") || s.source.includes("Trends SG"),
+  const fitById: Record<string, number> = {};
+  for (const s of signals) {
+    fitById[s.id] = scoreBrandTrendFit(report, s).score;
+  }
+  const tiktokFeed = sortByBrandFit(
+    report,
+    signals.filter((s) => s.platform === "tiktok"),
+  );
+  const instagramFeed = sortByBrandFit(
+    report,
+    signals.filter((s) => s.platform === "instagram"),
+  );
+  const liveFeed = sortByBrandFit(
+    report,
+    signals.filter(
+      (s) =>
+        s.tag === "live-sg" ||
+        s.source.includes("News SG") ||
+        s.source.includes("Trends SG"),
+    ),
   );
   return {
     signals,
@@ -601,7 +515,8 @@ export async function runSocialListening(report: BrandReport): Promise<{
     tiktokFeed,
     instagramFeed,
     liveFeed,
+    fitById,
     dataNote:
-      "Refreshed on demand from Later (dated format drops), New Engen weekly charts, Buffer/SocialBee sound lists, plus live Google Trends/News SG. Not TikTok Creative Center or Meta in-app charts — those APIs stay closed.",
+      "Trends are ranked for this company (industry + audiences + services), then freshness. Sources: Later, New Engen, Buffer/SocialBee, Google Trends/News SG — not in-app Creative Center charts.",
   };
 }

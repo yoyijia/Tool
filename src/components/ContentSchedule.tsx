@@ -33,17 +33,13 @@ function kindLabel(kind: ScheduleSlot["kind"]): string {
 }
 
 export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
-  const [officeDog, setOfficeDog] = useState("Gucci");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState<LiveCultureTrend[] | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const from = useMemo(() => new Date(), []);
 
-  const baseSlots = useMemo(
-    () => buildMonthSchedule(report, from, { officeDogName: officeDog.trim() || "Gucci" }),
-    [report, from, officeDog],
-  );
+  const baseSlots = useMemo(() => buildMonthSchedule(report, from), [report, from]);
 
   const slots = useMemo(
     () => (live?.length ? mergeLiveTrendsIntoSchedule(baseSlots, live, report) : baseSlots),
@@ -104,20 +100,11 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
       <legend>August schedule · live trends + carousels</legend>
       <p className="platform-tip">
         Refresh <strong>live Singapore trends</strong> (GST Vouchers, Spider-Man: Brand New
-        Day, NDP, search spikes) into this calendar. Dog Day (26 Aug) still stars{" "}
-        <strong>{officeDog || "Gucci"}</strong>. Times in SGT for peak engagement.
+        Day, NDP, search spikes) into this calendar. Posts are angled for{" "}
+        <strong>{report.name}</strong>. Times in SGT for peak engagement.
       </p>
 
       <div className="studio-actions schedule-actions">
-        <label className="dog-name-field">
-          Office dog
-          <input
-            value={officeDog}
-            onChange={(e) => setOfficeDog(e.target.value)}
-            placeholder="Gucci"
-            aria-label="Office dog name"
-          />
-        </label>
         <p className="voice-hint">
           {scheduleSummary(slots)}
           {refreshedAt

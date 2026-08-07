@@ -22,7 +22,6 @@ export interface ScheduleSlot {
   whyNow: string;
   engagementTip: string;
   topicPrompt: string;
-  /** e.g. Gucci office dog */
   talent?: string;
   serviceTag?: string;
 }
@@ -193,39 +192,6 @@ const CAROUSEL_ROTATION: {
   },
 ];
 
-function gucciDogDay(year: number): ScheduleSlot {
-  const date = iso(year, 8, 26);
-  const d = new Date(year, 7, 26);
-  const { postAt, tip } = bestSlot(d.getDay(), "instagram");
-  return {
-    id: `dog-gucci-${year}`,
-    date,
-    dayLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-    weekday: d.toLocaleDateString(undefined, { weekday: "long" }),
-    postAt,
-    timezone: "SGT",
-    platform: "instagram",
-    kind: "spotlight",
-    title: "International Dog Day · meet Gucci, Activa Media’s office dog",
-    format: "Carousel + Reel cutdown",
-    hook: "HR didn’t hire Gucci. Engagement did.",
-    slidesOrBeats: [
-      "Slide 1: Gucci portrait — “International Dog Day / Office MVP”",
-      "Slide 2: Gucci “approves” campaign moods (treat = creative brief)",
-      "Slide 3: Desk patrol = stand-up energy / culture proof",
-      "Slide 4: Soft CTA — “Follow for more agency life (and Gucci)”",
-      "Reel: 8s Gucci walk-on → text “Best account manager?” → logo end card",
-    ],
-    whyNow:
-      "International Dog Day (26 Aug) is a high-save pet moment. Gucci humanises Activa Media for marketers and clinic owners alike — culture content that still feels on-brand.",
-    engagementTip: tip,
-    talent: "Gucci (office dog)",
-    serviceTag: "Culture / Social",
-    topicPrompt:
-      "International Dog Day carousel + Reel starring Gucci, Activa Media’s office dog. Warm, witty agency culture. Slides: portrait, “approves creatives”, desk patrol, CTA. Keep healthcare clients smiling without being unprofessional. Pose mascot: celebrate or wave beside Gucci mention.",
-  };
-}
-
 function observanceSlot(
   year: number,
   month: number,
@@ -234,51 +200,62 @@ function observanceSlot(
 ): ScheduleSlot | null {
   const items = observancesOnDate(month, day);
   if (!items.length) return null;
-  // Prefer dog day handled separately
-  if (month === 8 && day === 26) return null;
 
   const pick =
     items.find((o) =>
-      /joke|youth|cat|humanitarian|beach|tell a joke/i.test(o.title),
+      /joke|youth|dog|cat|humanitarian|beach|tell a joke/i.test(o.title),
     ) ?? items[0]!;
 
   const d = new Date(year, month - 1, day);
   const isJoke = /joke/i.test(pick.title);
   const isYouth = /youth/i.test(pick.title);
-  const platform: ContentPlatform = isJoke || isYouth ? "tiktok" : "instagram";
+  const isDog = /dog/i.test(pick.title);
+  const platform: ContentPlatform =
+    isJoke || isYouth ? "tiktok" : isDog ? "instagram" : "instagram";
   const { postAt, tip } = bestSlot(d.getDay(), platform);
 
   let hook = "";
   let slides: string[] = [];
   let serviceTag = "Social";
   let format = "Carousel";
+  let kind: ScheduleSlot["kind"] = "observance";
 
-  if (isJoke) {
+  if (isDog) {
+    kind = "spotlight";
+    format = "Carousel + Reel cutdown";
+    serviceTag = "Culture / Social";
+    hook = `${report.name} culture day — loyalty, teamwork, and the clients who’d never leave.`;
+    slides = [
+      `Slide 1: International Dog Day · ${report.name} culture`,
+      "Slide 2: What ‘loyal clients’ look like in our work",
+      `Slide 3: Team / craft moment for ${audienceLine(report)}`,
+      "Slide 4: Soft CTA — follow for more brand-building",
+    ];
+  } else if (isJoke) {
     format = "Reel / TikTok";
-    serviceTag = "Social / Healthcare";
-    hook = "A clinic SEO joke walks into a brief…";
+    serviceTag = "Social";
+    hook = `A ${report.name} joke walks into a brief…`;
     slides = [
       "0–1s: text “National Tell a Joke Day”",
-      "Punchline tied to medical marketing myth",
-      "Activa Media logo + “we’ll be serious about your leads”",
+      `Punchline tied to ${report.name}'s craft`,
+      `${report.name} logo + one serious CTA`,
     ];
   } else if (/cat/i.test(pick.title)) {
-    // Skip cat day for dog-agency culture — light optional
-    hook = "Cat Day cameo: even Gucci respects the algorithm.";
-    slides = ["One Story frame only — don’t compete with Dog Day later."];
+    hook = `Cat Day cameo for ${report.name} — keep it light.`;
+    slides = ["One Story frame only — optional culture beat."];
     format = "Story";
     serviceTag = "Culture";
   } else if (isYouth) {
     format = "Reel";
     serviceTag = "Social / Talent";
-    hook = "Youth Day: the intern who asked ChatGPT for a media plan.";
-    slides = ["Skit beat", "GEO punchline", "CTA: we’re hiring curious marketers"];
+    hook = `Youth Day: the intern who asked ChatGPT for a ${report.name} plan.`;
+    slides = ["Skit beat", "Punchline", "CTA: follow / careers"];
   } else if (/beach/i.test(pick.title)) {
     hook = "Beach Day = summer wrap for campaign learnings.";
     slides = [
       "What worked in Q3 social",
       "What we’d cut",
-      "One beach-read tip for clinic marketers",
+      `One tip for ${audienceLine(report)}`,
     ];
     serviceTag = "Social";
   } else {
@@ -298,12 +275,16 @@ function observanceSlot(
     postAt,
     timezone: "SGT",
     platform,
-    kind: "observance",
-    title: pick.title,
+    kind,
+    title: isDog
+      ? `International Dog Day · ${report.name} culture`
+      : pick.title,
     format,
     hook,
     slidesOrBeats: slides,
-    whyNow: pick.summary,
+    whyNow: isDog
+      ? `Pet culture day remixed for ${report.name} — loyalty/team metaphor for ${audienceLine(report)}, no office-dog gimmick required.`
+      : pick.summary,
     engagementTip: tip,
     serviceTag,
     topicPrompt: `Post for ${pick.title} (${iso(year, month, day)}). Brand: ${report.name}. Hook: ${hook}. Format: ${format}. Beats: ${slides.join(" · ")}`,
@@ -312,18 +293,16 @@ function observanceSlot(
 
 /**
  * Build a posting schedule from `from` through end of that month (default: rest of August).
- * Mixes observances/trends with service carousels; Dog Day stars Gucci.
+ * Mixes brand-angled observances with service carousels.
  */
 export function buildMonthSchedule(
   report: BrandReport,
   from: Date = new Date(),
-  options?: { officeDogName?: string },
 ): ScheduleSlot[] {
   const year = from.getFullYear();
   const month = from.getMonth() + 1; // 1-12
   const startDay = from.getDate();
   const lastDay = new Date(year, month, 0).getDate();
-  const dogName = options?.officeDogName ?? "Gucci";
 
   const slots: ScheduleSlot[] = [];
   let carouselIdx = 0;
@@ -331,31 +310,6 @@ export function buildMonthSchedule(
   for (let day = startDay; day <= lastDay; day++) {
     const d = new Date(year, month - 1, day);
     const weekday = d.getDay();
-
-    // Skip pure Sundays for LinkedIn-heavy mix — still allow weekend Reels once
-    if (month === 8 && day === 26) {
-      const dog = gucciDogDay(year);
-      if (dogName !== "Gucci") {
-        dog.talent = `${dogName} (office dog)`;
-        dog.title = dog.title.replace(/Gucci/g, dogName);
-        dog.hook = dog.hook.replace(/Gucci/g, dogName);
-        dog.topicPrompt = dog.topicPrompt.replace(/Gucci/g, dogName);
-        dog.slidesOrBeats = dog.slidesOrBeats.map((s) => s.replace(/Gucci/g, dogName));
-      }
-      // Also add a TikTok cut same evening
-      const tiktokCut: ScheduleSlot = {
-        ...dog,
-        id: `${dog.id}-tt`,
-        platform: "tiktok",
-        postAt: "19:30",
-        format: "TikTok / Reels cutdown",
-        kind: "reel",
-        engagementTip: "Cross-post IG Reel → TikTok at 7:30pm SGT for second peak.",
-        topicPrompt: `${dog.topicPrompt} Export as 9:16 TikTok with trending-safe original audio.`,
-      };
-      slots.push(dog, tiktokCut);
-      continue;
-    }
 
     const obs = observanceSlot(year, month, day, report);
     // Use observance on key days; cat day = story only so we still schedule a carousel weekday

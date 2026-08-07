@@ -20,6 +20,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const [tiktokFeed, setTiktokFeed] = useState<TrendSignal[]>([]);
   const [instagramFeed, setInstagramFeed] = useState<TrendSignal[]>([]);
   const [liveFeed, setLiveFeed] = useState<TrendSignal[]>([]);
+  const [fitById, setFitById] = useState<Record<string, number>>({});
   const [dataNote, setDataNote] = useState<string | null>(null);
   const [listenedAt, setListenedAt] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("live");
@@ -38,10 +39,27 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       setTiktokFeed(result.tiktokFeed);
       setInstagramFeed(result.instagramFeed);
       setLiveFeed(result.liveFeed);
+      setFitById(result.fitById);
       setDataNote(result.dataNote);
       setListenedAt(result.listenedAt);
-      setSelectedTrendId(result.liveFeed[0]?.id ?? result.tiktokFeed[0]?.id ?? null);
-      setTab(result.liveFeed.length ? "live" : "tiktok");
+      // Open on best brand-matched TikTok/IG, not a random live spike
+      const best =
+        result.suggestions[0]?.trendId ||
+        result.tiktokFeed[0]?.id ||
+        result.instagramFeed[0]?.id ||
+        result.liveFeed[0]?.id ||
+        null;
+      setSelectedTrendId(best);
+      const bestSug = result.suggestions[0];
+      setTab(
+        bestSug?.platform === "instagram"
+          ? "instagram"
+          : bestSug?.platform === "tiktok"
+            ? "tiktok"
+            : result.tiktokFeed.length
+              ? "tiktok"
+              : "live",
+      );
     } catch (err) {
       setError(
         err instanceof Error
@@ -92,9 +110,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
     <fieldset className="studio-field">
       <legend>Trends · TikTok, Instagram & future bets</legend>
       <p className="platform-tip">
-        For <strong>{report.name}</strong> ({audienceLine(report)}): hit refresh for
-        current TikTok/Reels formats + sounds (Later, New Engen, Buffer/SocialBee) and
-        live SG culture spikes.
+        For <strong>{report.name}</strong> ({audienceLine(report)}): refresh ranks
+        TikTok/Reels by <strong>company fit</strong> first, then freshness — not a
+        generic viral list.
       </p>
 
       <div className="studio-actions">
@@ -167,9 +185,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
               : tab === "future"
                 ? "Upcoming TikTok / Instagram format bets"
                 : tab === "tiktok"
-                  ? "TikTok trends (dated roundups)"
+                  ? `TikTok ranked for ${report.name}`
                   : tab === "instagram"
-                    ? "Instagram Reels trends (dated roundups)"
+                    ? `Reels ranked for ${report.name}`
                     : "Not TikTok/IG — search & calendar only"}
           </h4>
           <div className="trend-feed-list">
@@ -202,8 +220,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                     <span className="trend-feed-body">
                       <strong>{s.title}</strong>
                       <em>
-                        {s.source}
-                        {s.url ? " · sourced roundup" : ""}
+                        fit {fitById[s.id] ?? "—"} · {s.source}
                       </em>
                     </span>
                   </button>
@@ -238,9 +255,10 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                 <p className="source-line">{selectedSignal.source}</p>
               )}
               <p className="voice-blend-line">{activeBlend.voiceBlend}</p>
-              <p className="trend-angle">
-                {tab === "future" ? activeBlend.angle : selectedSignal?.summary}
-              </p>
+              <p className="trend-angle">{activeBlend.angle}</p>
+              {tab !== "future" && selectedSignal?.summary && (
+                <p className="source-line">Trend context: {selectedSignal.summary}</p>
+              )}
               <p className="trend-fit">{activeBlend.fitReason}</p>
               <div className="keywords post-tags">
                 {activeBlend.platforms.map((p) => (
