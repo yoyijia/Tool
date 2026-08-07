@@ -1985,3 +1985,227 @@ textarea {
 .trend-sug-top .badge.low {
   background: var(--muted);
 }
+
+/* ── UX: onboarding, nav, steps ─────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+.app {
+  scroll-behavior: smooth;
+}
+
+#overview,
+#create,
+#schedule,
+#trends,
+#brand-kit {
+  scroll-margin-top: 64px;
+}
+
+.hints-label {
+  color: var(--faint);
+  font-size: 0.85rem;
+  align-self: center;
+  margin-right: 2px;
+}
+
+.how-it-works {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  margin: 22px 0 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.how-it-works li {
+  flex: 1 1 150px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(200, 245, 66, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.how-it-works strong {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  color: var(--accent);
+}
+
+.how-it-works span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.error-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.error-block p {
+  margin: 0;
+}
+
+.load-progress {
+  margin: 14px auto 0;
+  width: min(320px, 80%);
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(200, 245, 66, 0.1);
+  overflow: hidden;
+}
+
+.load-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width 0.9s ease;
+}
+
+.section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: 8px -6px 14px;
+  padding: 6px;
+  animation: rise 0.3s ease both;
+}
+
+.section-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(10, 21, 17, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.section-nav-brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--accent);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.section-nav-inner button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.section-nav-inner button:hover {
+  color: var(--ink);
+  border-color: var(--line);
+  background: rgba(200, 245, 66, 0.06);
+}
+
+.section-nav-reset {
+  margin-left: auto;
+  color: var(--accent) !important;
+  border-color: var(--line) !important;
+}
+
+.back-to-top {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  border: 1px solid var(--line);
+  background: rgba(10, 21, 17, 0.95);
+  color: var(--ink);
+  border-radius: 99px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.back-to-top:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0a1511;
+  font-weight: 800;
+  font-size: 0.8rem;
+  vertical-align: middle;
+}
+
+.more-tools {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  margin-top: 4px;
+}
+
+.more-tools > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 16px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--muted);
+  transition: color 0.15s;
+  user-select: none;
+}
+
+.more-tools > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--accent);
+  transition: transform 0.15s;
+}
+
+.more-tools[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.more-tools > summary:hover {
+  color: var(--ink);
+}
+
+.more-tools[open] {
+  border-style: solid;
+  padding-bottom: 12px;
+}
+
+.more-tools > summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-tools .studio-field,
+.more-tools fieldset {
+  margin: 10px 12px 0;
+}

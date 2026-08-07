@@ -9,7 +9,7 @@ interface Props {
 export function ReportView({ report, onCopy }: Props) {
   return (
     <div className="results-grid">
-      <section className="panel span-2">
+      <section className="panel span-2" id="overview">
         <div className="report-head">
           <div className="domain">{report.domain}</div>
           <h2 className="name">{report.name}</h2>
@@ -90,7 +90,7 @@ export function ReportView({ report, onCopy }: Props) {
 
       <ContentStudio report={report} onCopy={onCopy} />
 
-      <section className="panel span-2">
+      <section className="panel span-2" id="brand-kit">
         <h3>Color palette</h3>
         <p className="sub">Extracted from theme-color, inline CSS, and stylesheet tokens. Click to copy.</p>
         <div className="palette">

@@ -30,7 +30,6 @@ import {
   type RenderedPostImage,
 } from "../lib/postImage";
 import { loadImageFromFile, suggestMascotPose } from "../lib/mascots";
-import { servicesLine } from "../lib/services";
 import { ContentCalendar } from "./ContentCalendar";
 import { ContentSchedule } from "./ContentSchedule";
 import { InstagramLibrary } from "./InstagramLibrary";
@@ -251,23 +250,20 @@ export function ContentStudio({ report, onCopy }: Props) {
   }
 
   return (
-    <section className="panel span-2 studio">
+    <section className="panel span-2 studio" id="create">
       <h3>Content studio</h3>
       <p className="sub">
-        Plan around services like {servicesLine(report)}, then export editorial images
-        {report.audiences?.length
-          ? ` — tuned for ${report.audiences.join(" · ")}`
-          : ""}
-        .
+        Three quick steps: choose who the post is for, pick a platform, type your idea —
+        then generate drafts and images in {report.name}’s voice.
       </p>
 
       <form className="studio-form" onSubmit={runGenerate}>
         <fieldset className="studio-field audience-field">
-          <legend>Type your audience</legend>
+          <legend>
+            <span className="step-num">1</span> Who is this post for?
+          </legend>
           <p className="platform-tip">
-            Who should this post speak to? Type freely — change it for every draft. Drafts
-            use an audience playbook (hooks, proof, CTA) plus social listening — not just a
-            renamed label. Detected for <strong>{report.name}</strong>:{" "}
+            Type anyone, or tap a chip. Detected for <strong>{report.name}</strong>:{" "}
             {audienceLine(report)}.
           </p>
           <label className="audience-label" htmlFor="target-audience-input">
@@ -308,7 +304,9 @@ export function ContentStudio({ report, onCopy }: Props) {
         </fieldset>
 
         <fieldset className="studio-field">
-          <legend>Platform</legend>
+          <legend>
+            <span className="step-num">2</span> Platform
+          </legend>
           <div className="platform-row">
             {PLATFORMS.map((p) => (
               <button
@@ -335,11 +333,12 @@ export function ContentStudio({ report, onCopy }: Props) {
         </fieldset>
 
         <fieldset className="studio-field">
-          <legend>Your idea — type anything</legend>
+          <legend>
+            <span className="step-num">3</span> Your idea — type anything
+          </legend>
           <p className="platform-tip">
-            Write a rough concept aimed at <strong>{activeAudience}</strong>. We check as
-            you type whether it works, then suggest a stronger rewrite. Tap examples below
-            anytime.
+            Write a rough concept for <strong>{activeAudience}</strong>. We check as you
+            type whether it works and suggest a stronger version. Or tap an example below.
           </p>
           <textarea
             value={topic}
@@ -496,7 +495,9 @@ export function ContentStudio({ report, onCopy }: Props) {
         </div>
 
         <fieldset className="studio-field">
-          <legend>Brand voice</legend>
+          <legend>
+            <span className="step-num">4</span> Brand voice
+          </legend>
           <div className="voice-grid">
             {VOICE_PRESETS.map((v) => (
               <button
@@ -519,82 +520,95 @@ export function ContentStudio({ report, onCopy }: Props) {
           </div>
         </fieldset>
 
-        <MascotPicker
-          mascotId={mascotId}
-          customName={customMascotName}
-          onSelect={setMascotId}
-          onCustomFile={(file) => void onCustomFile(file)}
-        />
+        <div id="schedule">
+          <ContentSchedule
+            report={report}
+            onCopy={onCopy}
+            onUseSlot={(topicPrompt, slot) => {
+              setPlatform(slot.platform);
+              setActiveTrend(null);
+              applyTopic(topicPrompt);
+              setMascotPose(
+                suggestMascotPose(topicPrompt, slot.platform, report.services ?? []),
+              );
+            }}
+          />
+        </div>
 
-        <ContentSchedule
-          report={report}
-          onCopy={onCopy}
-          onUseSlot={(topicPrompt, slot) => {
-            setPlatform(slot.platform);
-            setActiveTrend(null);
-            applyTopic(topicPrompt);
-            setMascotPose(
-              suggestMascotPose(topicPrompt, slot.platform, report.services ?? []),
-            );
-          }}
-        />
+        <div id="trends">
+          <TrendRadar
+            report={report}
+            onCopy={onCopy}
+            onUseSuggestion={(topicPrompt, suggestion) => {
+              let nextPlatform: ContentPlatform = platform;
+              if (suggestion.platform === "tiktok" || suggestion.category === "tiktok") {
+                nextPlatform = "tiktok";
+              } else if (
+                suggestion.platform === "instagram" ||
+                suggestion.category === "instagram"
+              ) {
+                nextPlatform = "instagram";
+              } else if (suggestion.platforms[0] === "LinkedIn") {
+                nextPlatform = "linkedin";
+              } else if (suggestion.category === "movie" || suggestion.category === "festival") {
+                nextPlatform = "instagram";
+              }
+              setPlatform(nextPlatform);
+              setActiveTrend(suggestion);
+              if (suggestion.targetAudience) {
+                setAudience(suggestion.targetAudience);
+              }
+              // Short creative brief — structured listening fields drive generation
+              const shortTopic =
+                suggestion.headline?.trim() ||
+                suggestion.angle?.trim() ||
+                suggestion.hookIdeas[0] ||
+                topicPrompt;
+              applyTopic(shortTopic);
+              document
+                .getElementById("create")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+        </div>
 
-        <ContentCalendar
-          report={report}
-          onCopy={onCopy}
-          onUseIdea={(topicPrompt, idea) => {
-            const plat =
-              idea.platforms[0] === "LinkedIn"
-                ? "linkedin"
-                : idea.platforms[0] === "TikTok"
-                  ? "tiktok"
-                  : "instagram";
-            setPlatform(plat);
-            setActiveTrend(null);
-            applyTopic(topicPrompt);
-          }}
-        />
+        <details className="more-tools">
+          <summary>
+            More tools · mascots, content calendar, Instagram references
+          </summary>
 
-        <TrendRadar
-          report={report}
-          onCopy={onCopy}
-          onUseSuggestion={(topicPrompt, suggestion) => {
-            let nextPlatform: ContentPlatform = platform;
-            if (suggestion.platform === "tiktok" || suggestion.category === "tiktok") {
-              nextPlatform = "tiktok";
-            } else if (
-              suggestion.platform === "instagram" ||
-              suggestion.category === "instagram"
-            ) {
-              nextPlatform = "instagram";
-            } else if (suggestion.platforms[0] === "LinkedIn") {
-              nextPlatform = "linkedin";
-            } else if (suggestion.category === "movie" || suggestion.category === "festival") {
-              nextPlatform = "instagram";
-            }
-            setPlatform(nextPlatform);
-            setActiveTrend(suggestion);
-            if (suggestion.targetAudience) {
-              setAudience(suggestion.targetAudience);
-            }
-            // Short creative brief — structured listening fields drive generation
-            const shortTopic =
-              suggestion.headline?.trim() ||
-              suggestion.angle?.trim() ||
-              suggestion.hookIdeas[0] ||
-              topicPrompt;
-            applyTopic(shortTopic);
-          }}
-        />
+          <MascotPicker
+            mascotId={mascotId}
+            customName={customMascotName}
+            onSelect={setMascotId}
+            onCustomFile={(file) => void onCustomFile(file)}
+          />
 
-        <InstagramLibrary
-          report={report}
-          refs={igRefs}
-          selectedId={selectedRefId}
-          onChange={setIgRefs}
-          onSelect={(ref) => setSelectedRefId(ref?.refId ?? null)}
-          onCopy={onCopy}
-        />
+          <ContentCalendar
+            report={report}
+            onCopy={onCopy}
+            onUseIdea={(topicPrompt, idea) => {
+              const plat =
+                idea.platforms[0] === "LinkedIn"
+                  ? "linkedin"
+                  : idea.platforms[0] === "TikTok"
+                    ? "tiktok"
+                    : "instagram";
+              setPlatform(plat);
+              setActiveTrend(null);
+              applyTopic(topicPrompt);
+            }}
+          />
+
+          <InstagramLibrary
+            report={report}
+            refs={igRefs}
+            selectedId={selectedRefId}
+            onChange={setIgRefs}
+            onSelect={(ref) => setSelectedRefId(ref?.refId ?? null)}
+            onCopy={onCopy}
+          />
+        </details>
       </form>
 
       {error && <div className="error">{error}</div>}
