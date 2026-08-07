@@ -1,5 +1,5 @@
 /**
- * Smoke social listening + suggestions.
+ * Smoke: verify dated TikTok/IG trends parse correctly.
  * Run: npx tsx scripts/smoke-trends.ts
  */
 import { JSDOM } from "jsdom";
@@ -14,20 +14,28 @@ const { analyzeBrand } = await import("../src/lib/analyze.ts");
 const { runSocialListening } = await import("../src/lib/socialListening.ts");
 
 const report = await analyzeBrand("https://stripe.com");
-const { signals, suggestions } = await runSocialListening(report);
+const { tiktokFeed, instagramFeed, suggestions, dataNote } =
+  await runSocialListening(report);
 
 console.log(
   JSON.stringify(
     {
-      brand: report.name,
-      signalCount: signals.length,
-      categories: [...new Set(signals.map((s) => s.category))],
-      topSignals: signals.slice(0, 5).map((s) => `${s.category}:${s.title}`),
-      suggestions: suggestions.slice(0, 5).map((s) => ({
-        cat: s.category,
+      dataNote,
+      tiktok: tiktokFeed.slice(0, 6).map((t) => ({
+        title: t.title,
+        source: t.source,
+        heat: t.heat,
+      })),
+      instagram: instagramFeed.slice(0, 6).map((t) => ({
+        title: t.title,
+        source: t.source,
+        heat: t.heat,
+      })),
+      topSuggestions: suggestions.slice(0, 4).map((s) => ({
+        platform: s.platform,
+        title: s.trendTitle,
         fit: s.fitScore,
-        headline: s.headline,
-        prompt: s.topicPrompt,
+        voice: s.voiceBlend.slice(0, 100),
       })),
     },
     null,

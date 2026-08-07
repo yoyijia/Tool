@@ -1341,15 +1341,22 @@ textarea {
   color: var(--muted);
 }
 
-.voice-blend-line {
-  margin: 0;
-  font-size: 0.78rem;
+.data-note {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
   line-height: 1.4;
-  color: var(--accent);
+  color: var(--muted);
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--accent-dim);
-  border: 1px solid rgba(200, 245, 66, 0.2);
+  border: 1px dashed var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.source-line {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--accent-2);
+  font-weight: 600;
 }
 
 .blend-card {
