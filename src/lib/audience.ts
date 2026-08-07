@@ -131,6 +131,34 @@ export function primaryAudienceLabel(report: BrandReport): string {
   return report.audiences?.[0] || KIND_LABEL.general;
 }
 
+/** Prefer a typed per-post audience; fall back to detected brand audiences. */
+export function resolveTargetAudience(
+  report: BrandReport,
+  custom?: string | null,
+): string {
+  const typed = custom?.trim();
+  if (typed) return typed;
+  return primaryAudienceLabel(report);
+}
+
+/** Quick-pick chips: detected audiences + a few common roles. */
+export function audienceQuickPicks(report: BrandReport): string[] {
+  const extras = [
+    "Clinic owners / medical directors",
+    "In-house marketers",
+    "SME founders",
+    "Enterprise buyers",
+    "Developers / technical buyers",
+    "Patients / end users",
+    "Athletes & sports fans",
+    "Gen Z consumers",
+    "HR / people leaders",
+    "Agency partners",
+  ];
+  const detected = report.audiences ?? [];
+  return [...new Set([...detected, ...extras])].slice(0, 12);
+}
+
 /** Suggested briefs from audiences + detected service lines. */
 export function audiencePrompts(report: BrandReport): string[] {
   const fromServices = servicePrompts(report);

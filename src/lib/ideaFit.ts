@@ -27,10 +27,15 @@ function verdictFor(score: number): IdeaVerdict {
 }
 
 /** Many concrete example briefs tailored to this company + audiences. */
-export function exampleIdeas(report: BrandReport, limit = 16): string[] {
+export function exampleIdeas(
+  report: BrandReport,
+  limit = 16,
+  focusAudience?: string,
+): string[] {
   const brand = report.name;
   const offer = classifyBrand(report).primaryOffer;
   const kinds = audienceKinds(report);
+  const focus = focusAudience?.trim();
   const out: string[] = [];
 
   const push = (...items: string[]) => {
@@ -38,6 +43,20 @@ export function exampleIdeas(report: BrandReport, limit = 16): string[] {
       if (!out.includes(item)) out.push(item);
     }
   };
+
+  // When the user typed a specific audience for this post, lead with that
+  if (focus) {
+    push(
+      `Reel for ${focus}: one myth about ${offer}, calmly corrected`,
+      `Carousel for ${focus}: problem → ${brand} approach → proof → CTA`,
+      `POV skit aimed at ${focus} about ${offer}`,
+      `“Worth it” list for ${focus} — what to pay for in ${offer}`,
+      `Hot take for ${focus}: what most people still get wrong`,
+      `Behind the scenes for ${focus}: how ${brand} ships ${offer}`,
+      `Documentary bit for ${focus}: the brief that wouldn’t die`,
+      `Soft CTA for ${focus}: save / share / book a chat`,
+    );
+  }
 
   if (kinds.includes("healthcare")) {
     push(
@@ -140,22 +159,26 @@ function pickAudienceForIdea(report: BrandReport, idea: string): string {
 }
 
 /**
- * Score a freeform content idea against this company + its audiences.
+ * Score a freeform content idea against this company + a chosen audience.
+ * Pass `targetAudience` when the user typed who this post is for.
  */
 export function scoreIdea(
   report: BrandReport,
   rawIdea: string,
   platform: ContentPlatform = "instagram",
+  targetAudienceOverride?: string,
 ): IdeaFitResult {
   const idea = rawIdea.trim();
-  const examples = exampleIdeas(report, 12);
+  const chosenAudience =
+    targetAudienceOverride?.trim() || primaryAudienceLabel(report);
+  const examples = exampleIdeas(report, 12, chosenAudience);
 
   if (!idea) {
     return {
       score: 0,
       verdict: "weak",
-      targetAudience: primaryAudienceLabel(report),
-      summary: "Type an idea first — we’ll score it for this company and audience.",
+      targetAudience: chosenAudience,
+      summary: "Type an idea first — we’ll score it for your chosen audience.",
       works: [],
       risks: ["Empty brief"],
       rewrite: examples[0] ?? `Customer win story for ${report.name}`,
@@ -167,7 +190,8 @@ export function scoreIdea(
   const kinds = audienceKinds(report);
   const offer = profile.primaryOffer;
   const t = idea.toLowerCase();
-  const targetAudience = pickAudienceForIdea(report, idea);
+  const targetAudience =
+    targetAudienceOverride?.trim() || pickAudienceForIdea(report, idea);
 
   let score = 40;
   const works: string[] = [];
@@ -190,17 +214,32 @@ export function scoreIdea(
     risks.push(`Doesn’t clearly mention ${offer} — audience may not get why ${report.name} is posting.`);
   }
 
-  // Audience clarity
-  const audienceBits = targetAudience
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((w) => w.length > 4);
-  if (audienceBits.some((w) => t.includes(w)) || /for (clinic|founder|developer|marketer|athlete|buyer)/i.test(idea)) {
-    score += 14;
-    works.push(`Speaks to ${targetAudience}.`);
+  // Audience clarity — typed override always counts as intentional targeting
+  if (targetAudienceOverride?.trim()) {
+    score += 16;
+    works.push(`Locked to your chosen audience: ${targetAudience}.`);
+    if (!t.includes(targetAudience.toLowerCase().slice(0, 8)) && !/\bfor\b/i.test(idea)) {
+      score += 0;
+      // gentle nudge only
+      if (!risks.some((r) => /audience/i.test(r))) {
+        risks.push(`Mention “for ${targetAudience}” in the hook so the post feels intentional.`);
+      }
+    }
   } else {
-    score -= 6;
-    risks.push(`Name the audience in the brief (e.g. “for ${targetAudience}”).`);
+    const audienceBits = targetAudience
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 4);
+    if (
+      audienceBits.some((w) => t.includes(w)) ||
+      /for (clinic|founder|developer|marketer|athlete|buyer)/i.test(idea)
+    ) {
+      score += 14;
+      works.push(`Speaks to ${targetAudience}.`);
+    } else {
+      score -= 6;
+      risks.push(`Name the audience in the brief (e.g. “for ${targetAudience}”).`);
+    }
   }
 
   // Format / platform clarity

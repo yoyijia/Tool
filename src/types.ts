@@ -121,6 +121,8 @@ export interface ContentBrief {
   voiceId: VoicePresetId;
   platform: ContentPlatform;
   topic: string;
+  /** Per-post audience override (each draft can target different people). */
+  targetAudience?: string;
   referenceId?: string;
   referenceUrl?: string;
   referenceCaption?: string;

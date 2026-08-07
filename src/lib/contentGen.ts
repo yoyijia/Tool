@@ -6,7 +6,7 @@ import type {
   VoicePreset,
   VoicePresetId,
 } from "../types";
-import { audienceLine } from "./audience";
+import { resolveTargetAudience } from "./audience";
 import { servicesLine } from "./services";
 
 export const VOICE_PRESETS: VoicePreset[] = [
@@ -222,7 +222,12 @@ function brandAccent(report: BrandReport): string {
   );
 }
 
-function hashtagPack(report: BrandReport, topic: string, seed: number): string[] {
+function hashtagPack(
+  report: BrandReport,
+  topic: string,
+  seed: number,
+  audience: string,
+): string[] {
   const brand = report.name.replace(/\s+/g, "");
   const topicTag = topic
     .toLowerCase()
@@ -233,11 +238,17 @@ function hashtagPack(report: BrandReport, topic: string, seed: number): string[]
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join("");
 
-  const audienceTag = /health|medical/i.test(audienceLine(report))
+  const audienceTag = /health|medical|clinic|patient/i.test(audience)
     ? "HealthcareMarketing"
-    : /market/i.test(audienceLine(report))
+    : /market/i.test(audience)
       ? "MarketingStrategy"
-      : "BrandStory";
+      : /developer|technical|api/i.test(audience)
+        ? "DevTools"
+        : /founder|sme|operator/i.test(audience)
+          ? "FounderTips"
+          : /athlete|sport/i.test(audience)
+            ? "SportsCulture"
+            : "BrandStory";
 
   const pool = [
     brand,
@@ -245,9 +256,11 @@ function hashtagPack(report: BrandReport, topic: string, seed: number): string[]
     report.keywords[0] ? report.keywords[0].replace(/[^a-z0-9]/gi, "") : "Marketing",
     pick(["SocialStrategy", "ContentThatConverts", "BrandVoice", "Engagement"], seed),
     pick(
-      /health|medical/i.test(audienceLine(report))
+      /health|medical|clinic/i.test(audience)
         ? ["MedicalMarketing", "ClinicGrowth", "PatientTrust", "HealthcareSEO"]
-        : ["BuildInPublic", "CreatorEconomy", "GrowthTips", "Storytelling"],
+        : /developer|technical/i.test(audience)
+          ? ["BuildInPublic", "DevRel", "APITips", "ShipFast"]
+          : ["GrowthTips", "Storytelling", "AudienceFirst", "CreatorEconomy"],
       seed + 3,
     ),
   ]
@@ -307,13 +320,14 @@ function buildBodies(
   report: BrandReport,
   topic: string,
   _seed: number,
+  targetAudience: string,
 ): { body: string; cta: string; hook: string } {
   const brand = report.name;
   const trait = report.personality[0]?.label ?? "focused";
   const trend = report.trends[0]?.title ?? "owned-channel storytelling";
   const keyword = report.keywords[0] ?? "brand";
   const accent = brandAccent(report);
-  const audiences = audienceLine(report);
+  const audiences = targetAudience;
   const services = servicesLine(report);
 
   const hooks =
@@ -429,8 +443,11 @@ export function generateSocialContent(
 
   const voice = resolveVoice(brief.voiceId, report);
   const platform = brief.platform;
+  const audience = resolveTargetAudience(report, brief.targetAudience);
   const meta = PLATFORM_META[platform];
-  const baseSeed = hashSeed(`${report.domain}|${voice.id}|${platform}|${topic}`);
+  const baseSeed = hashSeed(
+    `${report.domain}|${voice.id}|${platform}|${topic}|${audience}`,
+  );
 
   return [0, 1, 2].map((variant) => {
     const seed = baseSeed + variant * 17;
@@ -459,8 +476,9 @@ export function generateSocialContent(
       report,
       topic,
       seed,
+      audience,
     );
-    const hashtags = hashtagPack(report, topic, seed + variant);
+    const hashtags = hashtagPack(report, topic, seed + variant, audience);
     const tips = [...engagementTips(platform, voice)];
     if (brief.referenceId) {
       tips.unshift(

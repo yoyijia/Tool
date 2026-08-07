@@ -791,6 +791,34 @@ textarea {
   margin-bottom: 0;
 }
 
+.audience-input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 12px 14px;
+  outline: none;
+  font: inherit;
+  line-height: 1.4;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.audience-input::placeholder {
+  color: var(--faint);
+}
+
+.audience-input:focus {
+  border-color: rgba(200, 245, 66, 0.45);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.audience-picks button.active-pick {
+  border-color: rgba(200, 245, 66, 0.55);
+  background: rgba(200, 245, 66, 0.12);
+  color: var(--ink);
+}
+
 .idea-check-actions {
   margin-top: 10px;
   justify-content: flex-start;

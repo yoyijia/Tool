@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type {
   BrandReport,
   ContentPlatform,
@@ -9,7 +9,12 @@ import type {
   MascotPosition,
   VoicePresetId,
 } from "../types";
-import { audienceLine } from "../lib/audience";
+import {
+  audienceLine,
+  audienceQuickPicks,
+  primaryAudienceLabel,
+  resolveTargetAudience,
+} from "../lib/audience";
 import {
   VOICE_PRESETS,
   generateSocialContent,
@@ -49,6 +54,9 @@ interface Props {
 export function ContentStudio({ report, onCopy }: Props) {
   const [voiceId, setVoiceId] = useState<VoicePresetId>("detected");
   const [platform, setPlatform] = useState<ContentPlatform>("instagram");
+  const [targetAudience, setTargetAudience] = useState(() =>
+    primaryAudienceLabel(report),
+  );
   const [topic, setTopic] = useState("");
   const [posts, setPosts] = useState<GeneratedPost[] | null>(null);
   const [images, setImages] = useState<Record<string, RenderedPostImage>>({});
@@ -81,14 +89,31 @@ export function ContentStudio({ report, onCopy }: Props) {
     [voiceId],
   );
 
-  const topicHints = useMemo(() => exampleIdeas(report, 18), [report]);
+  const audiencePicks = useMemo(() => audienceQuickPicks(report), [report]);
+  const activeAudience = resolveTargetAudience(report, targetAudience);
+
+  const topicHints = useMemo(
+    () => exampleIdeas(report, 18, activeAudience),
+    [report, activeAudience],
+  );
   const visibleHints = showAllExamples ? topicHints : topicHints.slice(0, 8);
+
+  // When analyzing a new company, seed audience from detection (user can still override)
+  useEffect(() => {
+    setTargetAudience(primaryAudienceLabel(report));
+    setIdeaResult(null);
+  }, [report.domain, report.name]);
+
+  function setAudience(next: string) {
+    setTargetAudience(next);
+    setIdeaResult(null);
+  }
 
   function checkIdea() {
     setIdeaBusy(true);
     setError(null);
     try {
-      const result = scoreIdea(report, topic, platform);
+      const result = scoreIdea(report, topic, platform, activeAudience);
       setIdeaResult(result);
     } catch (err) {
       setIdeaResult(null);
@@ -115,6 +140,7 @@ export function ContentStudio({ report, onCopy }: Props) {
         voiceId,
         platform,
         topic,
+        targetAudience: activeAudience,
         referenceId: selectedRef?.refId,
         referenceUrl: selectedRef?.url,
         referenceCaption: selectedRef?.caption,
@@ -274,6 +300,9 @@ export function ContentStudio({ report, onCopy }: Props) {
             }
             setPlatform(nextPlatform);
             setActiveTrend(suggestion);
+            if (suggestion.targetAudience) {
+              setAudience(suggestion.targetAudience);
+            }
             applyTopic(topicPrompt);
           }}
         />
@@ -315,11 +344,39 @@ export function ContentStudio({ report, onCopy }: Props) {
         </fieldset>
 
         <fieldset className="studio-field">
+          <legend>Who is this post for?</legend>
+          <p className="platform-tip">
+            Every draft can target different people. Type an audience or tap a chip —
+            detected defaults for <strong>{report.name}</strong>: {audienceLine(report)}.
+          </p>
+          <input
+            className="audience-input"
+            value={targetAudience}
+            onChange={(e) => setAudience(e.target.value)}
+            placeholder="e.g. Clinic owners · SME founders · Gen Z shoppers · Developers…"
+            aria-label="Target audience for this post"
+          />
+          <div className="hints topic-hints audience-picks">
+            {audiencePicks.map((a) => (
+              <button
+                key={a}
+                type="button"
+                className={
+                  activeAudience.toLowerCase() === a.toLowerCase() ? "active-pick" : undefined
+                }
+                onClick={() => setAudience(a)}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="studio-field">
           <legend>Your idea — type anything</legend>
           <p className="platform-tip">
-            Write a rough concept for <strong>{report.name}</strong> (
-            {audienceLine(report)}). Check if it works, grab a stronger rewrite, or tap
-            more examples below.
+            Write a rough concept aimed at <strong>{activeAudience}</strong>. Check if it
+            works, grab a stronger rewrite, or tap more examples below.
           </p>
           <textarea
             value={topic}
@@ -334,7 +391,7 @@ export function ContentStudio({ report, onCopy }: Props) {
                 );
               }
             }}
-            placeholder={`Type your idea… e.g. “Reel about our new feature for busy founders” or “parody the bob trend for clinic SEO”`}
+            placeholder={`Type your idea for ${activeAudience}…`}
             rows={4}
             aria-label="Your content idea"
           />
@@ -417,7 +474,9 @@ export function ContentStudio({ report, onCopy }: Props) {
           )}
 
           <div className="examples-head">
-            <h4 className="trend-feed-title">More examples for {report.name}</h4>
+            <h4 className="trend-feed-title">
+              More examples for {activeAudience}
+            </h4>
             <button
               type="button"
               className="copy-post"
@@ -446,10 +505,11 @@ export function ContentStudio({ report, onCopy }: Props) {
 
         <div className="studio-actions">
           <p className="voice-hint">
-            Writing as <em>{selectedVoice.label}</em>
+            Writing as <em>{selectedVoice.label}</em> · for{" "}
+            <em>{activeAudience}</em>
             {mascotId !== "none" ? ` · mascot ${mascotId}/${mascotPose}` : ""}
             {selectedRef ? ` · ref ${selectedRef.refId}` : ""}
-            {activeTrend ? ` · trend ${activeTrend.category}` : ""} for{" "}
+            {activeTrend ? ` · trend ${activeTrend.category}` : ""} ·{" "}
             {platformLabel(platform)}
           </p>
         </div>
