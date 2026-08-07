@@ -142,20 +142,62 @@ export function audiencePrompts(report: BrandReport): string[] {
       "Clinic lead-gen Reel for medical directors",
       "Myth-bust medical SEO for marketers",
       "Marketer-to-clinic-owner explainer",
+      "Trust-stack carousel for clinic owners",
+      "What we’d never claim in a healthcare ad",
+      "GEO tip marketers can pitch to medical clients",
     );
   } else if (kinds.includes("healthcare")) {
-    fromAudience.push("Trust-building clinic Reel", "Patient FAQ myth-bust");
-  } else if (kinds.includes("developers")) {
-    fromAudience.push("API / integration tip for developers", "Founder checkout friction skit");
-  } else if (kinds.includes("athletes") || kinds.includes("consumers")) {
-    fromAudience.push("Product reveal transition", "Athlete / community POV Reel");
-  } else if (kinds.includes("marketers")) {
-    fromAudience.push("Agency POV hot take", "Campaign teardown for marketers");
-  } else if (kinds.includes("founders") || kinds.includes("b2b")) {
-    fromAudience.push("ROI listicle Reel for founders", "Before/after ops documentary");
+    fromAudience.push(
+      "Trust-building clinic Reel",
+      "Patient FAQ myth-bust",
+      "Consent-first day-in-the-life",
+      "Review → process → booking CTA carousel",
+    );
+  }
+  if (kinds.includes("developers")) {
+    fromAudience.push(
+      "API / integration tip for developers",
+      "Founder checkout friction skit",
+      "Changelog-as-documentary",
+      "Worth the stack (tooling ROI)",
+      "Old stack vs new stack comparison",
+    );
+  }
+  if (kinds.includes("athletes") || kinds.includes("consumers")) {
+    fromAudience.push(
+      "Product reveal transition",
+      "Athlete / community POV Reel",
+      "Fit check / on-body transition",
+      "Locker-room product reveal",
+      "Worth the money gear list",
+      "OOTD stop-and-details",
+    );
+  }
+  if (kinds.includes("marketers") && !kinds.includes("healthcare")) {
+    fromAudience.push(
+      "Agency POV hot take",
+      "Campaign teardown for marketers",
+      "Hook formulas that don’t sound salesy",
+      "5 metrics marketers should stop worshipping",
+    );
+  }
+  if (kinds.includes("founders") || kinds.includes("b2b")) {
+    fromAudience.push(
+      "ROI listicle Reel for founders",
+      "Before/after ops documentary",
+      "Old stack vs new stack",
+      "Case-study carousel: problem → metric → CTA",
+    );
+  }
+  if (kinds.includes("designers")) {
+    fromAudience.push(
+      "File → final reveal",
+      "Two personalities: draft vs polish",
+      "Collab tip for product designers",
+    );
   }
 
-  return [...fromServices, ...fromAudience].slice(0, 10);
+  return [...fromServices, ...fromAudience].slice(0, 14);
 }
 
 export { KIND_LABEL };

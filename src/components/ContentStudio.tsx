@@ -9,14 +9,14 @@ import type {
   MascotPosition,
   VoicePresetId,
 } from "../types";
-import { audiencePrompts } from "../lib/audience";
+import { audienceLine } from "../lib/audience";
 import {
-  CONTENT_PROMPTS,
   VOICE_PRESETS,
   generateSocialContent,
   platformLabel,
   platformTip,
 } from "../lib/contentGen";
+import { exampleIdeas, scoreIdea, type IdeaFitResult } from "../lib/ideaFit";
 import {
   DEFAULT_MASCOT_POS,
   PLATFORM_IMAGE_SPECS,
@@ -64,9 +64,13 @@ export function ContentStudio({ report, onCopy }: Props) {
   const mascotPos: MascotPosition = DEFAULT_MASCOT_POS;
   const [mascotPose, setMascotPose] = useState<MascotPose>("idle");
   const [activeTrend, setActiveTrend] = useState<TrendSuggestion | null>(null);
+  const [ideaResult, setIdeaResult] = useState<IdeaFitResult | null>(null);
+  const [ideaBusy, setIdeaBusy] = useState(false);
+  const [showAllExamples, setShowAllExamples] = useState(false);
 
   function applyTopic(next: string, alsoPose = true) {
     setTopic(next);
+    setIdeaResult(null);
     if (alsoPose) {
       setMascotPose(suggestMascotPose(next, platform, report.services ?? []));
     }
@@ -77,10 +81,22 @@ export function ContentStudio({ report, onCopy }: Props) {
     [voiceId],
   );
 
-  const topicHints = useMemo(() => {
-    const audience = audiencePrompts(report);
-    return [...audience, ...CONTENT_PROMPTS].slice(0, 8);
-  }, [report]);
+  const topicHints = useMemo(() => exampleIdeas(report, 18), [report]);
+  const visibleHints = showAllExamples ? topicHints : topicHints.slice(0, 8);
+
+  function checkIdea() {
+    setIdeaBusy(true);
+    setError(null);
+    try {
+      const result = scoreIdea(report, topic, platform);
+      setIdeaResult(result);
+    } catch (err) {
+      setIdeaResult(null);
+      setError(err instanceof Error ? err.message : "Could not score that idea.");
+    } finally {
+      window.setTimeout(() => setIdeaBusy(false), 120);
+    }
+  }
 
   const selectedRef = useMemo(
     () => igRefs.find((r) => r.refId === selectedRefId) ?? null,
@@ -299,10 +315,18 @@ export function ContentStudio({ report, onCopy }: Props) {
         </fieldset>
 
         <fieldset className="studio-field">
-          <legend>What do you want to create?</legend>
+          <legend>Your idea — type anything</legend>
+          <p className="platform-tip">
+            Write a rough concept for <strong>{report.name}</strong> (
+            {audienceLine(report)}). Check if it works, grab a stronger rewrite, or tap
+            more examples below.
+          </p>
           <textarea
             value={topic}
-            onChange={(e) => setTopic(e.target.value)}
+            onChange={(e) => {
+              setTopic(e.target.value);
+              setIdeaResult(null);
+            }}
             onBlur={() => {
               if (topic.trim()) {
                 setMascotPose(
@@ -310,12 +334,100 @@ export function ContentStudio({ report, onCopy }: Props) {
                 );
               }
             }}
-            placeholder={`e.g. SEO win story for a clinic · ORM Reel · TikTok ad for healthcare…`}
-            rows={3}
-            aria-label="Content brief"
+            placeholder={`Type your idea… e.g. “Reel about our new feature for busy founders” or “parody the bob trend for clinic SEO”`}
+            rows={4}
+            aria-label="Your content idea"
           />
+          <div className="studio-actions idea-check-actions">
+            <button
+              type="button"
+              className="generate-btn secondary-btn"
+              disabled={ideaBusy || !topic.trim()}
+              onClick={() => checkIdea()}
+            >
+              {ideaBusy ? "Checking…" : "Check if it works"}
+            </button>
+            <button type="submit" className="generate-btn" disabled={generating}>
+              {generating ? "Crafting…" : "Generate drafts from this idea"}
+            </button>
+          </div>
+
+          {ideaResult && (
+            <article
+              className={`idea-fit-card verdict-${ideaResult.verdict}`}
+              aria-live="polite"
+            >
+              <div className="trend-sug-top">
+                <span className="trend-cat">
+                  {ideaResult.verdict.toUpperCase()} · {ideaResult.targetAudience}
+                </span>
+                <span
+                  className={`badge ${ideaResult.verdict === "strong" ? "high" : ideaResult.verdict === "ok" ? "medium" : "low"}`}
+                >
+                  fit {ideaResult.score}
+                </span>
+              </div>
+              <p className="trend-angle">{ideaResult.summary}</p>
+              {ideaResult.works.length > 0 && (
+                <ul className="engage-tips idea-fit-list works">
+                  {ideaResult.works.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              )}
+              {ideaResult.risks.length > 0 && (
+                <ul className="engage-tips idea-fit-list risks">
+                  {ideaResult.risks.map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="voice-blend-line">
+                <strong>Stronger version:</strong> {ideaResult.rewrite}
+              </p>
+              <div className="image-btns">
+                <button
+                  type="button"
+                  className="copy-post accent-outline"
+                  onClick={() => applyTopic(ideaResult.rewrite)}
+                >
+                  Use stronger version
+                </button>
+                <button
+                  type="button"
+                  className="copy-post"
+                  onClick={() =>
+                    onCopy(
+                      [
+                        `Idea fit for ${report.name}`,
+                        `Score: ${ideaResult.score} (${ideaResult.verdict})`,
+                        `Audience: ${ideaResult.targetAudience}`,
+                        ideaResult.summary,
+                        ...ideaResult.works.map((w) => `✓ ${w}`),
+                        ...ideaResult.risks.map((r) => `! ${r}`),
+                        `Rewrite: ${ideaResult.rewrite}`,
+                      ].join("\n"),
+                    )
+                  }
+                >
+                  Copy feedback
+                </button>
+              </div>
+            </article>
+          )}
+
+          <div className="examples-head">
+            <h4 className="trend-feed-title">More examples for {report.name}</h4>
+            <button
+              type="button"
+              className="copy-post"
+              onClick={() => setShowAllExamples((v) => !v)}
+            >
+              {showAllExamples ? "Show fewer" : `Show more (${topicHints.length})`}
+            </button>
+          </div>
           <div className="hints topic-hints">
-            {topicHints.map((prompt) => (
+            {visibleHints.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
@@ -323,7 +435,7 @@ export function ContentStudio({ report, onCopy }: Props) {
                   const base = selectedRef
                     ? `${prompt} referencing ${selectedRef.refId}`
                     : prompt;
-                  applyTopic(topic.trim() ? `${topic.trim()} — ${base}` : base);
+                  applyTopic(base);
                 }}
               >
                 {prompt}
@@ -340,9 +452,6 @@ export function ContentStudio({ report, onCopy }: Props) {
             {activeTrend ? ` · trend ${activeTrend.category}` : ""} for{" "}
             {platformLabel(platform)}
           </p>
-          <button type="submit" className="generate-btn" disabled={generating}>
-            {generating ? "Crafting…" : "Generate engagement drafts"}
-          </button>
         </div>
       </form>
 

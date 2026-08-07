@@ -791,6 +791,63 @@ textarea {
   margin-bottom: 0;
 }
 
+.idea-check-actions {
+  margin-top: 10px;
+  justify-content: flex-start;
+}
+
+.idea-fit-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(200, 245, 66, 0.06), transparent 55%),
+    var(--bg-2);
+}
+
+.idea-fit-card.verdict-strong {
+  border-color: rgba(200, 245, 66, 0.35);
+}
+
+.idea-fit-card.verdict-ok {
+  border-color: rgba(255, 196, 80, 0.35);
+}
+
+.idea-fit-card.verdict-weak {
+  border-color: rgba(255, 120, 120, 0.35);
+}
+
+.idea-fit-list {
+  margin: 8px 0;
+}
+
+.idea-fit-list.works li::marker {
+  content: "✓ ";
+  color: var(--accent, #c8f542);
+}
+
+.idea-fit-list.risks li {
+  color: var(--muted);
+}
+
+.idea-fit-list.risks li::marker {
+  content: "! ";
+  color: #ffb4a2;
+}
+
+.examples-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.examples-head .trend-feed-title {
+  margin: 0;
+}
+
 .studio-actions {
   display: flex;
   flex-wrap: wrap;
