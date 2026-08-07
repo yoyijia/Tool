@@ -367,8 +367,9 @@ export function ContentStudio({ report, onCopy }: Props) {
         <>
           <div className="studio-actions image-actions">
             <p className="voice-hint">
-              Post images use {report.name}’s palette at <em>{imageSpec.ratio}</em>
-              {mascotId !== "none" ? ` · mascot ${mascotPose} @ drag position` : ""}
+              Post images use {report.name}’s palette in editorial layouts (cover / split /
+              bands)
+              {mascotId !== "none" ? ` · mascot ${mascotPose}` : ""}
               {selectedRef ? (
                 <>
                   {" "}
@@ -466,8 +467,9 @@ export function ContentStudio({ report, onCopy }: Props) {
                         />
                         <figcaption>
                           {image.width}×{image.height}px · {image.spec.label}
+                          {image.layout ? ` · ${image.layout} layout` : ""}
                           {post.referenceId ? ` · ${post.referenceId}` : ""}
-                          {mascotId !== "none" ? ` · mascot` : ""}
+                          {mascotId !== "none" ? ` · mascot ${mascotPose}` : ""}
                         </figcaption>
                       </figure>
                     )}
