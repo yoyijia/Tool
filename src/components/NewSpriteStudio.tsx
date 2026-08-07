@@ -112,7 +112,7 @@ export function NewSpriteStudio({ onCreated, compact }: NewSpriteStudioProps) {
           disabled={!previewUrl}
           onClick={() => void handleUse()}
         >
-          Create &amp; animate →
+          Use in Animate
         </button>
       </div>
 

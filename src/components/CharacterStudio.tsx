@@ -289,16 +289,16 @@ export function CharacterStudio({
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Animate · classic chibi pixel</div>
+        <div className="ludo-badge">Animate · Ludo-style workflow</div>
         <h2>Animate Sprite</h2>
         <p>
-          Pick a character you created (or from the sheet), choose motion, and
-          export walk cycles / spritesheets.
+          Pick a starting character, describe the motion, and export a pixel
+          spritesheet pack (PNG + atlas JSON + GIF).
           {onCreateClick && (
             <>
               {' '}
               <button type="button" className="linkish" onClick={onCreateClick}>
-                Create a new character →
+                Customize parts →
               </button>
             </>
           )}
@@ -316,8 +316,8 @@ export function CharacterStudio({
           <div className="sheet-banner-copy">
             <strong>Starting frames ready</strong>
             <span>
-              Curly Hero · Red Cap · Backwards Cap — classic chibi pixel sheet
-              with directional poses.
+              Curly Hero · Red Cap · Backwards Cap — pixel sheet with
+              directional poses for better walk cycles.
             </span>
           </div>
           <img

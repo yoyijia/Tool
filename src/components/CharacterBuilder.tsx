@@ -76,7 +76,8 @@ export function CharacterBuilder({ onAddToCharacters, compact }: CharacterBuilde
           <div className="ludo-badge">Character Builder · modular parts</div>
           <h2>Customize parts</h2>
           <p>
-            Mix hair, eyes, hands, legs, and clothes — then animate walk cycles.
+            Mix hair, eyes, hands, legs, and clothes — then add the character to
+            Animate for pixel spritesheets.
           </p>
         </header>
       )}
@@ -85,7 +86,7 @@ export function CharacterBuilder({ onAddToCharacters, compact }: CharacterBuilde
         <div className="builder-preview">
           <div className="preview-stage">
             <img src={previewUrl} alt="Character preview" className="builder-hero" />
-            <div className="preview-meta">Centered · classic chibi pixel</div>
+            <div className="preview-meta">Centered · pixel art</div>
           </div>
           <label className="field">
             <span>Character name</span>
@@ -97,7 +98,7 @@ export function CharacterBuilder({ onAddToCharacters, compact }: CharacterBuilde
             />
           </label>
           <button type="button" className="primary-btn" onClick={() => void handleAdd()}>
-            Create &amp; animate →
+            Add to Animate
           </button>
         </div>
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CharacterCreateStudio } from './components/CharacterCreateStudio'
+import { CharacterBuilder } from './components/CharacterBuilder'
 import { CharacterStudio } from './components/CharacterStudio'
 import { LocationStudio } from './components/LocationStudio'
+import { NewSpriteStudio } from './components/NewSpriteStudio'
 import { StyleReferencePanel } from './components/StyleReferencePanel'
 import { UiStudio } from './components/UiStudio'
 import {
@@ -14,7 +15,7 @@ import { loadSampleSheetCharacters } from './lib/sampleCharacterSheet'
 import type { CharacterAsset, StyleReference } from './types'
 import './App.css'
 
-type Tab = 'character' | 'animate' | 'tilesets' | 'ui' | 'style'
+type Tab = 'animate' | 'builder' | 'new-sprite' | 'tilesets' | 'ui' | 'style'
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -30,7 +31,7 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('character')
+  const [tab, setTab] = useState<Tab>('animate')
   const [references, setReferences] = useState<StyleReference[]>([])
   const [characters, setCharacters] = useState<CharacterAsset[]>([])
   const [sheetPreviewUrl, setSheetPreviewUrl] = useState<string | null>(null)
@@ -87,7 +88,7 @@ export default function App() {
     setTab('animate')
   }
 
-  const handleCharacterCreated = (character: CharacterAsset) => {
+  const handleCreated = (character: CharacterAsset) => {
     setCharacters((prev) => [...prev, character])
     setFocusCharacterId(character.id)
     setTab('animate')
@@ -101,11 +102,10 @@ export default function App() {
       <header className="hero">
         <div className="brand-block">
           <p className="brand-mark">SpriteNest</p>
-          <h1>Pixel generator — characters, tiles &amp; UI</h1>
+          <h1>AI sprite studio — Ludo.ai-inspired</h1>
           <p className="hero-lead">
-            Create a classic chibi pixel character, animate walk cycles, build
-            location tilesets, and generate game UI — one coherent pixel kit.
-            Inspired by{' '}
+            Upload or build a character, prompt motion, and export pixel
+            spritesheets — plus modular location tiles and UI. Inspired by{' '}
             <a href="https://ludo.ai" target="_blank" rel="noreferrer">
               Ludo.ai
             </a>
@@ -113,60 +113,21 @@ export default function App() {
           </p>
         </div>
         <div className="hero-actions">
-          <button type="button" className="primary-btn" onClick={() => setTab('character')}>
-            Create character
+          <button type="button" className="primary-btn" onClick={() => setTab('animate')}>
+            Animate sprite
           </button>
-          <button type="button" className="secondary-btn" onClick={() => setTab('animate')}>
-            Animate
+          <button type="button" className="secondary-btn" onClick={() => setTab('builder')}>
+            Customize parts
           </button>
         </div>
       </header>
 
-      <div className="pipeline-bar" aria-label="Generator pipeline">
-        <button
-          type="button"
-          className={`pipeline-step ${tab === 'character' ? 'active' : ''}`}
-          onClick={() => setTab('character')}
-        >
-          <span>1</span> Character
-        </button>
-        <span className="pipeline-arrow" aria-hidden>
-          →
-        </span>
-        <button
-          type="button"
-          className={`pipeline-step ${tab === 'animate' ? 'active' : ''}`}
-          onClick={() => setTab('animate')}
-        >
-          <span>2</span> Animate
-        </button>
-        <span className="pipeline-arrow" aria-hidden>
-          →
-        </span>
-        <button
-          type="button"
-          className={`pipeline-step ${tab === 'tilesets' ? 'active' : ''}`}
-          onClick={() => setTab('tilesets')}
-        >
-          <span>3</span> Tilesets
-        </button>
-        <span className="pipeline-arrow" aria-hidden>
-          →
-        </span>
-        <button
-          type="button"
-          className={`pipeline-step ${tab === 'ui' ? 'active' : ''}`}
-          onClick={() => setTab('ui')}
-        >
-          <span>4</span> UI
-        </button>
-      </div>
-
       <nav className="tabs" aria-label="Studio sections">
         {(
           [
-            ['character', 'Character'],
             ['animate', 'Animate'],
+            ['builder', 'Builder'],
+            ['new-sprite', 'New Sprite'],
             ['tilesets', 'Tilesets'],
             ['ui', 'UI'],
             ['style', 'Style'],
@@ -184,9 +145,6 @@ export default function App() {
       </nav>
 
       <main className="main">
-        {tab === 'character' && (
-          <CharacterCreateStudio onCreated={handleCharacterCreated} />
-        )}
         {tab === 'animate' && (
           <CharacterStudio
             characters={characters}
@@ -198,8 +156,14 @@ export default function App() {
             onRemove={(id) =>
               setCharacters((prev) => prev.filter((c) => c.id !== id))
             }
-            onCreateClick={() => setTab('character')}
+            onCreateClick={() => setTab('builder')}
           />
+        )}
+        {tab === 'builder' && (
+          <CharacterBuilder onAddToCharacters={handleCreated} />
+        )}
+        {tab === 'new-sprite' && (
+          <NewSpriteStudio onCreated={handleCreated} />
         )}
         {tab === 'tilesets' && (
           <LocationStudio
@@ -222,12 +186,11 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          Pixel generator workflow · character → animate → tilesets → UI ·
-          inspired by{' '}
+          Workflow inspired by{' '}
           <a href="https://ludo.ai/features/sprite-generator" target="_blank" rel="noreferrer">
-            Ludo.ai
+            Ludo.ai Sprite Generator
           </a>
-          .
+          . Classic chibi <em>pixel</em> art style · not affiliated with Ludo.ai.
         </p>
       </footer>
     </div>

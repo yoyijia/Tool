@@ -89,11 +89,11 @@ export function LocationStudio({ palette, useCustomPalette }: LocationStudioProp
   return (
     <section className="panel">
       <header className="panel-header">
-        <div className="ludo-badge">Tilesets · pixel RPG assets</div>
+        <div className="ludo-badge">Tilesets · modular location assets</div>
         <h2>Modular Location Tiles</h2>
         <p>
-          Supermarket shelves, produce, checkout, and world tiles — crisp pixel
-          art at 64×64, 128×128, or 512×512.
+          Generate pixel location tilesets that match your characters — floors,
+          shelves, props — at 64×64, 128×128, or 512×512.
         </p>
       </header>
 
