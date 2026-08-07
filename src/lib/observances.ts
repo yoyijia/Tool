@@ -108,7 +108,7 @@ const OBSERVANCES: Observance[] = [
   { id: "international-youth", title: "International Youth Day", month: 8, day: 12, kind: "international", summary: "Next-gen talent and student creatives.", themes: ["youth", "education", "students", "career", "creativity"] },
   { id: "national-tell-a-joke", title: "National Tell a Joke Day", month: 8, day: 16, kind: "national", summary: "One-liners, meme formats, playful brand voice.", themes: ["humor", "jokes", "fun", "playful", "comedy", "creative"] },
   { id: "world-humanitarian", title: "World Humanitarian Day", month: 8, day: 19, kind: "international", summary: "Impact and giving stories.", themes: ["care", "community", "giving", "nonprofit"] },
-  { id: "international-dog", title: "International Dog Day", month: 8, day: 26, kind: "international", summary: "Pet-parent UGC gold.", themes: ["pets", "dogs", "animals", "fun", "cute"] },
+  { id: "international-dog", title: "International / National Dog Day", month: 8, day: 26, kind: "international", summary: "Pet-parent UGC gold — perfect for office-dog culture posts.", themes: ["pets", "dogs", "animals", "fun", "cute", "office"] },
   { id: "national-beach", title: "National Beach Day", month: 8, day: 30, kind: "national", summary: "Summer wrap and travel vibes.", themes: ["summer", "travel", "outdoors", "lifestyle"] },
 
   // September

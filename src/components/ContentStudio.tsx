@@ -27,6 +27,7 @@ import {
 import { loadImageFromFile, suggestMascotPose } from "../lib/mascots";
 import { servicesLine } from "../lib/services";
 import { ContentCalendar } from "./ContentCalendar";
+import { ContentSchedule } from "./ContentSchedule";
 import { InstagramLibrary } from "./InstagramLibrary";
 import { MascotPicker } from "./MascotPicker";
 import { MascotStage } from "./MascotStage";
@@ -222,6 +223,19 @@ export function ContentStudio({ report, onCopy }: Props) {
           onPositionChange={setMascotPos}
           onPoseChange={setMascotPose}
           onCustomFile={(file) => void onCustomFile(file)}
+        />
+
+        <ContentSchedule
+          report={report}
+          onCopy={onCopy}
+          onUseSlot={(topicPrompt, slot) => {
+            setPlatform(slot.platform);
+            setActiveTrend(null);
+            applyTopic(topicPrompt);
+            setMascotPose(
+              suggestMascotPose(topicPrompt, slot.platform, report.services ?? []),
+            );
+          }}
         />
 
         <ContentCalendar

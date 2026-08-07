@@ -1617,6 +1617,118 @@ textarea {
   color: var(--accent);
 }
 
+/* —— August content schedule —— */
+.dog-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dog-name-field input {
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  max-height: 640px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.schedule-card {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  animation: rise 0.3s ease both;
+}
+
+.schedule-card.spotlight {
+  border-color: rgba(200, 245, 66, 0.4);
+  background: linear-gradient(
+    135deg,
+    rgba(200, 245, 66, 0.08),
+    rgba(62, 191, 154, 0.06)
+  );
+}
+
+.schedule-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.schedule-card-top strong {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.schedule-time {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.schedule-kind {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--faint);
+  color: var(--bg-0);
+  white-space: nowrap;
+}
+
+.schedule-kind.kind-spotlight,
+.schedule-kind.kind-observance {
+  background: var(--accent);
+}
+
+.schedule-kind.kind-reel {
+  background: var(--accent-2);
+}
+
+.schedule-kind.kind-carousel {
+  background: var(--warn);
+}
+
+.schedule-card h4 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.schedule-hook {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
 /* —— Mascot drag stage —— */
 .mascot-stage-toolbar {
   display: flex;
