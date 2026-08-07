@@ -261,6 +261,8 @@ export async function fetchLiveCultureTrends(
     if (isSensitive(item.title)) return;
     const cleaned = stripSourceSuffix(item.title);
     if (cleaned.length < 3 || cleaned.length > 90) return;
+    // Skip bare one-word search spikes (keep watchlist + real headlines)
+    if (!/\s/.test(cleaned) && cleaned.length < 14) return;
     // Skip if already covered by watchlist match
     if (WATCHLIST.some((w) => w.match.test(item.title))) return;
     const key = cleaned.toLowerCase();
@@ -325,7 +327,13 @@ export function mergeLiveTrendsIntoSchedule(
   live: LiveCultureTrend[],
   _report: BrandReport,
 ): ScheduleSlot[] {
-  if (!live.length) return base;
+  // Only splice high-confidence live items into the calendar (watchlist / strong news)
+  const injectable = live.filter(
+    (t) =>
+      t.heat >= 88 ||
+      /gst|voucher|spider|ndp|national day|fairprice|scoot/i.test(t.label + t.headline),
+  );
+  if (!injectable.length) return base;
   const slots = [...base];
   const keepIds = new Set(
     slots.filter((s) => s.kind === "spotlight" || s.talent).map((s) => s.id),
@@ -335,10 +343,10 @@ export function mergeLiveTrendsIntoSchedule(
   const replaceIdx = slots
     .map((s, i) => ({ s, i }))
     .filter(({ s }) => s.kind === "carousel" && !keepIds.has(s.id))
-    .slice(0, Math.min(5, live.length));
+    .slice(0, Math.min(5, injectable.length));
 
   replaceIdx.forEach(({ i }, n) => {
-    const t = live[n];
+    const t = injectable[n];
     if (!t) return;
     const prev = slots[i]!;
     slots[i] = {
@@ -364,8 +372,8 @@ export function mergeLiveTrendsIntoSchedule(
     };
   });
 
-  // Ensure top live trend also appears as a same-day flash if not already titled
-  const top = live[0];
+  // Ensure top injectable trend also appears as a same-day flash if not already titled
+  const top = injectable[0];
   if (top && !slots.some((s) => s.title.includes(top.label))) {
     const head = slots.find((s) => s.kind !== "spotlight") ?? slots[0];
     if (head) {
