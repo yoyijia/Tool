@@ -1,4 +1,5 @@
 import type { BrandReport } from "../types";
+import { servicePrompts } from "./services";
 
 /** Infer who the brand is talking to from site copy. */
 export function detectAudiences(corpus: string): string[] {
@@ -43,34 +44,23 @@ export function audienceLine(report: BrandReport): string {
   return `${report.audiences.slice(0, -1).join(", ")} and ${report.audiences.at(-1)}`;
 }
 
-/** Suggested briefs when audiences look like Activamedia (healthcare + marketers). */
+/** Suggested briefs from audiences + detected service lines (Activa Media catalog). */
 export function audiencePrompts(report: BrandReport): string[] {
+  const fromServices = servicePrompts(report);
   const a = (report.audiences ?? []).join(" ").toLowerCase();
   const healthcare = /health|medical|clinic|patient/.test(a);
   const marketers = /market/.test(a);
+  const fromAudience: string[] = [];
   if (healthcare && marketers) {
-    return [
+    fromAudience.push(
       "Clinic lead-gen Reel for medical directors",
       "Myth-bust medical SEO for marketers",
-      "Before/after patient journey (privacy-safe)",
-      "Why clinics need TikTok search in 2026",
-      "Case study carousel for healthcare CMOs",
       "Marketer-to-clinic-owner explainer",
-    ];
+    );
+  } else if (healthcare) {
+    fromAudience.push("Trust-building clinic Reel", "Patient FAQ myth-bust");
+  } else if (marketers) {
+    fromAudience.push("Agency POV hot take", "Campaign teardown for marketers");
   }
-  if (healthcare) {
-    return [
-      "Trust-building clinic Reel",
-      "Doctor POV day-in-the-life",
-      "Patient FAQ myth-bust",
-    ];
-  }
-  if (marketers) {
-    return [
-      "Agency POV hot take",
-      "Campaign teardown for marketers",
-      "SEO tip marketers can steal",
-    ];
-  }
-  return [];
+  return [...fromServices, ...fromAudience].slice(0, 10);
 }

@@ -3,6 +3,7 @@ import { detectAudiences } from "./audience";
 import { capturePage } from "./fetchPage";
 import { buildPalette } from "./palette";
 import { analyzePersonality, analyzeVoice } from "./personality";
+import { detectServices } from "./services";
 import { extractSocialProfiles, identifyTrends } from "./social";
 import { brandNameFromDomain, domainFromUrl } from "./url";
 
@@ -39,6 +40,7 @@ export async function analyzeBrand(input: string): Promise<BrandReport> {
   const { traits, archetype } = analyzePersonality(corpus);
   const { dimensions, summary, keywords } = analyzeVoice(corpus);
   const audiences = detectAudiences(corpus);
+  const services = detectServices(corpus);
   const palette = buildPalette(snapshot.styleColors, snapshot.themeColor);
   const socialProfiles = extractSocialProfiles(snapshot);
   const trends = identifyTrends(
@@ -60,6 +62,7 @@ export async function analyzeBrand(input: string): Promise<BrandReport> {
     voiceDimensions: dimensions,
     keywords,
     audiences,
+    services,
     palette,
     socialProfiles,
     trends,

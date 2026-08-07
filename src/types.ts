@@ -44,6 +44,8 @@ export interface BrandReport {
   keywords: string[];
   /** Inferred target audiences from site copy (e.g. medical clients + marketers). */
   audiences: string[];
+  /** Detected service lines (e.g. SEO, SEM, Healthcare marketing, AM-Track). */
+  services: string[];
   palette: ColorSwatch[];
   socialProfiles: SocialProfile[];
   trends: MarketingTrend[];
@@ -56,6 +58,17 @@ export interface MascotPosition {
   nx: number;
   ny: number;
 }
+
+/** Pose variant applied when drawing / exporting the mascot. */
+export type MascotPose =
+  | "idle"
+  | "wave"
+  | "point"
+  | "present"
+  | "celebrate"
+  | "think"
+  | "shield"
+  | "boost";
 
 export interface AnalyzeRequest {
   input: string;

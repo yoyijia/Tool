@@ -3,6 +3,7 @@ import type {
   ContentPlatform,
   GeneratedPost,
   MascotId,
+  MascotPose,
   MascotPosition,
 } from "../types";
 import { drawMascot } from "./mascots";
@@ -191,6 +192,7 @@ export async function renderPostImage(
     mascotId?: MascotId;
     customMascot?: HTMLImageElement | null;
     mascotPos?: MascotPosition;
+    mascotPose?: MascotPose;
   },
 ): Promise<RenderedPostImage> {
   await ensureFonts();
@@ -337,6 +339,7 @@ export async function renderPostImage(
       accent: palette.accent,
       ink: palette.ink,
       secondary: palette.secondary,
+      pose: options?.mascotPose ?? "idle",
       customImage: options?.customMascot,
     });
   }

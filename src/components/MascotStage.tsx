@@ -1,15 +1,31 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import type { BrandReport, ContentPlatform, MascotId, MascotPosition } from "../types";
-import { drawMascot } from "../lib/mascots";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import type {
+  BrandReport,
+  ContentPlatform,
+  MascotId,
+  MascotPose,
+  MascotPosition,
+} from "../types";
+import { drawMascot, MASCOT_POSES, suggestMascotPose } from "../lib/mascots";
 import { DEFAULT_MASCOT_POS, PLATFORM_IMAGE_SPECS } from "../lib/postImage";
 
 interface Props {
   report: BrandReport;
   platform: ContentPlatform;
+  topic: string;
   mascotId: MascotId;
   customMascot: HTMLImageElement | null;
   position: MascotPosition;
+  pose: MascotPose;
   onPositionChange: (pos: MascotPosition) => void;
+  onPoseChange: (pose: MascotPose) => void;
   onCustomFile: (file: File) => void;
 }
 
@@ -20,10 +36,13 @@ function clamp(n: number, min: number, max: number) {
 export function MascotStage({
   report,
   platform,
+  topic,
   mascotId,
   customMascot,
   position,
+  pose,
   onPositionChange,
+  onPoseChange,
   onCustomFile,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -33,7 +52,8 @@ export function MascotStage({
   const spec = PLATFORM_IMAGE_SPECS[platform];
   const isReel = spec.height / spec.width > 1.3;
 
-  // Paint a small live mascot thumb on the draggable handle
+  const suggested = suggestMascotPose(topic, platform, report.services ?? []);
+
   useEffect(() => {
     const canvas = thumbRef.current;
     if (!canvas || mascotId === "none") return;
@@ -52,13 +72,14 @@ export function MascotStage({
     drawMascot(ctx, mascotId, {
       x: size / 2,
       y: size / 2,
-      size: size * 0.9,
+      size: size * 0.82,
       accent,
       ink: "#0C1210",
       secondary,
+      pose,
       customImage: customMascot,
     });
-  }, [mascotId, customMascot, report.palette]);
+  }, [mascotId, customMascot, report.palette, pose]);
 
   const setFromClient = useCallback(
     (clientX: number, clientY: number) => {
@@ -100,9 +121,10 @@ export function MascotStage({
   if (mascotId === "none") {
     return (
       <fieldset className="studio-field">
-        <legend>Mascot stage · posts & Reels</legend>
+        <legend>Mascot stage · drag & poses</legend>
         <p className="platform-tip">
-          Pick a mascot above to drag it onto feed (1:1) and Reel/TikTok (9:16) layouts.
+          Pick a mascot above to drag it onto feed/Reel frames and generate poses that
+          match your brief (wave, point, shield for ORM, boost for ads…).
         </p>
       </fieldset>
     );
@@ -110,22 +132,44 @@ export function MascotStage({
 
   return (
     <fieldset className="studio-field">
-      <legend>Mascot stage · drag onto posts & Reels</legend>
+      <legend>Mascot stage · drag & content poses</legend>
       <p className="platform-tip">
-        Drag the mascot on the {isReel ? "9:16 Reel / TikTok" : "feed"} stage — or drop a
-        custom PNG onto it. Position is used when you generate post images.
+        Drag to place · drop a custom PNG onto the stage · pick a pose (or auto-match the
+        brief). Exports bake position + pose into feed & Reel images.
       </p>
+
+      <div className="pose-row">
+        {MASCOT_POSES.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`chip-btn${pose === p.id ? " active" : ""}`}
+            title={p.blurb}
+            onClick={() => onPoseChange(p.id)}
+          >
+            {p.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="chip-btn accent-chip"
+          onClick={() => onPoseChange(suggested)}
+          title={`Suggested from brief: ${suggested}`}
+        >
+          Auto · {suggested}
+        </button>
+      </div>
 
       <div className="mascot-stage-toolbar">
         <span className="voice-hint">
-          {spec.label} · {spec.ratio}
+          {spec.label} · {spec.ratio} · pose <em>{pose}</em>
         </span>
         <button
           type="button"
           className="chip-btn"
           onClick={() => onPositionChange({ ...DEFAULT_MASCOT_POS })}
         >
-          Reset position
+          Reset place
         </button>
       </div>
 
@@ -147,7 +191,10 @@ export function MascotStage({
         <div className="mascot-stage-art">
           <strong>{report.name}</strong>
           <span>{isReel ? "Reel / TikTok frame" : "Feed post frame"}</span>
-          <em>Hook copy sits here · drag mascot freely</em>
+          <em>
+            Pose: {pose}
+            {topic.trim() ? ` · suits “${topic.trim().slice(0, 42)}${topic.length > 42 ? "…" : ""}”` : ""}
+          </em>
         </div>
 
         <div

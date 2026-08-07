@@ -7,6 +7,7 @@ import type {
   VoicePresetId,
 } from "../types";
 import { audienceLine } from "./audience";
+import { servicesLine } from "./services";
 
 export const VOICE_PRESETS: VoicePreset[] = [
   {
@@ -313,6 +314,7 @@ function buildBodies(
   const keyword = report.keywords[0] ?? "brand";
   const accent = brandAccent(report);
   const audiences = audienceLine(report);
+  const services = servicesLine(report);
 
   const hooks =
     voice.hooks.length > 0
@@ -340,7 +342,7 @@ function buildBodies(
       "",
       `At ${brand}, we keep coming back to one idea: ${topic}.`,
       "",
-      `Written for ${audiences}.`,
+      `Written for ${audiences}. Services in frame: ${services}.`,
       `Here’s the angle that travels:`,
       `→ Lead with ${articleFor(trait)} ${trait.toLowerCase()} promise people can feel in 3 seconds.`,
       `→ Proof it with a real moment (demo, client line, or behind-the-scenes).`,

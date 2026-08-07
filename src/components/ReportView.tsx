@@ -25,6 +25,16 @@ export function ReportView({ report, onCopy }: Props) {
               ))}
             </div>
           )}
+          {report.services?.length > 0 && (
+            <>
+              <p className="services-label">Services detected</p>
+              <div className="keywords service-chips">
+                {report.services.map((s) => (
+                  <span key={s}>{s}</span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </section>
 

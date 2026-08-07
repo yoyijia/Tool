@@ -5,6 +5,7 @@ import type {
   GeneratedPost,
   InstagramPostRef,
   MascotId,
+  MascotPose,
   MascotPosition,
   VoicePresetId,
 } from "../types";
@@ -23,7 +24,8 @@ import {
   renderPostImage,
   type RenderedPostImage,
 } from "../lib/postImage";
-import { loadImageFromFile } from "../lib/mascots";
+import { loadImageFromFile, suggestMascotPose } from "../lib/mascots";
+import { servicesLine } from "../lib/services";
 import { ContentCalendar } from "./ContentCalendar";
 import { InstagramLibrary } from "./InstagramLibrary";
 import { MascotPicker } from "./MascotPicker";
@@ -60,7 +62,15 @@ export function ContentStudio({ report, onCopy }: Props) {
   const [customMascot, setCustomMascot] = useState<HTMLImageElement | null>(null);
   const [customMascotName, setCustomMascotName] = useState<string | null>(null);
   const [mascotPos, setMascotPos] = useState<MascotPosition>(DEFAULT_MASCOT_POS);
+  const [mascotPose, setMascotPose] = useState<MascotPose>("idle");
   const [activeTrend, setActiveTrend] = useState<TrendSuggestion | null>(null);
+
+  function applyTopic(next: string, alsoPose = true) {
+    setTopic(next);
+    if (alsoPose) {
+      setMascotPose(suggestMascotPose(next, platform, report.services ?? []));
+    }
+  }
 
   const selectedVoice = useMemo(
     () => VOICE_PRESETS.find((v) => v.id === voiceId) ?? VOICE_PRESETS[0]!,
@@ -123,6 +133,7 @@ export function ContentStudio({ report, onCopy }: Props) {
         mascotId,
         customMascot: mascotId === "custom" ? customMascot : null,
         mascotPos,
+        mascotPose,
       });
       setImages((prev) => ({ ...prev, [post.id]: rendered }));
     } catch (err) {
@@ -145,6 +156,7 @@ export function ContentStudio({ report, onCopy }: Props) {
           mascotId,
           customMascot: mascotId === "custom" ? customMascot : null,
           mascotPos,
+          mascotPose,
         });
       }
       setImages(entries);
@@ -159,8 +171,8 @@ export function ContentStudio({ report, onCopy }: Props) {
     <section className="panel span-2 studio">
       <h3>Content studio</h3>
       <p className="sub">
-        Pick a voice, drag your mascot onto feed/Reel frames, plan national days, load
-        TikTok/IG + future trend bets, then export platform-sized images
+        Drag mascots into pose-matched feed/Reel frames, plan around services like{" "}
+        {servicesLine(report)}, then export images
         {report.audiences?.length
           ? ` — tuned for ${report.audiences.join(" · ")}`
           : ""}
@@ -202,10 +214,13 @@ export function ContentStudio({ report, onCopy }: Props) {
         <MascotStage
           report={report}
           platform={platform}
+          topic={topic}
           mascotId={mascotId}
           customMascot={customMascot}
           position={mascotPos}
+          pose={mascotPose}
           onPositionChange={setMascotPos}
+          onPoseChange={setMascotPose}
           onCustomFile={(file) => void onCustomFile(file)}
         />
 
@@ -213,11 +228,15 @@ export function ContentStudio({ report, onCopy }: Props) {
           report={report}
           onCopy={onCopy}
           onUseIdea={(topicPrompt, idea) => {
-            setTopic(topicPrompt);
+            const plat =
+              idea.platforms[0] === "LinkedIn"
+                ? "linkedin"
+                : idea.platforms[0] === "TikTok"
+                  ? "tiktok"
+                  : "instagram";
+            setPlatform(plat);
             setActiveTrend(null);
-            if (idea.platforms[0] === "LinkedIn") setPlatform("linkedin");
-            else if (idea.platforms[0] === "TikTok") setPlatform("tiktok");
-            else setPlatform("instagram");
+            applyTopic(topicPrompt);
           }}
         />
 
@@ -225,20 +244,22 @@ export function ContentStudio({ report, onCopy }: Props) {
           report={report}
           onCopy={onCopy}
           onUseSuggestion={(topicPrompt, suggestion) => {
-            setTopic(topicPrompt);
-            setActiveTrend(suggestion);
+            let nextPlatform: ContentPlatform = platform;
             if (suggestion.platform === "tiktok" || suggestion.category === "tiktok") {
-              setPlatform("tiktok");
+              nextPlatform = "tiktok";
             } else if (
               suggestion.platform === "instagram" ||
               suggestion.category === "instagram"
             ) {
-              setPlatform("instagram");
+              nextPlatform = "instagram";
             } else if (suggestion.platforms[0] === "LinkedIn") {
-              setPlatform("linkedin");
+              nextPlatform = "linkedin";
             } else if (suggestion.category === "movie" || suggestion.category === "festival") {
-              setPlatform("instagram");
+              nextPlatform = "instagram";
             }
+            setPlatform(nextPlatform);
+            setActiveTrend(suggestion);
+            applyTopic(topicPrompt);
           }}
         />
 
@@ -283,7 +304,14 @@ export function ContentStudio({ report, onCopy }: Props) {
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder={`e.g. Remix ${selectedRef?.refId ?? "IG-01"} into a launch teaser for our new checkout…`}
+            onBlur={() => {
+              if (topic.trim()) {
+                setMascotPose(
+                  suggestMascotPose(topic, platform, report.services ?? []),
+                );
+              }
+            }}
+            placeholder={`e.g. SEO win story for a clinic · ORM Reel · TikTok ad for healthcare…`}
             rows={3}
             aria-label="Content brief"
           />
@@ -292,14 +320,12 @@ export function ContentStudio({ report, onCopy }: Props) {
               <button
                 key={prompt}
                 type="button"
-                onClick={() =>
-                  setTopic((prev) => {
-                    const base = selectedRef
-                      ? `${prompt} referencing ${selectedRef.refId}`
-                      : prompt;
-                    return prev.trim() ? `${prev.trim()} — ${base}` : base;
-                  })
-                }
+                onClick={() => {
+                  const base = selectedRef
+                    ? `${prompt} referencing ${selectedRef.refId}`
+                    : prompt;
+                  applyTopic(topic.trim() ? `${topic.trim()} — ${base}` : base);
+                }}
               >
                 {prompt}
               </button>
@@ -310,7 +336,7 @@ export function ContentStudio({ report, onCopy }: Props) {
         <div className="studio-actions">
           <p className="voice-hint">
             Writing as <em>{selectedVoice.label}</em>
-            {mascotId !== "none" ? ` · mascot ${mascotId}` : ""}
+            {mascotId !== "none" ? ` · mascot ${mascotId}/${mascotPose}` : ""}
             {selectedRef ? ` · ref ${selectedRef.refId}` : ""}
             {activeTrend ? ` · trend ${activeTrend.category}` : ""} for{" "}
             {platformLabel(platform)}
@@ -328,7 +354,7 @@ export function ContentStudio({ report, onCopy }: Props) {
           <div className="studio-actions image-actions">
             <p className="voice-hint">
               Post images use {report.name}’s palette at <em>{imageSpec.ratio}</em>
-              {mascotId !== "none" ? " · mascot position applied" : ""}
+              {mascotId !== "none" ? ` · mascot ${mascotPose} @ drag position` : ""}
               {selectedRef ? (
                 <>
                   {" "}
