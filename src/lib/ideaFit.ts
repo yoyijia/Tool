@@ -37,6 +37,18 @@ function answerFor(verdict: IdeaVerdict, audience: string, brand: string): strin
   return `No — this won’t land well for ${audience} as written.`;
 }
 
+function ideaSeed(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function rotate<T>(arr: T[], by: number): T[] {
+  if (arr.length < 2) return arr;
+  const n = by % arr.length;
+  return [...arr.slice(n), ...arr.slice(0, n)];
+}
+
 /** Many concrete example briefs tailored to this company + audiences. */
 export function exampleIdeas(
   report: BrandReport,
@@ -47,7 +59,19 @@ export function exampleIdeas(
   const offer = classifyBrand(report).primaryOffer;
   const kinds = audienceKinds(report);
   const focus = focusAudience?.trim();
+  const seed = ideaSeed(report.domain || brand);
   const out: string[] = [];
+
+  // Company-specific ingredients so no two brands get the same list
+  const services = (report.services ?? []).slice(0, 4);
+  const keywords = (report.keywords ?? []).filter((k) => k.length > 3).slice(0, 5);
+  const trendTitle = report.trends[0]?.title;
+  const trait = report.personality[0]?.label?.toLowerCase() ?? "confident";
+  const tagline =
+    report.tagline && report.tagline.length < 70 ? report.tagline : null;
+  const country = report.geo?.countryName;
+  const kw = (i: number) => keywords[i % Math.max(1, keywords.length)] ?? offer;
+  const svc = (i: number) => services[i % Math.max(1, services.length)] ?? offer;
 
   const push = (...items: string[]) => {
     for (const item of items) {
@@ -56,81 +80,132 @@ export function exampleIdeas(
   };
 
   if (focus) {
-    push(
-      `Reel for ${focus}: one myth about ${offer}, calmly corrected`,
-      `Carousel for ${focus}: problem → ${brand} approach → proof → CTA`,
-      `POV skit aimed at ${focus} about ${offer}`,
-      `“Worth it” list for ${focus} — what to pay for in ${offer}`,
-      `Hot take for ${focus}: what most people still get wrong`,
-      `Behind the scenes for ${focus}: how ${brand} ships ${offer}`,
-      `Documentary bit for ${focus}: the brief that wouldn’t die`,
-      `Soft CTA for ${focus}: save / share / book a chat`,
-    );
+    const focusPool = [
+      `Reel for ${focus}: the “${kw(0)}” myth ${brand} hears most, calmly corrected`,
+      `Carousel for ${focus}: ${svc(0)} problem → ${brand} fix → proof → CTA`,
+      `POV skit for ${focus}: waiting on the ${svc(1)} deliverable`,
+      `“Worth it” list for ${focus} — what to actually pay for in ${offer}`,
+      `Hot take for ${focus}: what most brands get wrong about ${kw(1)}`,
+      `Behind the scenes for ${focus}: how ${brand} ships ${svc(0)}`,
+      `A ${trait} explainer of ${kw(2)} for ${focus} in 30 seconds`,
+      `Client-question Reel: the ${kw(0)} question ${focus} always ask ${brand}`,
+      `Before/after for ${focus}: one real ${svc(0)} win (numbers on screen)`,
+      `Soft CTA for ${focus}: save / share / book a chat with ${brand}`,
+    ];
+    if (trendTitle) {
+      focusPool.splice(
+        3,
+        0,
+        `“${trendTitle}” angle for ${focus} — ${brand}'s useful take`,
+      );
+    }
+    if (tagline) {
+      focusPool.splice(
+        5,
+        0,
+        `“${tagline}” — shown (not said) in one Reel for ${focus}`,
+      );
+    }
+    if (country) {
+      focusPool.push(
+        `${country} moment: a local hook for ${focus} tied to ${svc(0)}`,
+      );
+    }
+    push(...rotate(focusPool, seed % 5));
   }
 
   if (kinds.includes("healthcare")) {
     push(
-      `Myth vs fact Reel: 3 patient myths about ${offer}`,
-      `Trust-stack carousel for clinic owners (review → process → CTA)`,
-      `Day-in-the-life of a medical marketer (consent-first)`,
-      `“What we’d never claim in a healthcare ad” hot take`,
-      `Before/after: clinic site SEO that actually booked consults`,
-      `Soft CTA: download a healthcare content checklist`,
+      ...rotate(
+        [
+          `Myth vs fact Reel: 3 patient myths about ${svc(0)}`,
+          `Trust-stack carousel for clinic owners (review → process → CTA)`,
+          `Day-in-the-life of a medical marketer (consent-first)`,
+          `“What we’d never claim in a healthcare ad” hot take from ${brand}`,
+          `Before/after: clinic ${kw(0)} that actually booked consults`,
+          `Soft CTA: download ${brand}'s healthcare content checklist`,
+        ],
+        seed % 3,
+      ),
     );
   }
   if (kinds.includes("marketers")) {
     push(
-      `Campaign teardown: what worked last month for ${brand}`,
-      `Marketer tip: hook formulas that don’t sound salesy`,
-      `Steal this brief — how ${brand} scopes a social sprint`,
-      `GEO / AI search: what brand teams should do this quarter`,
-      `Carousel: 5 metrics marketers should stop worshipping`,
+      ...rotate(
+        [
+          `Campaign teardown: what worked last month for ${brand}`,
+          `Marketer tip: ${kw(1)} hooks that don’t sound salesy`,
+          `Steal this brief — how ${brand} scopes a ${svc(0)} sprint`,
+          `GEO / AI search: what brand teams should do about ${kw(0)} this quarter`,
+          `Carousel: 5 ${kw(2)} metrics marketers should stop worshipping`,
+        ],
+        seed % 3,
+      ),
     );
   }
   if (kinds.includes("developers")) {
     push(
-      `Changelog-as-documentary: one ${offer} ship for developers`,
-      `Worth the stack: what in ${offer} is actually worth paying for`,
-      `Integration skit: DIY webhook vs ${brand}`,
-      `API tip in 20s for technical buyers`,
-      `Founder + developer duo: checkout friction confession`,
+      ...rotate(
+        [
+          `Changelog-as-documentary: one ${offer} ship for developers`,
+          `Worth the stack: what in ${offer} is actually worth paying for`,
+          `Integration skit: DIY ${kw(0)} vs ${brand}`,
+          `${kw(1)} tip in 20s for technical buyers`,
+          `Founder + developer duo: ${kw(2)} friction confession`,
+        ],
+        seed % 3,
+      ),
     );
   }
   if (kinds.includes("founders") || kinds.includes("b2b")) {
     push(
-      `Old stack vs ${brand}: side-by-side for operators`,
-      `ROI listicle: 5 things worth the money in ${offer}`,
-      `Netflix documentary bit: the invoice that wouldn’t die`,
-      `POV: ghosting Slack because the board deck is due`,
-      `Case-study carousel: problem → approach → metric → CTA`,
+      ...rotate(
+        [
+          `Old stack vs ${brand}: side-by-side for operators`,
+          `ROI listicle: 5 things worth the money in ${offer}`,
+          `Documentary bit: the ${kw(0)} invoice that wouldn’t die`,
+          `Case-study carousel: ${svc(0)} problem → approach → metric → CTA`,
+          `POV: explaining ${kw(1)} to the board in one slide`,
+        ],
+        seed % 3,
+      ),
     );
   }
   if (kinds.includes("athletes") || kinds.includes("consumers")) {
     push(
-      `Locker-room product reveal for ${brand}`,
-      `Fit check / on-body transition (shoe or kit)`,
-      `Athlete POV: first wear of the new drop`,
-      `Community challenge Reel tied to ${offer}`,
-      `“Worth the money” list for gear that actually lasts`,
-      `OOTD stop-and-details for a hero product`,
+      ...rotate(
+        [
+          `Locker-room product reveal for ${brand}`,
+          `Fit check / on-body transition with a ${kw(0)} hero product`,
+          `Athlete POV: first wear of the new ${brand} drop`,
+          `Community challenge Reel tied to ${kw(1)}`,
+          `“Worth the money” list for ${offer} that actually lasts`,
+          `OOTD stop-and-details on ${brand}'s hero product`,
+        ],
+        seed % 3,
+      ),
     );
   }
   if (kinds.includes("designers")) {
     push(
       `File → final reveal for design teams`,
       `Two personalities: messy draft vs ${brand} polish`,
-      `Collab tip carousel for product designers`,
+      `Collab tip carousel for product designers using ${kw(0)}`,
     );
   }
 
-  push(
-    `Behind the scenes: how ${brand} ships ${offer}`,
+  const genericPool = [
+    `Behind the scenes: how ${brand} ships ${svc(0)}`,
     `Customer win story aimed at ${primaryAudienceLabel(report)}`,
-    `Myth-busting tip for ${primaryAudienceLabel(report)}`,
-    `Feature explainer in the brand voice`,
-    `Hot take: what ${primaryAudienceLabel(report)} still get wrong`,
-    `Soft CTA: save/share this for your team`,
-  );
+    `Myth-busting tip on ${kw(0)} for ${primaryAudienceLabel(report)}`,
+    `${kw(1)} explainer in ${brand}'s ${trait} voice`,
+    `Hot take: what ${primaryAudienceLabel(report)} still get wrong about ${kw(2)}`,
+    `Soft CTA: save/share this ${svc(0)} tip with your team`,
+  ];
+  if (trendTitle) {
+    genericPool.unshift(`Riff on “${trendTitle}” in ${brand}'s voice`);
+  }
+  push(...rotate(genericPool, seed % 4));
 
   return out.slice(0, limit);
 }

@@ -197,19 +197,19 @@ function inferOffer(report: BrandReport, corpus: string, lanes: BrandLane[]): st
   if (lanes.includes("agency") && report.services?.[0]) return report.services[0]!;
   if (report.services?.[0]) return report.services[0]!;
 
-  if (/payment|financial infrastructure|fintech|stripe/.test(corpus)) {
+  if (/\b(payments?|financial infrastructure|fintech|stripe)\b/.test(corpus)) {
     return "payments & financial infrastructure";
   }
-  if (/shoe|sneaker|athlete|just do it|sport|nike/.test(corpus)) {
-    return "sport & footwear";
-  }
-  if (/design|figma|collaborat|canvas|prototype/.test(corpus)) {
-    return "design collaboration";
-  }
-  if (/notion|workspace|notes|docs|wiki/.test(corpus)) {
+  if (/\b(notion|workspace|wiki|note-?taking|docs? (tool|app)|knowledge base)\b/.test(corpus)) {
     return "team workspace productivity";
   }
-  if (/canva|template|visual creat/.test(corpus)) {
+  if (/\b(shoes?|sneakers?|athletes?|sports?|nike)\b|just do it/.test(corpus)) {
+    return "sport & footwear";
+  }
+  if (/\b(figma|design tool|collaborative design|prototyp|canvas)\b/.test(corpus)) {
+    return "design collaboration";
+  }
+  if (/\b(canva|templates?|visual creat)\b/.test(corpus)) {
     return "visual content creation";
   }
   if (report.keywords?.length) return report.keywords.slice(0, 2).join(" / ");
