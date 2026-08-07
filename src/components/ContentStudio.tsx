@@ -21,6 +21,7 @@ import {
   type RenderedPostImage,
 } from "../lib/postImage";
 import { loadImageFromFile } from "../lib/mascots";
+import { ContentCalendar } from "./ContentCalendar";
 import { InstagramLibrary } from "./InstagramLibrary";
 import { MascotPicker } from "./MascotPicker";
 import { TrendRadar } from "./TrendRadar";
@@ -146,8 +147,9 @@ export function ContentStudio({ report, onCopy }: Props) {
     <section className="panel span-2 studio">
       <h3>Content studio</h3>
       <p className="sub">
-        Pick a voice and mascot, listen to live TikTok/culture trends, pull Instagram
-        posts as numbered references, then export platform-sized images that cite the right post.
+        Pick a voice and mascot, plan around national days, listen to TikTok/IG trend
+        roundups, pull Instagram posts as numbered references, then export platform-sized
+        images.
       </p>
 
       <form className="studio-form" onSubmit={runGenerate}>
@@ -180,6 +182,18 @@ export function ContentStudio({ report, onCopy }: Props) {
           customName={customMascotName}
           onSelect={setMascotId}
           onCustomFile={(file) => void onCustomFile(file)}
+        />
+
+        <ContentCalendar
+          report={report}
+          onCopy={onCopy}
+          onUseIdea={(topicPrompt, idea) => {
+            setTopic(topicPrompt);
+            setActiveTrend(null);
+            if (idea.platforms[0] === "LinkedIn") setPlatform("linkedin");
+            else if (idea.platforms[0] === "TikTok") setPlatform("tiktok");
+            else setPlatform("instagram");
+          }}
         />
 
         <TrendRadar
