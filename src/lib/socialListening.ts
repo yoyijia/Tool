@@ -5,6 +5,10 @@ import { fetchLiveCultureTrends, liveTrendsToSignals } from "./liveCulture";
 const LATER_TIKTOK = "https://later.com/blog/tiktok-trends/";
 const LATER_INSTAGRAM = "https://later.com/blog/instagram-reels-trends/";
 const SOCIALINSIDER_TIKTOK = "https://www.socialinsider.io/blog/tiktok-trends/";
+const NEWENGEN_TIKTOK = "https://newengen.com/insights/august-tiktok-trends/";
+const NEWENGEN_INSTAGRAM = "https://newengen.com/insights/instagram-trends/";
+const BUFFER_TIKTOK_SONGS = "https://buffer.com/resources/trending-songs-tiktok/";
+const SOCIALBEE_IG_SONGS = "https://socialbee.com/blog/trending-instagram-songs/";
 
 async function fetchText(url: string): Promise<string> {
   if (typeof window !== "undefined") {
@@ -105,9 +109,103 @@ function parseLaterTrends(html: string, sourceUrl: string): DatedTrend[] {
     });
   }
 
-  // Deduplicate by title, keep newest occurrence (Later lists newest first)
+  return dedupeDated(out);
+}
+
+/** New Engen weekly “Trend #N: Name” format lists. */
+function parseNewEngenTrends(
+  html: string,
+  sourceUrl: string,
+  asOfLabel: string,
+): DatedTrend[] {
+  const out: DatedTrend[] = [];
+  const heads = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)];
+  for (let i = 0; i < heads.length; i++) {
+    const heading = stripTags(heads[i]![1] ?? "");
+    const m = heading.match(/^Trend\s*#?\d*:\s*(.+)$/i);
+    if (!m) continue;
+    const title = (m[1] ?? "").replace(/\s+/g, " ").trim();
+    if (!title || title.length < 3 || title.length > 100) continue;
+    const start = (heads[i]!.index ?? 0) + heads[i]![0].length;
+    const end = heads[i + 1]?.index ?? start + 2800;
+    const slice = html.slice(start, Math.min(end, start + 2800));
+    const summary =
+      stripTags(slice.match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1] ?? "").slice(0, 220) ||
+      `Weekly platform trend · ${asOfLabel}`;
+    out.push({
+      title,
+      date: asOfLabel,
+      summary,
+      sourceUrl,
+      sourceName: "New Engen Weekly",
+    });
+  }
+  return dedupeDated(out);
+}
+
+/** Buffer “N. Song name” TikTok audio chart. */
+function parseBufferTikTokSongs(html: string): DatedTrend[] {
+  const out: DatedTrend[] = [];
+  const heads = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)];
+  for (let i = 0; i < heads.length; i++) {
+    const heading = stripTags(heads[i]![1] ?? "");
+    const m = heading.match(/^\d{1,2}\.\s+(.+)$/);
+    if (!m) continue;
+    const title = decodeEntities((m[1] ?? "").replace(/\s+/g, " ").trim());
+    if (!title || title.length < 2 || title.length > 90) continue;
+    const start = (heads[i]!.index ?? 0) + heads[i]![0].length;
+    const end = heads[i + 1]?.index ?? start + 2200;
+    const summary =
+      stripTags(html.slice(start, Math.min(end, start + 2200)).match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1] ?? "").slice(
+        0,
+        220,
+      ) || "Trending TikTok audio (Buffer August chart).";
+    out.push({
+      title,
+      date: "August 5, 2026",
+      summary,
+      sourceUrl: BUFFER_TIKTOK_SONGS,
+      sourceName: "Buffer Sounds",
+    });
+  }
+  return dedupeDated(out).slice(0, 13);
+}
+
+/** SocialBee dated Instagram songs — last few weekly sections (2 tracks each). */
+function parseSocialBeeIgSongs(html: string): DatedTrend[] {
+  const heads = [...html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)];
+  const out: DatedTrend[] = [];
+  let weeks = 0;
+  for (let i = 0; i < heads.length && weeks < 3; i++) {
+    const label = stripTags(heads[i]![1] ?? "");
+    const m = label.match(
+      /\(([A-Za-z]+ \d{1,2}, \d{4})\)\s*Instagram viral songs and sounds/i,
+    );
+    if (!m) continue;
+    weeks += 1;
+    const date = (m[1] ?? "August 5, 2026").trim();
+    const start = (heads[i]!.index ?? 0) + heads[i]![0].length;
+    const end = heads[i + 1]?.index ?? start + 20_000;
+    const chunk = html.slice(start, end);
+    for (const hm of chunk.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)) {
+      const title = stripTags(hm[1] ?? "");
+      if (!title || title.length < 3 || title.length > 100) continue;
+      if (/network integrations|related|faq|channels|tools/i.test(title)) continue;
+      out.push({
+        title,
+        date,
+        summary: `Trending Instagram Reel audio · SocialBee chart ${date}.`,
+        sourceUrl: SOCIALBEE_IG_SONGS,
+        sourceName: "SocialBee Sounds",
+      });
+    }
+  }
+  return dedupeDated(out).slice(0, 12);
+}
+
+function dedupeDated(items: DatedTrend[]): DatedTrend[] {
   const seen = new Set<string>();
-  return out.filter((t) => {
+  return items.filter((t) => {
     const key = t.title.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
@@ -167,14 +265,60 @@ function parseRssTitles(xml: string, limit = 10): { title: string; link?: string
     .filter((i) => i.title && !/^Google News$/i.test(i.title));
 }
 
+function pushPlatformTrends(
+  signals: TrendSignal[],
+  items: DatedTrend[],
+  platform: "tiktok" | "instagram",
+  prefix: string,
+) {
+  const seen = new Set(
+    signals
+      .filter((s) => s.platform === platform)
+      .map((s) => s.title.toLowerCase()),
+  );
+  items
+    .filter((t) => daysSince(t.date) <= 75)
+    .forEach((t, i) => {
+      if (isSensitiveTopic(t.title)) return;
+      const key = t.title.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      signals.push({
+        id: slugId(prefix, t.title, i),
+        title: t.title,
+        category: platform,
+        platform,
+        source: `${t.sourceName} · ${t.date}`,
+        heat: heatFromDate(t.date),
+        summary: t.summary,
+        url: t.sourceUrl,
+        tag: undefined,
+      });
+    });
+}
+
 /** Pull TikTok + Instagram roundups plus live SG culture/search trends. */
 export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[]> {
   const signals: TrendSignal[] = [];
 
-  const [ttHtml, igHtml, siHtml, searchSgXml, liveCulture] = await Promise.all([
+  const [
+    ttHtml,
+    igHtml,
+    siHtml,
+    neTtHtml,
+    neIgHtml,
+    bufferHtml,
+    beeHtml,
+    searchSgXml,
+    liveCulture,
+  ] = await Promise.all([
     fetchText(LATER_TIKTOK).catch(() => ""),
     fetchText(LATER_INSTAGRAM).catch(() => ""),
     fetchText(SOCIALINSIDER_TIKTOK).catch(() => ""),
+    fetchText(NEWENGEN_TIKTOK).catch(() => ""),
+    fetchText(NEWENGEN_INSTAGRAM).catch(() => ""),
+    fetchText(BUFFER_TIKTOK_SONGS).catch(() => ""),
+    fetchText(SOCIALBEE_IG_SONGS).catch(() => ""),
     fetchText("https://trends.google.com/trending/rss?geo=SG").catch(() => ""),
     report
       ? fetchLiveCultureTrends(report).catch(() => [])
@@ -184,42 +328,28 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
   const ttLater = ttHtml ? parseLaterTrends(ttHtml, LATER_TIKTOK) : [];
   const igLater = igHtml ? parseLaterTrends(igHtml, LATER_INSTAGRAM) : [];
   const ttBackup = !ttLater.length && siHtml ? parseSocialinsider(siHtml) : [];
+  const ttWeekly = neTtHtml
+    ? parseNewEngenTrends(neTtHtml, NEWENGEN_TIKTOK, "August 5, 2026")
+    : [];
+  const igWeekly = neIgHtml
+    ? parseNewEngenTrends(neIgHtml, NEWENGEN_INSTAGRAM, "August 5, 2026")
+    : [];
+  const ttSongs = bufferHtml ? parseBufferTikTokSongs(bufferHtml) : [];
+  const igSongs = beeHtml ? parseSocialBeeIgSongs(beeHtml) : [];
 
-  // Prefer fresher roundup items so the feed feels current
-  const recentTt = [...ttLater, ...ttBackup]
-    .filter((t) => daysSince(t.date) <= 75)
-    .slice(0, 18);
-  const recentIg = igLater.filter((t) => daysSince(t.date) <= 75).slice(0, 18);
-
-  recentTt.forEach((t, i) => {
-    if (isSensitiveTopic(t.title)) return;
-    signals.push({
-      id: slugId("tiktok", t.title, i),
-      title: t.title,
-      category: "tiktok",
-      platform: "tiktok",
-      source: `${t.sourceName} · ${t.date}`,
-      heat: heatFromDate(t.date),
-      summary: t.summary,
-      url: t.sourceUrl,
-      tag: undefined,
-    });
-  });
-
-  recentIg.forEach((t, i) => {
-    if (isSensitiveTopic(t.title)) return;
-    signals.push({
-      id: slugId("instagram", t.title, i),
-      title: t.title,
-      category: "instagram",
-      platform: "instagram",
-      source: `${t.sourceName} · ${t.date}`,
-      heat: heatFromDate(t.date),
-      summary: t.summary,
-      url: t.sourceUrl,
-      tag: undefined,
-    });
-  });
+  // Freshest first: Later dated drops → weekly format lists → sound charts → backup
+  pushPlatformTrends(
+    signals,
+    [...ttLater, ...ttWeekly, ...ttSongs, ...ttBackup],
+    "tiktok",
+    "tiktok",
+  );
+  pushPlatformTrends(
+    signals,
+    [...igLater, ...igWeekly, ...igSongs],
+    "instagram",
+    "instagram",
+  );
 
   // Live SG culture (GST vouchers, Spider-Man Brand New Day, NDP, …)
   liveTrendsToSignals(liveCulture).forEach((s) => {
@@ -313,11 +443,15 @@ function scoreFit(report: BrandReport, signal: TrendSignal): {
   }
   if (signal.platform === "tiktok") {
     score += 22;
-    reason = "From a dated TikTok trend roundup — higher confidence than generic news.";
+    reason = /Buffer|New Engen|Later/i.test(signal.source)
+      ? "From a current TikTok format/sound roundup."
+      : "From a dated TikTok trend roundup — higher confidence than generic news.";
   }
   if (signal.platform === "instagram") {
     score += 20;
-    reason = "From a dated Instagram Reels trend roundup.";
+    reason = /SocialBee|New Engen|Later/i.test(signal.source)
+      ? "From a current Instagram Reels format/sound roundup."
+      : "From a dated Instagram Reels trend roundup.";
   }
   if (signal.heat >= 88) {
     score += 10;
@@ -468,6 +602,6 @@ export async function runSocialListening(report: BrandReport): Promise<{
     instagramFeed,
     liveFeed,
     dataNote:
-      "Live SG tab refreshes Google News/Trends (GST vouchers, Spider-Man: Brand New Day, NDP, search spikes). TikTok/IG tabs use dated Later roundups — not in-app Creative Center charts.",
+      "Refreshed on demand from Later (dated format drops), New Engen weekly charts, Buffer/SocialBee sound lists, plus live Google Trends/News SG. Not TikTok Creative Center or Meta in-app charts — those APIs stay closed.",
   };
 }

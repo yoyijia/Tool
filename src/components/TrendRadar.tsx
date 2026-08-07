@@ -92,9 +92,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
     <fieldset className="studio-field">
       <legend>Trends · TikTok, Instagram & future bets</legend>
       <p className="platform-tip">
-        For <strong>{report.name}</strong> ({audienceLine(report)}): start with{" "}
-        <strong>future format bets</strong>, or load dated Later roundups for what’s
-        circulating now.
+        For <strong>{report.name}</strong> ({audienceLine(report)}): hit refresh for
+        current TikTok/Reels formats + sounds (Later, New Engen, Buffer/SocialBee) and
+        live SG culture spikes.
       </p>
 
       <div className="studio-actions">
@@ -128,8 +128,8 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
           [
             ["live", `Live SG (${liveFeed.length})`],
             ["future", `Future bets (${futureIdeas.length})`],
-            ["tiktok", `TikTok roundups (${tiktokFeed.length})`],
-            ["instagram", `IG roundups (${instagramFeed.length})`],
+            ["tiktok", `TikTok now (${tiktokFeed.length})`],
+            ["instagram", `Reels now (${instagramFeed.length})`],
             ["other", `Search / calendar (${otherFeed.length})`],
           ] as const
         ).map(([id, label]) => (
