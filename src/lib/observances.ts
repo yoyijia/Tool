@@ -183,6 +183,7 @@ function brandCorpus(report: BrandReport): string {
     report.archetype,
     report.voiceSummary,
     ...report.keywords,
+    ...(report.audiences ?? []),
     ...report.personality.map((p) => `${p.label} ${p.description}`),
   ]
     .join(" ")

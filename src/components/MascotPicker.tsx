@@ -26,7 +26,8 @@ export function MascotPicker({
     <fieldset className="studio-field">
       <legend>Mascot</legend>
       <p className="platform-tip">
-        Drop a brand mascot onto exported post images — presets or your own PNG/WebP.
+        Choose a preset or upload a PNG/WebP — then drag it on the stage below onto feed
+        &amp; Reel layouts before generating images.
       </p>
       <div className="voice-grid mascot-grid">
         {MASCOT_OPTIONS.map((m) => (

@@ -18,6 +18,13 @@ export function ReportView({ report, onCopy }: Props) {
             <i />
             Archetype · {report.archetype}
           </div>
+          {report.audiences?.length > 0 && (
+            <div className="keywords audience-chips">
+              {report.audiences.map((a) => (
+                <span key={a}>{a}</span>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

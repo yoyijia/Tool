@@ -3,7 +3,13 @@ import { analyzeBrand } from "./lib/analyze";
 import type { BrandReport } from "./types";
 import { ReportView } from "./components/ReportView";
 
-const SUGGESTIONS = ["stripe.com", "notion.so", "figma.com", "nike.com", "spotify.com"];
+const SUGGESTIONS = [
+  "activamedia.com.sg",
+  "stripe.com",
+  "notion.so",
+  "figma.com",
+  "nike.com",
+];
 
 export default function App() {
   const [input, setInput] = useState("");
@@ -72,7 +78,7 @@ export default function App() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Website name or URL — e.g. nike or stripe.com"
+            placeholder="Website name or URL — e.g. activamedia.com.sg"
             aria-label="Website name or URL"
             autoFocus
           />

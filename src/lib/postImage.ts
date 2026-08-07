@@ -1,5 +1,13 @@
-import type { BrandReport, ContentPlatform, GeneratedPost, MascotId } from "../types";
+import type {
+  BrandReport,
+  ContentPlatform,
+  GeneratedPost,
+  MascotId,
+  MascotPosition,
+} from "../types";
 import { drawMascot } from "./mascots";
+
+export const DEFAULT_MASCOT_POS: MascotPosition = { nx: 0.78, ny: 0.42 };
 
 export interface PostImageSpec {
   width: number;
@@ -182,6 +190,7 @@ export async function renderPostImage(
     variantIndex?: number;
     mascotId?: MascotId;
     customMascot?: HTMLImageElement | null;
+    mascotPos?: MascotPosition;
   },
 ): Promise<RenderedPostImage> {
   await ensureFonts();
@@ -199,6 +208,7 @@ export async function renderPostImage(
   const isVertical = h / w > 1.3;
   const isWide = w / h > 1.4;
   const mascotId = (options?.mascotId ?? post.mascotId ?? "none") as MascotId;
+  const mascotPos = options?.mascotPos ?? DEFAULT_MASCOT_POS;
 
   // Background
   ctx.fillStyle = palette.bg;
@@ -280,9 +290,11 @@ export async function renderPostImage(
     ctx.fillText(badge, bx + brandSize * 0.55, by + bh * 0.7);
   }
 
-  // Main hook — leave room for mascot on the right when present
+  // Main hook — leave room on the side where the mascot sits
+  const mascotOnRight = mascotId === "none" ? true : mascotPos.nx >= 0.5;
   const mascotRoom = mascotId !== "none" ? Math.min(w, h) * 0.28 : 0;
   const hookMaxW = w - pad * 2 - mascotRoom;
+  const hookX = mascotOnRight ? pad : pad + mascotRoom;
   const hookFont = isVertical
     ? Math.round(w * 0.09)
     : isWide
@@ -299,7 +311,7 @@ export async function renderPostImage(
     : pad + brandSize * (post.referenceId ? 4.2 : 3.2);
 
   hookLines.forEach((line, i) => {
-    ctx.fillText(line, pad, hookStartY + (i + 1) * hookLineH);
+    ctx.fillText(line, hookX, hookStartY + (i + 1) * hookLineH);
   });
 
   // Supporting line (CTA or short body snippet)
@@ -310,15 +322,17 @@ export async function renderPostImage(
   const supportLines = fitLines(ctx, support, hookMaxW, isVertical ? 4 : 2);
   const supportStart = hookStartY + hookBlockH + Math.round(supportFont * 1.8);
   supportLines.forEach((line, i) => {
-    ctx.fillText(line, pad, supportStart + (i + 1) * supportFont * 1.35);
+    ctx.fillText(line, hookX, supportStart + (i + 1) * supportFont * 1.35);
   });
 
-  // Mascot
+  // Mascot (draggable position from studio stage)
   if (mascotId !== "none") {
-    const size = Math.min(w, h) * (isWide ? 0.34 : 0.3);
+    const size = Math.min(w, h) * (isWide ? 0.34 : isVertical ? 0.28 : 0.3);
+    const x = Math.min(w - size * 0.35, Math.max(size * 0.35, mascotPos.nx * w));
+    const y = Math.min(h - size * 0.35, Math.max(size * 0.35, mascotPos.ny * h));
     drawMascot(ctx, mascotId, {
-      x: w - pad - size * 0.55,
-      y: isWide ? h * 0.5 : hookStartY + hookBlockH * 0.55,
+      x,
+      y,
       size,
       accent: palette.accent,
       ink: palette.ink,

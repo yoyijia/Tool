@@ -5,8 +5,10 @@ import type {
   GeneratedPost,
   InstagramPostRef,
   MascotId,
+  MascotPosition,
   VoicePresetId,
 } from "../types";
+import { audiencePrompts } from "../lib/audience";
 import {
   CONTENT_PROMPTS,
   VOICE_PRESETS,
@@ -15,6 +17,7 @@ import {
   platformTip,
 } from "../lib/contentGen";
 import {
+  DEFAULT_MASCOT_POS,
   PLATFORM_IMAGE_SPECS,
   downloadBlob,
   renderPostImage,
@@ -24,6 +27,7 @@ import { loadImageFromFile } from "../lib/mascots";
 import { ContentCalendar } from "./ContentCalendar";
 import { InstagramLibrary } from "./InstagramLibrary";
 import { MascotPicker } from "./MascotPicker";
+import { MascotStage } from "./MascotStage";
 import { TrendRadar } from "./TrendRadar";
 import type { TrendSuggestion } from "../types";
 
@@ -55,12 +59,18 @@ export function ContentStudio({ report, onCopy }: Props) {
   const [mascotId, setMascotId] = useState<MascotId>("orb");
   const [customMascot, setCustomMascot] = useState<HTMLImageElement | null>(null);
   const [customMascotName, setCustomMascotName] = useState<string | null>(null);
+  const [mascotPos, setMascotPos] = useState<MascotPosition>(DEFAULT_MASCOT_POS);
   const [activeTrend, setActiveTrend] = useState<TrendSuggestion | null>(null);
 
   const selectedVoice = useMemo(
     () => VOICE_PRESETS.find((v) => v.id === voiceId) ?? VOICE_PRESETS[0]!,
     [voiceId],
   );
+
+  const topicHints = useMemo(() => {
+    const audience = audiencePrompts(report);
+    return [...audience, ...CONTENT_PROMPTS].slice(0, 8);
+  }, [report]);
 
   const selectedRef = useMemo(
     () => igRefs.find((r) => r.refId === selectedRefId) ?? null,
@@ -112,6 +122,7 @@ export function ContentStudio({ report, onCopy }: Props) {
         variantIndex: index,
         mascotId,
         customMascot: mascotId === "custom" ? customMascot : null,
+        mascotPos,
       });
       setImages((prev) => ({ ...prev, [post.id]: rendered }));
     } catch (err) {
@@ -133,6 +144,7 @@ export function ContentStudio({ report, onCopy }: Props) {
           variantIndex: i,
           mascotId,
           customMascot: mascotId === "custom" ? customMascot : null,
+          mascotPos,
         });
       }
       setImages(entries);
@@ -147,9 +159,12 @@ export function ContentStudio({ report, onCopy }: Props) {
     <section className="panel span-2 studio">
       <h3>Content studio</h3>
       <p className="sub">
-        Pick a voice and mascot, plan around national days, listen to TikTok/IG trend
-        roundups, pull Instagram posts as numbered references, then export platform-sized
-        images.
+        Pick a voice, drag your mascot onto feed/Reel frames, plan national days, load
+        TikTok/IG + future trend bets, then export platform-sized images
+        {report.audiences?.length
+          ? ` — tuned for ${report.audiences.join(" · ")}`
+          : ""}
+        .
       </p>
 
       <form className="studio-form" onSubmit={runGenerate}>
@@ -181,6 +196,16 @@ export function ContentStudio({ report, onCopy }: Props) {
           mascotId={mascotId}
           customName={customMascotName}
           onSelect={setMascotId}
+          onCustomFile={(file) => void onCustomFile(file)}
+        />
+
+        <MascotStage
+          report={report}
+          platform={platform}
+          mascotId={mascotId}
+          customMascot={customMascot}
+          position={mascotPos}
+          onPositionChange={setMascotPos}
           onCustomFile={(file) => void onCustomFile(file)}
         />
 
@@ -263,7 +288,7 @@ export function ContentStudio({ report, onCopy }: Props) {
             aria-label="Content brief"
           />
           <div className="hints topic-hints">
-            {CONTENT_PROMPTS.map((prompt) => (
+            {topicHints.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
@@ -303,6 +328,7 @@ export function ContentStudio({ report, onCopy }: Props) {
           <div className="studio-actions image-actions">
             <p className="voice-hint">
               Post images use {report.name}’s palette at <em>{imageSpec.ratio}</em>
+              {mascotId !== "none" ? " · mascot position applied" : ""}
               {selectedRef ? (
                 <>
                   {" "}

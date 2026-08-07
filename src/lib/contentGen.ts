@@ -6,6 +6,7 @@ import type {
   VoicePreset,
   VoicePresetId,
 } from "../types";
+import { audienceLine } from "./audience";
 
 export const VOICE_PRESETS: VoicePreset[] = [
   {
@@ -231,12 +232,23 @@ function hashtagPack(report: BrandReport, topic: string, seed: number): string[]
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join("");
 
+  const audienceTag = /health|medical/i.test(audienceLine(report))
+    ? "HealthcareMarketing"
+    : /market/i.test(audienceLine(report))
+      ? "MarketingStrategy"
+      : "BrandStory";
+
   const pool = [
     brand,
-    topicTag || "BrandStory",
+    topicTag || audienceTag,
     report.keywords[0] ? report.keywords[0].replace(/[^a-z0-9]/gi, "") : "Marketing",
     pick(["SocialStrategy", "ContentThatConverts", "BrandVoice", "Engagement"], seed),
-    pick(["BuildInPublic", "CreatorEconomy", "GrowthTips", "Storytelling"], seed + 3),
+    pick(
+      /health|medical/i.test(audienceLine(report))
+        ? ["MedicalMarketing", "ClinicGrowth", "PatientTrust", "HealthcareSEO"]
+        : ["BuildInPublic", "CreatorEconomy", "GrowthTips", "Storytelling"],
+      seed + 3,
+    ),
   ]
     .filter(Boolean)
     .map((t) => `#${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -300,6 +312,7 @@ function buildBodies(
   const trend = report.trends[0]?.title ?? "owned-channel storytelling";
   const keyword = report.keywords[0] ?? "brand";
   const accent = brandAccent(report);
+  const audiences = audienceLine(report);
 
   const hooks =
     voice.hooks.length > 0
@@ -327,9 +340,10 @@ function buildBodies(
       "",
       `At ${brand}, we keep coming back to one idea: ${topic}.`,
       "",
+      `Written for ${audiences}.`,
       `Here’s the angle that travels:`,
       `→ Lead with ${articleFor(trait)} ${trait.toLowerCase()} promise people can feel in 3 seconds.`,
-      `→ Proof it with a real moment (demo, customer line, or behind-the-scenes).`,
+      `→ Proof it with a real moment (demo, client line, or behind-the-scenes).`,
       `→ Close on a question — not a brochure.`,
       "",
       `We’re seeing ${trend.toLowerCase()} win attention right now. ${topic} is a natural fit.`,
@@ -343,14 +357,14 @@ function buildBodies(
     const body = [
       hook,
       "",
-      `${topic} — told the ${brand} way.`,
+      `${topic} — told the ${brand} way for ${audiences}.`,
       "",
-      `Slide ideas:`,
+      `Slide / Reel beat ideas:`,
       `1. Hook line on-brand (${accent})`,
-      `2. The tension / myth`,
+      `2. The tension / myth your audience believes`,
       `3. How ${brand} approaches it`,
       `4. One actionable tip`,
-      `5. CTA card`,
+      `5. CTA card (save / DM / book)`,
       "",
       `Caption energy: ${voice.blurb}`,
       "",
@@ -362,12 +376,13 @@ function buildBodies(
   if (platform === "tiktok") {
     const body = [
       `[0–1s VISUAL] Text on screen: “${hook}”`,
-      `[1–8s] Talk to camera: “Okay — ${topic}. Here’s what ${brand} actually does differently.”`,
+      `[1–8s] Talk to camera: “Okay — ${topic}. Here’s what ${brand} actually does differently for ${audiences}.”`,
       `[8–18s] Demo or B-roll: show one concrete moment tied to ${keyword}.`,
       `[18–25s] Punchline: “That’s the whole play. ${trait}, not complicated.”`,
       `[25–30s] CTA to camera: “${cta}”`,
       "",
       `On-screen text color cue: ${accent}`,
+      `Mascot tip: place it opposite the talking head so Reels stay readable.`,
     ].join("\n");
     return { hook, body, cta };
   }

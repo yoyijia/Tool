@@ -1,4 +1,5 @@
 import type { BrandReport } from "../types";
+import { detectAudiences } from "./audience";
 import { capturePage } from "./fetchPage";
 import { buildPalette } from "./palette";
 import { analyzePersonality, analyzeVoice } from "./personality";
@@ -37,6 +38,7 @@ export async function analyzeBrand(input: string): Promise<BrandReport> {
 
   const { traits, archetype } = analyzePersonality(corpus);
   const { dimensions, summary, keywords } = analyzeVoice(corpus);
+  const audiences = detectAudiences(corpus);
   const palette = buildPalette(snapshot.styleColors, snapshot.themeColor);
   const socialProfiles = extractSocialProfiles(snapshot);
   const trends = identifyTrends(
@@ -57,6 +59,7 @@ export async function analyzeBrand(input: string): Promise<BrandReport> {
     voiceSummary: summary,
     voiceDimensions: dimensions,
     keywords,
+    audiences,
     palette,
     socialProfiles,
     trends,

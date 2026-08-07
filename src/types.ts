@@ -42,11 +42,19 @@ export interface BrandReport {
   voiceSummary: string;
   voiceDimensions: VoiceDimension[];
   keywords: string[];
+  /** Inferred target audiences from site copy (e.g. medical clients + marketers). */
+  audiences: string[];
   palette: ColorSwatch[];
   socialProfiles: SocialProfile[];
   trends: MarketingTrend[];
   analyzedAt: string;
   sourceSnippet: string;
+}
+
+/** Normalized mascot center on the post canvas (0–1). */
+export interface MascotPosition {
+  nx: number;
+  ny: number;
 }
 
 export interface AnalyzeRequest {
