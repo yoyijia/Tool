@@ -6,6 +6,7 @@ import {
   geoFromReport,
   regionProfile,
 } from "./brandGeo";
+import { classifyNewsSafety, isPostableCulture } from "./newsSafety";
 
 async function fetchText(url: string, acceptLang: string): Promise<string> {
   if (typeof window !== "undefined") {
@@ -46,15 +47,11 @@ function stripSourceSuffix(title: string): string {
 }
 
 function isSensitive(title: string): boolean {
-  return /\b(die|dies|died|death|killed|murder|shooting|assault|rape|suicide|terror|bomb|crash victims?|fatal|traffick|abuse|molest|stabbed|drown|scam victims?)\b/i.test(
-    title,
-  );
+  return classifyNewsSafety(title) === "negative";
 }
 
 function isBrandUnsafe(title: string): boolean {
-  return /\b(election|by-?election|parliament debate|impeach|defamation|court hearing|charged with|sentenced|arrested|police|suspect|investigation into|corruption)\b/i.test(
-    title,
-  );
+  return classifyNewsSafety(title) === "risky";
 }
 
 interface RssItem {
@@ -201,7 +198,8 @@ function brandAngleForGeneric(
   countryName: string,
 ): { hooks: string[]; beats: string[]; summary: string } {
   return {
-    summary: `Trending in ${countryName} right now: “${label}”. Adapt for ${brand} → ${audience}.`,
+    // Keep the summary neutral — scoring reads it, so no brand/offer words here
+    summary: `Trending in ${countryName} right now: “${label}”.`,
     hooks: [
       `${countryName} is talking about ${label} — ${brand}'s angle for ${audience}.`,
       `${label}: what ${audience} in ${countryName} should take away.`,
@@ -441,7 +439,18 @@ export function mergeLiveTrendsIntoSchedule(
   report: BrandReport,
 ): ScheduleSlot[] {
   const geo = geoFromReport(report);
-  const injectable = live.filter((t) => t.heat >= 70).slice(0, 10);
+  // Only splice brand-safe, postable culture moments into the calendar
+  const injectable = live
+    .filter(
+      (t) =>
+        t.heat >= 70 &&
+        (isPostableCulture(`${t.label} ${t.headline}`) ||
+          t.source.includes("watchlist") ||
+          t.category === "festival" ||
+          t.category === "movie" ||
+          t.category === "sports"),
+    )
+    .slice(0, 8);
   if (!injectable.length) return base;
   const slots = [...base];
   const keepIds = new Set(

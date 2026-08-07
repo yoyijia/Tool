@@ -6,6 +6,7 @@ import {
   type AudienceKind,
 } from "./audience";
 import { geoFromReport } from "./brandGeo";
+import { classifyNewsSafety, isPostableCulture } from "./newsSafety";
 
 export type BrandLane =
   | "healthcare"
@@ -397,27 +398,44 @@ export function scoreBrandTrendFit(
   let reason = `Matched to ${targetAudience}.`;
   if (trendLane === "culture_news") {
     const geo = geoFromReport(report);
+    const safety = classifyNewsSafety(text);
     const isLiveRegional =
       signal.tag?.startsWith("live-") ||
-      signal.tag === `live-${geo.countryCode.toLowerCase()}` ||
       signal.source.includes(geo.countryCode) ||
       signal.source.includes(geo.countryName);
-    const localBrand =
-      profile.corpus.includes(geo.countryName.toLowerCase()) ||
-      profile.corpus.includes(`.${geo.countryCode.toLowerCase()}`) ||
-      report.domain.toLowerCase().includes(`.${geo.countryCode.toLowerCase()}`) ||
-      geo.confidence !== "low";
-    if (isLiveRegional && localBrand) {
-      score += 14;
-      reason = `Live ${geo.countryName} moment for ${targetAudience}.`;
+    const offerBridge = hits.length > 0;
+    const audienceBridge =
+      /health|clinic|medical|marketing|business|sme|startup|tech|retail|shop|consumer/i.test(
+        text,
+      );
+    const postable = isPostableCulture(text);
+    // Ambiguous one/two-word search spikes with no context aren’t briefs
+    const vagueSpike =
+      signal.category === "search" &&
+      signal.title.trim().split(/\s+/).length <= 2 &&
+      !offerBridge &&
+      !postable;
+
+    if (safety === "negative") {
+      score = 8;
+      reason = `Bad news — don’t newsjack this. Skip it.`;
+    } else if (safety === "risky") {
+      score = Math.min(score - 30, 24);
+      reason = `Legally/politically risky — not worth a brand post.`;
+    } else if (offerBridge || audienceBridge) {
+      score += isLiveRegional ? 16 : 8;
+      reason = `Live ${geo.countryName} moment with a real ${profile.primaryOffer} bridge for ${targetAudience}.`;
+    } else if (postable && isLiveRegional) {
+      score += 8;
+      reason = `Postable ${geo.countryName} culture moment — ride the format, keep the sell soft.`;
+    } else if (vagueSpike) {
+      score = Math.min(score - 24, 30);
+      reason = `Search spike with no natural bridge to ${profile.primaryOffer} — skip unless you have a genuine take.`;
     } else if (isLiveRegional) {
-      score += 4;
-      reason = `Live ${geo.countryName} trend — bridge carefully to ${profile.primaryOffer}.`;
-    } else if (localBrand) {
-      score -= 4;
-      reason = `Culture spike — only if it bridges to ${profile.primaryOffer}.`;
+      score -= 10;
+      reason = `Live ${geo.countryName} trend but no clear bridge — only post with a genuine angle.`;
     } else {
-      score -= 8;
+      score -= 12;
       reason = `Culture spike — weak for ${targetAudience} unless adapted.`;
     }
   } else if (audienceScore >= 22) {
@@ -635,14 +653,39 @@ export function adaptTrendForBrand(
         `${audience} product proof in under 8s.`,
       ];
       break;
-    case "culture_news":
-      angle = `Timely “${title}” take with a useful ${offer} bridge for ${audience}.`;
-      hooks = [
-        `${title}: what ${audience} should do this week.`,
-        `${brand} → ${audience} on ${title}.`,
-        `Newsjack only if it sells ${offer}.`,
-      ];
+    case "culture_news": {
+      const safety = classifyNewsSafety(`${title} ${signal.summary}`);
+      if (safety === "negative") {
+        angle = `Don’t post this. “${title}” is bad news — brands riding it look opportunistic. Wait for a safe angle or skip entirely.`;
+        hooks = [
+          `SKIP: no brand post on “${title}”.`,
+          `If asked internally: “we don’t newsjack tragedies.”`,
+          `Redirect energy to an evergreen ${offer} post today.`,
+        ];
+      } else if (safety === "risky") {
+        angle = `High-risk topic (legal/political). Only reference “${title}” in neutral, factual client advisories — not social content.`;
+        hooks = [
+          `Hold: “${title}” is a risky newsjack for ${brand}.`,
+          `Safer play: evergreen ${offer} tip today.`,
+          `If clients ask, answer in DMs/newsletter — not a meme.`,
+        ];
+      } else if (fit.score >= 55) {
+        angle = `Timely “${title}” take with a useful ${offer} bridge for ${audience}.`;
+        hooks = [
+          `${title}: what ${audience} should do this week.`,
+          `${brand} → ${audience} on ${title}.`,
+          `Newsjack only if it helps ${audience} — this one does.`,
+        ];
+      } else {
+        angle = `“${title}” has no natural ${offer} bridge. Only post if you have a genuine take ${audience} would thank you for — otherwise skip.`;
+        hooks = [
+          `Optional: “${title}” — one useful thought for ${audience}, or nothing.`,
+          `No forced segue from ${title} to ${offer}.`,
+          `Silence beats a stretch. Save the slot for a proof post.`,
+        ];
+      }
       break;
+    }
     case "personal_story":
     case "beauty_fashion":
     case "travel_summer":

@@ -6,6 +6,7 @@ import {
   isLiveRegionalSignal,
   trendsRssUrl,
 } from "./brandGeo";
+import { classifyNewsSafety } from "./newsSafety";
 import {
   adaptTrendForBrand,
   audiencePlaybookSignals,
@@ -67,7 +68,8 @@ function slugId(prefix: string, title: string, i: number): string {
 }
 
 function isSensitiveTopic(title: string): boolean {
-  return /\b(die|dies|died|death|killed|murder|hospice|funeral|shooting|assault|cancer|obituary|tragedy|hate|racist|antisemitic)\b/i.test(
+  if (classifyNewsSafety(title) !== "safe") return true;
+  return /\b(hospice|funeral|cancer|obituary|tragedy|hate|racist|antisemitic)\b/i.test(
     title,
   );
 }
