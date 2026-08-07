@@ -136,11 +136,15 @@ export interface MascotOption {
 export interface TrendSignal {
   id: string;
   title: string;
-  category: "tiktok" | "festival" | "movie" | "sports" | "news" | "culture" | "search";
+  category: "tiktok" | "instagram" | "festival" | "movie" | "sports" | "news" | "culture" | "search";
+  /** Where the trend is surfacing for the user */
+  platform: "tiktok" | "instagram" | "cross" | "other";
   source: string;
   heat: number;
   summary: string;
   url?: string;
+  /** Optional raw hashtag / topic label */
+  tag?: string;
 }
 
 export interface TrendSuggestion {
@@ -148,6 +152,7 @@ export interface TrendSuggestion {
   trendId: string;
   trendTitle: string;
   category: TrendSignal["category"];
+  platform: TrendSignal["platform"];
   headline: string;
   angle: string;
   platforms: string[];
@@ -156,4 +161,6 @@ export interface TrendSuggestion {
   fitScore: number;
   fitReason: string;
   timing: "now" | "this_week" | "seasonal";
+  /** How this trend maps onto the company's detected voice */
+  voiceBlend: string;
 }

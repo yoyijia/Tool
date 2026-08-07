@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { runSocialListening } from "../lib/socialListening";
 
@@ -8,8 +8,11 @@ interface Props {
   onCopy: (text: string) => void;
 }
 
+type Tab = "tiktok" | "instagram" | "all";
+
 const CAT_LABEL: Record<TrendSignal["category"], string> = {
   tiktok: "TikTok",
+  instagram: "Instagram",
   festival: "Festival",
   movie: "Movies / TV",
   sports: "Sports",
@@ -23,8 +26,11 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<TrendSuggestion[] | null>(null);
   const [signals, setSignals] = useState<TrendSignal[] | null>(null);
+  const [tiktokFeed, setTiktokFeed] = useState<TrendSignal[]>([]);
+  const [instagramFeed, setInstagramFeed] = useState<TrendSignal[]>([]);
   const [listenedAt, setListenedAt] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | TrendSignal["category"]>("all");
+  const [tab, setTab] = useState<Tab>("tiktok");
+  const [selectedTrendId, setSelectedTrendId] = useState<string | null>(null);
 
   async function listen() {
     setBusy(true);
@@ -33,7 +39,11 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       const result = await runSocialListening(report);
       setSuggestions(result.suggestions);
       setSignals(result.signals);
+      setTiktokFeed(result.tiktokFeed);
+      setInstagramFeed(result.instagramFeed);
       setListenedAt(result.listenedAt);
+      setSelectedTrendId(result.tiktokFeed[0]?.id ?? result.suggestions[0]?.trendId ?? null);
+      setTab("tiktok");
     } catch (err) {
       setError(
         err instanceof Error
@@ -45,25 +55,54 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
     }
   }
 
-  const visible =
-    suggestions?.filter((s) => (filter === "all" ? true : s.category === filter)) ?? [];
+  const feed = useMemo(() => {
+    if (tab === "tiktok") return tiktokFeed;
+    if (tab === "instagram") return instagramFeed;
+    return signals ?? [];
+  }, [tab, tiktokFeed, instagramFeed, signals]);
 
-  const signalPreview = (signals ?? []).slice(0, 10);
+  const selectedSignal = feed.find((s) => s.id === selectedTrendId) ?? feed[0] ?? null;
+
+  const blended = useMemo(() => {
+    if (!suggestions || !selectedSignal) return null;
+    return (
+      suggestions.find((s) => s.trendId === selectedSignal.id) ||
+      suggestions.find(
+        (s) =>
+          s.trendTitle.toLowerCase() === selectedSignal.title.toLowerCase() ||
+          (tab === "tiktok" && s.platform === "tiktok") ||
+          (tab === "instagram" && s.platform === "instagram"),
+      ) ||
+      suggestions[0] ||
+      null
+    );
+  }, [suggestions, selectedSignal, tab]);
+
+  const visibleSuggestions = useMemo(() => {
+    if (!suggestions) return [];
+    if (tab === "all") return suggestions;
+    return suggestions.filter(
+      (s) =>
+        s.platform === tab ||
+        s.category === tab ||
+        (tab === "tiktok" && s.platforms.some((p) => /tiktok/i.test(p))) ||
+        (tab === "instagram" && s.platforms.some((p) => /instagram/i.test(p))),
+    );
+  }, [suggestions, tab]);
 
   return (
     <fieldset className="studio-field">
-      <legend>Social listening · trend radar</legend>
+      <legend>What’s trending · TikTok & Instagram</legend>
       <p className="platform-tip">
-        Pull what’s moving now — TikTok formats, Google search spikes, entertainment headlines,
-        sports chatter, and seasonal festivals — then get brand-fit content suggestions for{" "}
-        {report.name}.
+        Pull live TikTok and Instagram chatter, scan what’s hot, then combine it with{" "}
+        <strong>{report.name}</strong>’s voice ({report.archetype}).
       </p>
 
       <div className="studio-actions">
         <p className="voice-hint">
           {listenedAt
-            ? `Last listen ${new Date(listenedAt).toLocaleTimeString()} · ${signals?.length ?? 0} signals`
-            : "No listen yet"}
+            ? `Last listen ${new Date(listenedAt).toLocaleTimeString()} · TT ${tiktokFeed.length} · IG ${instagramFeed.length}`
+            : "No listen yet — pull live platform data"}
         </p>
         <button
           type="button"
@@ -71,7 +110,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
           disabled={busy}
           onClick={() => void listen()}
         >
-          {busy ? "Listening…" : "Listen to trends"}
+          {busy ? "Pulling TikTok & IG…" : "Pull TikTok & Instagram trends"}
         </button>
       </div>
 
@@ -84,91 +123,162 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       {suggestions && (
         <>
           <div className="platform-row" style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              className={`chip-btn${filter === "all" ? " active" : ""}`}
-              onClick={() => setFilter("all")}
-            >
-              All
-            </button>
             {(
-              ["tiktok", "festival", "movie", "sports", "search", "news", "culture"] as const
-            ).map((c) => (
+              [
+                ["tiktok", `TikTok (${tiktokFeed.length})`],
+                ["instagram", `Instagram (${instagramFeed.length})`],
+                ["all", `All signals (${signals?.length ?? 0})`],
+              ] as const
+            ).map(([id, label]) => (
               <button
-                key={c}
+                key={id}
                 type="button"
-                className={`chip-btn${filter === c ? " active" : ""}`}
-                onClick={() => setFilter(c)}
+                className={`chip-btn${tab === id ? " active" : ""}`}
+                onClick={() => {
+                  setTab(id);
+                  const next =
+                    id === "tiktok"
+                      ? tiktokFeed[0]
+                      : id === "instagram"
+                        ? instagramFeed[0]
+                        : signals?.[0];
+                  setSelectedTrendId(next?.id ?? null);
+                }}
               >
-                {CAT_LABEL[c]}
+                {label}
               </button>
             ))}
           </div>
 
-          {signalPreview.length > 0 && (
-            <div className="trend-signal-strip" aria-label="Live signals">
-              {signalPreview.map((s) => (
-                <span key={s.id} className="trend-signal-chip" title={s.summary}>
-                  <em>{CAT_LABEL[s.category]}</em> {s.title}
-                </span>
-              ))}
+          <div className="trend-split">
+            <div className="trend-feed">
+              <h4 className="trend-feed-title">
+                Live on {tab === "all" ? "social" : tab === "tiktok" ? "TikTok" : "Instagram"}
+              </h4>
+              <div className="trend-feed-list">
+                {feed.slice(0, 16).map((s, i) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`trend-feed-item${selectedSignal?.id === s.id ? " active" : ""}`}
+                    onClick={() => setSelectedTrendId(s.id)}
+                  >
+                    <span className="trend-rank">{i + 1}</span>
+                    <span className="trend-feed-body">
+                      <strong>{s.title}</strong>
+                      <em>
+                        {s.source}
+                        {s.tag ? ` · ${s.tag}` : ""} · heat {s.heat}
+                      </em>
+                    </span>
+                  </button>
+                ))}
+                {feed.length === 0 && (
+                  <p className="empty-social">No live items in this tab — try All signals.</p>
+                )}
+              </div>
             </div>
-          )}
 
-          <div className="trend-sug-grid">
-            {visible.map((s) => (
-              <article key={s.id} className="trend-sug-card">
-                <div className="trend-sug-top">
-                  <span className="trend-cat">{CAT_LABEL[s.category]}</span>
-                  <span className={`badge ${s.fitScore >= 70 ? "high" : "medium"}`}>
-                    fit {s.fitScore}
-                  </span>
-                </div>
-                <h4>{s.headline}</h4>
-                <p className="trend-angle">{s.angle}</p>
-                <p className="trend-fit">{s.fitReason}</p>
-                <div className="keywords post-tags">
-                  {s.platforms.map((p) => (
-                    <span key={p}>{p}</span>
-                  ))}
-                  <span>{s.timing.replace("_", " ")}</span>
-                </div>
-                <ul className="engage-tips">
-                  {s.hookIdeas.slice(0, 2).map((h) => (
-                    <li key={h}>{h}</li>
-                  ))}
-                </ul>
-                <div className="image-btns">
-                  <button
-                    type="button"
-                    className="copy-post accent-outline"
-                    onClick={() => onUseSuggestion(s.topicPrompt, s)}
-                  >
-                    Use in studio
-                  </button>
-                  <button
-                    type="button"
-                    className="copy-post"
-                    onClick={() =>
-                      onCopy(
-                        [
-                          s.headline,
-                          s.angle,
-                          ...s.hookIdeas.map((h) => `• ${h}`),
-                          `Prompt: ${s.topicPrompt}`,
-                        ].join("\n"),
-                      )
-                    }
-                  >
-                    Copy brief
-                  </button>
-                </div>
-              </article>
-            ))}
-            {visible.length === 0 && (
-              <p className="empty-social">No suggestions in this filter — try All.</p>
-            )}
+            <div className="trend-blend">
+              <h4 className="trend-feed-title">Combine with {report.name}’s voice</h4>
+              {selectedSignal && blended ? (
+                <article className="trend-sug-card blend-card">
+                  <div className="trend-sug-top">
+                    <span className="trend-cat">
+                      {selectedSignal.platform === "cross"
+                        ? "Cross-platform"
+                        : selectedSignal.platform.toUpperCase()}{" "}
+                      · {CAT_LABEL[selectedSignal.category]}
+                    </span>
+                    <span className={`badge ${blended.fitScore >= 70 ? "high" : "medium"}`}>
+                      fit {blended.fitScore}
+                    </span>
+                  </div>
+                  <h4>{blended.headline}</h4>
+                  <p className="voice-blend-line">{blended.voiceBlend}</p>
+                  <p className="trend-angle">{blended.angle}</p>
+                  <p className="trend-fit">{blended.fitReason}</p>
+                  <div className="keywords post-tags">
+                    {blended.platforms.map((p) => (
+                      <span key={p}>{p}</span>
+                    ))}
+                    <span>{blended.timing.replace("_", " ")}</span>
+                    {report.personality.slice(0, 2).map((p) => (
+                      <span key={p.label}>{p.label}</span>
+                    ))}
+                  </div>
+                  <ul className="engage-tips">
+                    {blended.hookIdeas.slice(0, 3).map((h) => (
+                      <li key={h}>{h}</li>
+                    ))}
+                  </ul>
+                  <div className="image-btns">
+                    <button
+                      type="button"
+                      className="copy-post accent-outline"
+                      onClick={() => onUseSuggestion(blended.topicPrompt, blended)}
+                    >
+                      Use with brand voice
+                    </button>
+                    <button
+                      type="button"
+                      className="copy-post"
+                      onClick={() =>
+                        onCopy(
+                          [
+                            `Trend: ${selectedSignal.title}`,
+                            `Platform: ${selectedSignal.platform}`,
+                            `Brand voice: ${report.archetype}`,
+                            blended.voiceBlend,
+                            blended.angle,
+                            ...blended.hookIdeas.map((h) => `• ${h}`),
+                            `Prompt: ${blended.topicPrompt}`,
+                          ].join("\n"),
+                        )
+                      }
+                    >
+                      Copy brief
+                    </button>
+                  </div>
+                </article>
+              ) : (
+                <p className="empty-social">Select a trend on the left to blend with brand voice.</p>
+              )}
+            </div>
           </div>
+
+          {visibleSuggestions.length > 0 && (
+            <>
+              <h4 className="trend-feed-title" style={{ marginTop: 14 }}>
+                More brand-fit angles
+              </h4>
+              <div className="trend-sug-grid">
+                {visibleSuggestions.slice(0, 6).map((s) => (
+                  <article key={s.id} className="trend-sug-card">
+                    <div className="trend-sug-top">
+                      <span className="trend-cat">
+                        {s.platform} · {CAT_LABEL[s.category]}
+                      </span>
+                      <span className={`badge ${s.fitScore >= 70 ? "high" : "medium"}`}>
+                        fit {s.fitScore}
+                      </span>
+                    </div>
+                    <h4>{s.headline}</h4>
+                    <p className="voice-blend-line">{s.voiceBlend}</p>
+                    <div className="image-btns">
+                      <button
+                        type="button"
+                        className="copy-post accent-outline"
+                        onClick={() => onUseSuggestion(s.topicPrompt, s)}
+                      >
+                        Use with brand voice
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
     </fieldset>

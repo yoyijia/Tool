@@ -188,9 +188,16 @@ export function ContentStudio({ report, onCopy }: Props) {
           onUseSuggestion={(topicPrompt, suggestion) => {
             setTopic(topicPrompt);
             setActiveTrend(suggestion);
-            if (suggestion.category === "tiktok") setPlatform("tiktok");
-            else if (suggestion.platforms[0] === "LinkedIn") setPlatform("linkedin");
-            else if (suggestion.category === "movie" || suggestion.category === "festival") {
+            if (suggestion.platform === "tiktok" || suggestion.category === "tiktok") {
+              setPlatform("tiktok");
+            } else if (
+              suggestion.platform === "instagram" ||
+              suggestion.category === "instagram"
+            ) {
+              setPlatform("instagram");
+            } else if (suggestion.platforms[0] === "LinkedIn") {
+              setPlatform("linkedin");
+            } else if (suggestion.category === "movie" || suggestion.category === "festival") {
               setPlatform("instagram");
             }
           }}
