@@ -1,5 +1,5 @@
 /**
- * Smoke: live SG trends should include a broad set, not only GST/NDP.
+ * Smoke: live regional trends for a Singapore brand (broad set).
  * Run: npx tsx scripts/smoke-live-sg.ts
  */
 import { JSDOM } from "jsdom";
@@ -18,8 +18,6 @@ const report = await analyzeBrand("https://activamedia.com.sg");
 const live = await fetchLiveCultureTrends(report);
 const { liveFeed, dataNote } = await runSocialListening(report);
 
-const labels = live.map((t) => t.label.toLowerCase());
-const sources = [...new Set(live.map((t) => t.source))];
 const onlyWatchlist =
   live.length > 0 &&
   live.every((t) =>
@@ -33,40 +31,33 @@ console.log(
   JSON.stringify(
     {
       brand: report.name,
+      geo: report.geo,
       liveCount: live.length,
       liveFeedCount: liveFeed.length,
-      sources,
-      sample: live.slice(0, 12).map((t) => ({
+      sources: [...new Set(live.map((t) => t.source))],
+      sample: live.slice(0, 8).map((t) => ({
         label: t.label,
         source: t.source,
-        category: t.category,
-        heat: t.heat,
+        country: t.countryCode,
       })),
       dataNote,
       asserts: {
+        countryIsSg: report.geo.countryCode === "SG",
         enoughLive: live.length >= 8,
-        enoughLiveFeed: liveFeed.length >= 6,
         hasBeyondWatchlist,
         notOnlyWatchlist: !onlyWatchlist,
       },
-      watchlistHits: labels.filter((l) =>
-        /gst|voucher|spider|ndp|national day/.test(l),
-      ),
     },
     null,
     2,
   ),
 );
 
-if (live.length < 8) {
-  console.error("FAIL: expected a broad live SG set (>= 8)");
+if (report.geo.countryCode !== "SG") {
+  console.error("FAIL: expected SG geo for activamedia.com.sg");
   process.exit(1);
 }
-if (onlyWatchlist) {
-  console.error("FAIL: live SG is still limited to GST/Spider-Man/NDP");
-  process.exit(1);
-}
-if (!hasBeyondWatchlist) {
-  console.error("FAIL: no trends beyond the GST/NDP watchlist");
+if (live.length < 8 || onlyWatchlist || !hasBeyondWatchlist) {
+  console.error("FAIL: expected a broad SG live set beyond GST/NDP");
   process.exit(1);
 }

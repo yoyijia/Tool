@@ -31,6 +31,21 @@ export interface MarketingTrend {
   category: "content" | "platform" | "tone" | "visual" | "cadence";
 }
 
+/** Market country inferred from the brand website (drives regional trends). */
+export interface BrandGeo {
+  countryCode: string;
+  countryName: string;
+  locale: string;
+  timezone: string;
+  /** Short label for post times, e.g. SGT / ET / GMT */
+  tzLabel: string;
+  newsHl: string;
+  newsGl: string;
+  newsCeid: string;
+  confidence: "high" | "medium" | "low";
+  signals: string[];
+}
+
 export interface BrandReport {
   url: string;
   domain: string;
@@ -46,6 +61,8 @@ export interface BrandReport {
   audiences: string[];
   /** Detected service lines (e.g. SEO, SEM, Healthcare marketing, AM-Track). */
   services: string[];
+  /** Country/market detected from the website — used for regional trends. */
+  geo: BrandGeo;
   palette: ColorSwatch[];
   socialProfiles: SocialProfile[];
   trends: MarketingTrend[];

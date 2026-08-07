@@ -5,6 +5,7 @@ import {
   primaryAudienceLabel,
   type AudienceKind,
 } from "./audience";
+import { geoFromReport } from "./brandGeo";
 
 export type BrandLane =
   | "healthcare"
@@ -258,7 +259,10 @@ export function classifyTrend(signal: TrendSignal): TrendLane {
   const title = signal.title.toLowerCase();
   const text = `${signal.title} ${signal.summary}`.toLowerCase();
 
-  if (signal.tag === "live-sg" || /news sg|trends sg|google trends/i.test(signal.source)) {
+  if (
+    signal.tag?.startsWith("live-") ||
+    /google trends|news [A-Z]{2}|local news|reddit ·/i.test(signal.source)
+  ) {
     return "culture_news";
   }
   if (
@@ -392,24 +396,29 @@ export function scoreBrandTrendFit(
 
   let reason = `Matched to ${targetAudience}.`;
   if (trendLane === "culture_news") {
-    const isLiveSg = signal.tag === "live-sg" || /Trends SG|News SG|CNA|Reddit r\/singapore/i.test(signal.source);
-    const localAudience =
-      audienceKind === "healthcare" ||
-      profile.audiences.includes("healthcare") ||
-      /singapore|\.sg\b|activa/.test(profile.corpus);
-    if (isLiveSg && localAudience) {
+    const geo = geoFromReport(report);
+    const isLiveRegional =
+      signal.tag?.startsWith("live-") ||
+      signal.tag === `live-${geo.countryCode.toLowerCase()}` ||
+      signal.source.includes(geo.countryCode) ||
+      signal.source.includes(geo.countryName);
+    const localBrand =
+      profile.corpus.includes(geo.countryName.toLowerCase()) ||
+      profile.corpus.includes(`.${geo.countryCode.toLowerCase()}`) ||
+      report.domain.toLowerCase().includes(`.${geo.countryCode.toLowerCase()}`) ||
+      geo.confidence !== "low";
+    if (isLiveRegional && localBrand) {
       score += 14;
-      reason = `Live SG moment for ${targetAudience}.`;
-    } else if (isLiveSg) {
-      // Still usable — soft bridge, don’t bury the whole SG feed
-      score += 2;
-      reason = `Live SG trend — bridge carefully to ${profile.primaryOffer}.`;
-    } else if (localAudience) {
+      reason = `Live ${geo.countryName} moment for ${targetAudience}.`;
+    } else if (isLiveRegional) {
+      score += 4;
+      reason = `Live ${geo.countryName} trend — bridge carefully to ${profile.primaryOffer}.`;
+    } else if (localBrand) {
       score -= 4;
-      reason = `SG culture spike — only if it bridges to ${profile.primaryOffer}.`;
+      reason = `Culture spike — only if it bridges to ${profile.primaryOffer}.`;
     } else {
-      score -= 10;
-      reason = `SG culture spike — weak for ${targetAudience} unless adapted.`;
+      score -= 8;
+      reason = `Culture spike — weak for ${targetAudience} unless adapted.`;
     }
   } else if (audienceScore >= 22) {
     reason = `Strong for ${targetAudience} (${trendLane.replace(/_/g, " ")}).`;
@@ -571,7 +580,8 @@ export function adaptTrendForBrand(
   const audience = fit.targetAudience;
   const title = signal.title;
 
-  const voiceBlend = `Format “${title}” → rewrite every beat for ${brand}'s ${audience} (${offer}). Voice: ${trait} / ${report.archetype}.`;
+  const geo = geoFromReport(report);
+  const voiceBlend = `Format “${title}” → rewrite every beat for ${brand}'s ${audience} in ${geo.countryName} (${offer}). Voice: ${trait} / ${report.archetype}.`;
 
   let angle = "";
   let hooks: string[] = [];
@@ -678,11 +688,12 @@ export function adaptTrendForBrand(
 
   const topicPrompt = [
     `Adapt trend “${title}” (${signal.source}) for ${brand}.`,
+    `MARKET / COUNTRY (required): ${geo.countryName} (${geo.countryCode}).`,
     `TARGET AUDIENCE (required): ${audience}.`,
     `Offer: ${offer}. Trend type: ${trendLane.replace(/_/g, " ")}.`,
     angle,
     `Voice: ${trait} / ${report.archetype}. ${report.voiceSummary}`,
-    `Every hook and CTA must speak to ${audience} — not a generic follower.`,
+    `Every hook and CTA must speak to ${audience} in ${geo.countryName} — not a generic global follower.`,
     signal.summary ? `Trend context: ${signal.summary}` : "",
   ]
     .filter(Boolean)

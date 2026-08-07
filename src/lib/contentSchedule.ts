@@ -1,6 +1,7 @@
 import type { BrandReport, ContentPlatform } from "../types";
-import { observancesOnDate } from "./observances";
 import { audienceLine } from "./audience";
+import { geoFromReport } from "./brandGeo";
+import { observancesOnDate } from "./observances";
 
 export type ScheduleKind = "trend" | "observance" | "carousel" | "reel" | "spotlight";
 
@@ -10,7 +11,7 @@ export interface ScheduleSlot {
   date: string;
   dayLabel: string;
   weekday: string;
-  /** Suggested local post time, Singapore-friendly */
+  /** Suggested local post time for the brand's market */
   postAt: string;
   timezone: string;
   platform: ContentPlatform;
@@ -26,7 +27,7 @@ export interface ScheduleSlot {
   serviceTag?: string;
 }
 
-/** Best engagement windows in SGT for B2B agency + social. */
+/** Best engagement windows in the brand's local timezone. */
 function bestSlot(
   weekday: number,
   platform: ContentPlatform,
@@ -36,7 +37,7 @@ function bestSlot(
     if (weekday >= 1 && weekday <= 4) {
       return {
         postAt: "09:00",
-        tip: "LinkedIn peaks Tue–Thu ~8–10am SGT; reply in the first hour.",
+        tip: "LinkedIn peaks Tue–Thu mid-morning local time; reply in the first hour.",
       };
     }
     return {
@@ -48,12 +49,12 @@ function bestSlot(
     if (weekday === 0 || weekday === 6) {
       return {
         postAt: "19:30",
-        tip: "Weekend Reels/TikTok: early evening scroll (7–9pm SGT).",
+        tip: "Weekend Reels/TikTok: early evening scroll in local time.",
       };
     }
     return {
       postAt: "12:15",
-      tip: "Weekday lunch + 7–9pm SGT are strongest for TikTok/Reels.",
+      tip: "Weekday lunch + early evening are strongest for TikTok/Reels.",
     };
   }
   if (platform === "instagram") {
@@ -65,12 +66,12 @@ function bestSlot(
     }
     return {
       postAt: "12:30",
-      tip: "IG carousels: late morning / lunch SGT; boost with a Story sticker.",
+      tip: "IG carousels: late morning / lunch local time; boost with a Story sticker.",
     };
   }
   return {
     postAt: "11:00",
-    tip: "Mid-morning SGT for X / secondary channels.",
+    tip: "Mid-morning local time for X / secondary channels.",
   };
 }
 
@@ -273,7 +274,7 @@ function observanceSlot(
     dayLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
     weekday: d.toLocaleDateString(undefined, { weekday: "long" }),
     postAt,
-    timezone: "SGT",
+    timezone: geoFromReport(report).tzLabel,
     platform,
     kind,
     title: isDog
@@ -287,7 +288,7 @@ function observanceSlot(
       : pick.summary,
     engagementTip: tip,
     serviceTag,
-    topicPrompt: `Post for ${pick.title} (${iso(year, month, day)}). Brand: ${report.name}. Hook: ${hook}. Format: ${format}. Beats: ${slides.join(" · ")}`,
+    topicPrompt: `Post for ${pick.title} (${iso(year, month, day)}). Brand: ${report.name}. Hook: ${hook}. Format: ${format}. Beats: ${slides.join(" · ")}. Market: ${geoFromReport(report).countryName}.`,
   };
 }
 
@@ -338,7 +339,7 @@ export function buildMonthSchedule(
       dayLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       weekday: d.toLocaleDateString(undefined, { weekday: "long" }),
       postAt,
-      timezone: "SGT",
+      timezone: geoFromReport(report).tzLabel,
       platform: pack.platform,
       kind: "carousel",
       title: pack.title,
@@ -355,9 +356,9 @@ export function buildMonthSchedule(
   return slots.sort((a, b) => a.date.localeCompare(b.date) || a.postAt.localeCompare(b.postAt));
 }
 
-export function scheduleSummary(slots: ScheduleSlot[]): string {
+export function scheduleSummary(slots: ScheduleSlot[], tzLabel = "local"): string {
   const trends = slots.filter((s) => s.kind === "observance" || s.kind === "spotlight").length;
   const carousels = slots.filter((s) => s.kind === "carousel").length;
   const reels = slots.filter((s) => s.kind === "reel").length;
-  return `${slots.length} posts · ${trends} moment/trend · ${carousels} carousels · ${reels} reel cutdowns · times in SGT`;
+  return `${slots.length} posts · ${trends} moment/trend · ${carousels} carousels · ${reels} reel cutdowns · times in ${tzLabel}`;
 }

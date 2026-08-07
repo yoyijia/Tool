@@ -18,6 +18,15 @@ export function ReportView({ report, onCopy }: Props) {
             <i />
             Archetype · {report.archetype}
           </div>
+          {report.geo && (
+            <div className="archetype market-chip">
+              <i />
+              Market · {report.geo.countryName} ({report.geo.countryCode})
+              {report.geo.confidence !== "high"
+                ? ` · ${report.geo.confidence} confidence`
+                : ""}
+            </div>
+          )}
           {report.audiences?.length > 0 && (
             <div className="keywords audience-chips">
               {report.audiences.map((a) => (

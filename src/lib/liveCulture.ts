@@ -1,8 +1,13 @@
 import type { BrandReport, ContentPlatform, TrendSignal } from "../types";
 import type { ScheduleSlot } from "./contentSchedule";
 import { audienceLine, primaryAudienceLabel } from "./audience";
+import {
+  buildLiveFeedUrls,
+  geoFromReport,
+  regionProfile,
+} from "./brandGeo";
 
-async function fetchText(url: string): Promise<string> {
+async function fetchText(url: string, acceptLang: string): Promise<string> {
   if (typeof window !== "undefined") {
     const res = await fetch(`/api/fetch-page?url=${encodeURIComponent(url)}`);
     if (!res.ok) throw new Error(`Live trend fetch failed (${res.status})`);
@@ -13,7 +18,7 @@ async function fetchText(url: string): Promise<string> {
       "User-Agent":
         "Mozilla/5.0 (compatible; BrandVibe/1.0; +https://github.com/yoyijia/Tool)",
       Accept: "application/rss+xml, application/xml, text/xml, */*",
-      "Accept-Language": "en-SG,en;q=0.9",
+      "Accept-Language": `${acceptLang},en;q=0.8`,
     },
   });
   if (!res.ok) throw new Error(`Live trend fetch failed (${res.status})`);
@@ -46,9 +51,8 @@ function isSensitive(title: string): boolean {
   );
 }
 
-/** Skip hard politics / crime / court drama that brands rarely want to newsjack. */
 function isBrandUnsafe(title: string): boolean {
-  return /\b(election|by-?election|PAP|WP\b|GE20\d{2}|parliament debate|impeach|defamation|court hearing|charged with|sentenced|arrested|police|suspect|investigation into|corruption|lim tean)\b/i.test(
+  return /\b(election|by-?election|parliament debate|impeach|defamation|court hearing|charged with|sentenced|arrested|police|suspect|investigation into|corruption)\b/i.test(
     title,
   );
 }
@@ -91,19 +95,18 @@ export interface LiveCultureTrend {
   summary: string;
   url?: string;
   source: string;
-  /** Suggested post window */
   postAt: string;
   platform: ContentPlatform;
   hooks: string[];
   slidesOrBeats: string[];
   topicPrompt: string;
+  countryCode: string;
+  countryName: string;
+  tzLabel: string;
 }
 
-/**
- * Optional boosts when these topics are confirmed live — never the only trends shown.
- * The full live set comes from Google Trends SG + news + CNA + Reddit SG.
- */
-const WATCHLIST: {
+/** Singapore-only boosts when that market is detected. */
+const SG_WATCHLIST: {
   id: string;
   label: string;
   category: TrendSignal["category"];
@@ -117,7 +120,7 @@ const WATCHLIST: {
     id: "gst-vouchers",
     label: "GST Vouchers (Singapore)",
     category: "culture",
-    match: /\bgst\b.*voucher|voucher.*\bgst\b|gstv\b|fairprice.*voucher|\$6 voucher/i,
+    match: /\bgst\b.*voucher|voucher.*\bgst\b|gstv\b|fairprice.*voucher|cdc voucher/i,
     query: "GST+voucher+OR+CDC+voucher+Singapore",
     platform: "instagram",
     postAt: "12:30",
@@ -126,43 +129,17 @@ const WATCHLIST: {
         "Singapore GST / CDC voucher talk is live — explain value, timing, and brand-safe offers.",
       hooks: [
         "Voucher window is open — here’s what brands should actually do.",
-        "Don’t just say “use your voucher” — make the offer clear in 5 seconds.",
         `${brand}'s take: vouchers drive footfall — content drives trust.`,
       ],
       beats: [
         "What’s trending: voucher windows",
-        "Who it hits in your catchment",
         "Tip carousel + Story countdown",
         "CTA: save / share",
       ],
     }),
   },
   {
-    id: "spiderman-bnd",
-    label: "Spider-Man: Brand New Day",
-    category: "movie",
-    match: /spider-?man|brand new day|spiderman/i,
-    query: "Spider-Man+OR+%22Brand+New+Day%22+Singapore",
-    platform: "tiktok",
-    postAt: "19:30",
-    angle: (brand) => ({
-      summary:
-        "Spider-Man / Brand New Day is in SG entertainment talk — ride the format, don’t force claims.",
-      hooks: [
-        "With great power comes… great content calendars.",
-        "Brand New Day energy for your creative.",
-        `${brand} x pop culture: what you can borrow from the launch.`,
-      ],
-      beats: [
-        "0–1s culture hook",
-        "Punchline tied to a real offer",
-        "Optional cameo if on-brand",
-        "CTA: which hero is your brand?",
-      ],
-    }),
-  },
-  {
-    id: "ndp-2026",
+    id: "ndp",
     label: "NDP / National Day buzz",
     category: "festival",
     match: /\bndp\b|national day parade|national day/i,
@@ -180,26 +157,6 @@ const WATCHLIST: {
   },
 ];
 
-const SG_FEED_URLS = {
-  trends: "https://trends.google.com/trending/rss?geo=SG",
-  newsTop: "https://news.google.com/rss?hl=en-SG&gl=SG&ceid=SG:en",
-  newsBusiness:
-    "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-SG&gl=SG&ceid=SG:en",
-  newsTech:
-    "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-SG&gl=SG&ceid=SG:en",
-  newsEnt:
-    "https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=en-SG&gl=SG&ceid=SG:en",
-  newsSports:
-    "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-SG&gl=SG&ceid=SG:en",
-  newsHealth:
-    "https://news.google.com/rss/headlines/section/topic/HEALTH?hl=en-SG&gl=SG&ceid=SG:en",
-  newsWeek:
-    "https://news.google.com/rss/search?q=when:7d+Singapore&hl=en-SG&gl=SG&ceid=SG:en",
-  cnaSg:
-    "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6511",
-  redditSg: "https://www.reddit.com/r/singapore/.rss?limit=40",
-} as const;
-
 function slug(label: string, i: number): string {
   return `live-${label
     .toLowerCase()
@@ -213,24 +170,20 @@ function categorize(title: string): TrendSignal["category"] {
   if (/spider|marvel|film|movie|cinema|netflix|concert|k-?pop|drama/i.test(t)) {
     return "movie";
   }
-  if (/\bndp\b|national day|hari raya|deepavali|cny|chinese new year|vesak|festival/i.test(t)) {
+  if (/\bndp\b|national day|hari raya|deepavali|cny|festival|thanksgiving|diwali/i.test(t)) {
     return "festival";
   }
-  if (/f1|formula|lion city sailors|football|soccer|basketball|olympics|athlete|match|tournament/i.test(t)) {
+  if (/f1|formula|football|soccer|basketball|olympics|athlete|match|tournament|nfl|nba/i.test(t)) {
     return "sports";
   }
-  if (/tiktok|instagram|reel|viral|meme|voucher|hawker|mrt|haze|weather|food|cafe/i.test(t)) {
+  if (/tiktok|instagram|reel|viral|meme|voucher|hawker|haze|weather|food|cafe/i.test(t)) {
     return "culture";
-  }
-  if (/search|trending|google/i.test(t) && title.split(/\s+/).length <= 4) {
-    return "search";
   }
   return "news";
 }
 
 function platformFor(category: TrendSignal["category"]): ContentPlatform {
   if (category === "movie" || category === "sports" || category === "culture") return "tiktok";
-  if (category === "festival") return "instagram";
   return "instagram";
 }
 
@@ -245,17 +198,18 @@ function brandAngleForGeneric(
   brand: string,
   audience: string,
   label: string,
+  countryName: string,
 ): { hooks: string[]; beats: string[]; summary: string } {
   return {
-    summary: `Trending in Singapore right now: “${label}”. Adapt carefully for ${brand} → ${audience}.`,
+    summary: `Trending in ${countryName} right now: “${label}”. Adapt for ${brand} → ${audience}.`,
     hooks: [
-      `Everyone’s talking about ${label} — here’s the ${brand} angle for ${audience}.`,
-      `${label}: what ${audience} should take away.`,
-      `SG is on “${label}” — ${brand}'s useful take.`,
+      `${countryName} is talking about ${label} — ${brand}'s angle for ${audience}.`,
+      `${label}: what ${audience} in ${countryName} should take away.`,
+      `Regional trend “${label}” → useful take from ${brand}.`,
     ],
     beats: [
       `Hook on ${label}`,
-      `Bridge to a proof point ${audience} cares about`,
+      `Bridge to a proof point ${audience} in ${countryName} cares about`,
       "One concrete tip (not a news dump)",
       "CTA: save / share / DM",
     ],
@@ -273,83 +227,96 @@ function nearDupKey(title: string): string {
 }
 
 /**
- * Fetch live Singapore trends across search spikes, news, entertainment, sports,
- * business/tech, CNA, and Reddit — not limited to GST / National Day.
+ * Fetch live trends for the brand's detected country/region
+ * (Google Trends + News + local sources) — not hardcoded to Singapore.
  */
 export async function fetchLiveCultureTrends(
   report: BrandReport,
 ): Promise<LiveCultureTrend[]> {
+  const geo = geoFromReport(report);
   const brand = report.name;
   const audience = primaryAudienceLabel(report);
+  const profile = regionProfile(geo);
+  const feedUrls = buildLiveFeedUrls(geo);
 
   const feedEntries = await Promise.all(
-    Object.entries(SG_FEED_URLS).map(async ([key, url]) => {
-      const xml = await fetchText(url).catch(() => "");
+    Object.entries(feedUrls).map(async ([key, url]) => {
+      const xml = await fetchText(url, geo.locale).catch(() => "");
       return [key, xml] as const;
     }),
   );
-  const byKey = Object.fromEntries(feedEntries) as Record<
-    keyof typeof SG_FEED_URLS,
-    string
-  >;
+  const byKey = Object.fromEntries(feedEntries);
 
+  const watchlist = geo.countryCode === "SG" ? SG_WATCHLIST : [];
   const watchXmls = await Promise.all(
-    WATCHLIST.map((w) =>
+    watchlist.map((w) =>
       fetchText(
-        `https://news.google.com/rss/search?q=${w.query}&hl=en-SG&gl=SG&ceid=SG:en`,
+        `https://news.google.com/rss/search?q=${w.query}&hl=${geo.newsHl}&gl=${geo.newsGl}&ceid=${geo.newsCeid}`,
+        geo.locale,
       ).catch(() => ""),
     ),
   );
 
   const trendsItems = parseRssItems(byKey.trends ?? "", 25);
   const newsPools: { source: string; items: RssItem[]; heatBase: number }[] = [
-    { source: "Google Trends SG", items: trendsItems, heatBase: 94 },
     {
-      source: "Google News SG · top",
+      source: `Google Trends ${geo.countryCode}`,
+      items: trendsItems,
+      heatBase: 94,
+    },
+    {
+      source: `Google News ${geo.countryCode} · top`,
       items: parseRssItems(byKey.newsTop ?? "", 18),
       heatBase: 88,
     },
     {
-      source: "Google News SG · week",
+      source: `Google News ${geo.countryCode} · week`,
       items: parseRssItems(byKey.newsWeek ?? "", 16),
       heatBase: 80,
     },
     {
-      source: "Google News SG · business",
+      source: `Google News ${geo.countryCode} · business`,
       items: parseRssItems(byKey.newsBusiness ?? "", 12),
       heatBase: 78,
     },
     {
-      source: "Google News SG · tech",
+      source: `Google News ${geo.countryCode} · tech`,
       items: parseRssItems(byKey.newsTech ?? "", 12),
       heatBase: 78,
     },
     {
-      source: "Google News SG · entertainment",
+      source: `Google News ${geo.countryCode} · entertainment`,
       items: parseRssItems(byKey.newsEnt ?? "", 12),
       heatBase: 82,
     },
     {
-      source: "Google News SG · sports",
+      source: `Google News ${geo.countryCode} · sports`,
       items: parseRssItems(byKey.newsSports ?? "", 12),
       heatBase: 80,
     },
     {
-      source: "Google News SG · health",
+      source: `Google News ${geo.countryCode} · health`,
       items: parseRssItems(byKey.newsHealth ?? "", 10),
       heatBase: 76,
     },
-    {
-      source: "CNA Singapore",
-      items: parseRssItems(byKey.cnaSg ?? "", 16),
-      heatBase: 86,
-    },
-    {
-      source: "Reddit r/singapore",
-      items: parseRssItems(byKey.redditSg ?? "", 20),
-      heatBase: 72,
-    },
   ];
+
+  if (byKey.localNews) {
+    newsPools.push({
+      source: profile.localNewsRss
+        ? `${geo.countryName} local news`
+        : `${geo.countryName} news`,
+      items: parseRssItems(byKey.localNews, 16),
+      heatBase: 86,
+    });
+  }
+  if (byKey.reddit) {
+    newsPools.push({
+      source: `Reddit · ${geo.countryName}`,
+      items: parseRssItems(byKey.reddit, 20),
+      heatBase: 72,
+    });
+  }
 
   const out: LiveCultureTrend[] = [];
   const seen = new Set<string>();
@@ -366,8 +333,7 @@ export async function fetchLiveCultureTrends(
     out.push(trend);
   };
 
-  // 1) Boost watchlist items when news confirms — still optional, not exclusive
-  WATCHLIST.forEach((w, wi) => {
+  watchlist.forEach((w, wi) => {
     const dedicated = parseRssItems(watchXmls[wi] ?? "", 8);
     const allNews = newsPools.flatMap((p) => p.items);
     const hits = [...dedicated, ...allNews].filter((it) => w.match.test(it.title));
@@ -382,38 +348,39 @@ export async function fetchLiveCultureTrends(
       heat: 98 - wi,
       summary: `${angle.summary} Latest: “${stripSourceSuffix(best.title)}”.`,
       url: best.link,
-      source: "Google News SG · watchlist boost",
+      source: `Google News ${geo.countryCode} · watchlist`,
       postAt: w.postAt,
       platform: w.platform,
       hooks: angle.hooks,
       slidesOrBeats: angle.beats,
-      topicPrompt: buildTopicPrompt(report, w.label, angle),
+      topicPrompt: buildTopicPrompt(report, w.label, angle, geo.countryName),
+      countryCode: geo.countryCode,
+      countryName: geo.countryName,
+      tzLabel: geo.tzLabel,
     });
   });
 
-  // 2) Everything else currently trending / reported in Singapore
   let rank = 0;
   for (const pool of newsPools) {
     pool.items.forEach((item, i) => {
       const cleaned = stripSourceSuffix(item.title);
       if (cleaned.length < 2 || cleaned.length > 110) return;
-      // Watchlist matches already boosted above
-      if (WATCHLIST.some((w) => w.match.test(item.title))) return;
+      if (watchlist.some((w) => w.match.test(item.title))) return;
 
       const category = categorize(cleaned);
-      // Short Google Trends queries are valid SG search spikes — keep them
       const isSearchSpike =
-        pool.source === "Google Trends SG" && cleaned.split(/\s+/).length <= 4;
-      const label =
-        cleaned.length > 56 ? `${cleaned.slice(0, 53)}…` : cleaned;
-      const angle = brandAngleForGeneric(brand, audience, label);
-      const heat = Math.max(
-        42,
-        pool.heatBase - i * 2 - Math.floor(rank / 8),
+        pool.source.startsWith("Google Trends") && cleaned.split(/\s+/).length <= 4;
+      const label = cleaned.length > 56 ? `${cleaned.slice(0, 53)}…` : cleaned;
+      const angle = brandAngleForGeneric(
+        brand,
+        audience,
+        label,
+        geo.countryName,
       );
+      const heat = Math.max(42, pool.heatBase - i * 2 - Math.floor(rank / 8));
 
       pushTrend({
-        id: slug(label, rank),
+        id: slug(`${geo.countryCode}-${label}`, rank),
         label,
         headline: cleaned,
         category: isSearchSpike ? "search" : category,
@@ -425,7 +392,10 @@ export async function fetchLiveCultureTrends(
         platform: platformFor(isSearchSpike ? "search" : category),
         hooks: angle.hooks,
         slidesOrBeats: angle.beats,
-        topicPrompt: buildTopicPrompt(report, label, angle),
+        topicPrompt: buildTopicPrompt(report, label, angle, geo.countryName),
+        countryCode: geo.countryCode,
+        countryName: geo.countryName,
+        tzLabel: geo.tzLabel,
       });
       rank += 1;
     });
@@ -438,14 +408,16 @@ function buildTopicPrompt(
   report: BrandReport,
   label: string,
   angle: { hooks: string[]; beats: string[]; summary: string },
+  countryName: string,
 ): string {
   return [
-    `Live Singapore trend: “${label}”.`,
+    `Live ${countryName} trend: “${label}”.`,
     `Brand: ${report.name}. Audiences: ${audienceLine(report)}.`,
+    `Market: ${countryName}.`,
     angle.summary,
     `Hooks: ${angle.hooks.join(" | ")}`,
     `Beats: ${angle.beats.join(" · ")}`,
-    "Keep it timely, brand-safe, and Singapore-relevant. Tie lightly to a real offer if natural.",
+    `Keep it timely, brand-safe, and relevant to ${countryName}. Tie lightly to a real offer if natural.`,
   ].join(" ");
 }
 
@@ -459,20 +431,17 @@ export function liveTrendsToSignals(trends: LiveCultureTrend[]): TrendSignal[] {
     heat: t.heat,
     summary: `${t.summary} Headline: ${t.headline}`,
     url: t.url,
-    tag: "live-sg",
+    tag: `live-${t.countryCode.toLowerCase()}`,
   }));
 }
 
-/** Splice top live trends into the next few calendar days (keeps spotlights intact). */
 export function mergeLiveTrendsIntoSchedule(
   base: ScheduleSlot[],
   live: LiveCultureTrend[],
-  _report: BrandReport,
+  report: BrandReport,
 ): ScheduleSlot[] {
-  // Prefer heat + diversity — not a GST/NDP-only keyword gate
-  const injectable = live
-    .filter((t) => t.heat >= 70)
-    .slice(0, 10);
+  const geo = geoFromReport(report);
+  const injectable = live.filter((t) => t.heat >= 70).slice(0, 10);
   if (!injectable.length) return base;
   const slots = [...base];
   const keepIds = new Set(
@@ -494,20 +463,20 @@ export function mergeLiveTrendsIntoSchedule(
       dayLabel: prev.dayLabel,
       weekday: prev.weekday,
       postAt: t.postAt,
-      timezone: "SGT",
+      timezone: geo.tzLabel,
       platform: t.platform,
       kind: "trend",
       title: t.label,
       format:
         t.platform === "tiktok"
-          ? "TikTok / Reels (live SG trend)"
-          : "IG carousel / Reel (live SG trend)",
+          ? `TikTok / Reels (live ${geo.countryCode} trend)`
+          : `IG carousel / Reel (live ${geo.countryCode} trend)`,
       hook: t.hooks[0] ?? t.label,
       slidesOrBeats: t.slidesOrBeats,
       whyNow: t.summary,
-      engagementTip: `Live from ${t.source}. Post ~${t.postAt} SGT for peak scroll.`,
+      engagementTip: `Live from ${t.source}. Post ~${t.postAt} ${geo.tzLabel}.`,
       topicPrompt: t.topicPrompt,
-      serviceTag: "Live SG trend",
+      serviceTag: `Live ${geo.countryName} trend`,
     };
   });
 
@@ -521,17 +490,17 @@ export function mergeLiveTrendsIntoSchedule(
         dayLabel: head.dayLabel,
         weekday: head.weekday,
         postAt: top.postAt,
-        timezone: "SGT",
+        timezone: geo.tzLabel,
         platform: top.platform,
         kind: "trend",
         title: `NOW · ${top.label}`,
-        format: "Flash post from live SG trends",
+        format: `Flash post from live ${geo.countryName} trends`,
         hook: top.hooks[0] ?? top.label,
         slidesOrBeats: top.slidesOrBeats,
         whyNow: top.summary,
         engagementTip: `Refreshed live · ${top.source}`,
         topicPrompt: top.topicPrompt,
-        serviceTag: "Live SG trend",
+        serviceTag: `Live ${geo.countryName} trend`,
       });
     }
   }

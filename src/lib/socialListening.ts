@@ -2,6 +2,11 @@ import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { activeCalendarMoments } from "./calendarMoments";
 import { audienceLine } from "./audience";
 import {
+  geoFromReport,
+  isLiveRegionalSignal,
+  trendsRssUrl,
+} from "./brandGeo";
+import {
   adaptTrendForBrand,
   audiencePlaybookSignals,
   rankSignalsForBrand,
@@ -304,9 +309,13 @@ function pushPlatformTrends(
     });
 }
 
-/** Pull TikTok + Instagram roundups plus live SG culture/search trends. */
+/** Pull TikTok + Instagram roundups plus live trends for the brand's country. */
 export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[]> {
   const signals: TrendSignal[] = [];
+  const geo = report ? geoFromReport(report) : null;
+  const trendsUrl = geo
+    ? trendsRssUrl(geo)
+    : "https://trends.google.com/trending/rss?geo=US";
 
   const [
     ttHtml,
@@ -316,7 +325,7 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
     neIgHtml,
     bufferHtml,
     beeHtml,
-    searchSgXml,
+    searchXml,
     liveCulture,
   ] = await Promise.all([
     fetchText(LATER_TIKTOK).catch(() => ""),
@@ -326,7 +335,7 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
     fetchText(NEWENGEN_INSTAGRAM).catch(() => ""),
     fetchText(BUFFER_TIKTOK_SONGS).catch(() => ""),
     fetchText(SOCIALBEE_IG_SONGS).catch(() => ""),
-    fetchText("https://trends.google.com/trending/rss?geo=SG").catch(() => ""),
+    fetchText(trendsUrl).catch(() => ""),
     report
       ? fetchLiveCultureTrends(report).catch(() => [])
       : Promise.resolve([]),
@@ -344,7 +353,6 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
   const ttSongs = bufferHtml ? parseBufferTikTokSongs(bufferHtml) : [];
   const igSongs = beeHtml ? parseSocialBeeIgSongs(beeHtml) : [];
 
-  // Freshest first: Later dated drops → weekly format lists → sound charts → backup
   pushPlatformTrends(
     signals,
     [...ttLater, ...ttWeekly, ...ttSongs, ...ttBackup],
@@ -358,15 +366,15 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
     "instagram",
   );
 
-  // Live SG culture — full Trends/News/CNA/Reddit set (not GST/NDP-only)
+  // Live regional culture (country detected from the brand website)
   liveTrendsToSignals(liveCulture).forEach((s) => {
     if (isSensitiveTopic(s.title)) return;
     signals.push(s);
   });
 
-  // SG search spikes — clearly labeled (dedupe against live culture)
-  if (searchSgXml) {
-    parseRssTitles(searchSgXml, 20).forEach((item, i) => {
+  // Regional search spikes — dedupe against live culture
+  if (searchXml && geo) {
+    parseRssTitles(searchXml, 20).forEach((item, i) => {
       if (isSensitiveTopic(item.title)) return;
       if (
         liveCulture.some(
@@ -382,11 +390,11 @@ export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[
         title: item.title,
         category: "search",
         platform: "other",
-        source: "Google Trends SG (search)",
+        source: `Google Trends ${geo.countryCode} (search)`,
         heat: Math.max(40, 88 - i * 3),
-        summary: `Singapore is searching for “${item.title}” right now.`,
+        summary: `${geo.countryName} is searching for “${item.title}” right now.`,
         url: item.link,
-        tag: "live-sg",
+        tag: `live-${geo.countryCode.toLowerCase()}`,
       });
     });
   }
@@ -428,13 +436,14 @@ function buildSuggestion(
         ? ["Instagram Reels", "TikTok"]
         : ["LinkedIn", "X", "Instagram"];
 
+  const geo = geoFromReport(report);
   const platformLabel =
     signal.platform === "tiktok"
       ? "TikTok"
       : signal.platform === "instagram"
         ? "Instagram"
-        : signal.tag === "live-sg" || /News SG|Trends SG/i.test(signal.source)
-          ? "Live SG"
+        : isLiveRegionalSignal(signal, geo)
+          ? `Live ${geo.countryCode}`
           : "Moment";
 
   return {
@@ -537,14 +546,9 @@ export async function runSocialListening(report: BrandReport): Promise<{
     deduped.filter((s) => s.platform === "instagram"),
     { minScore: 48, limit: 14, maxPerLane: 2 },
   );
-  const liveRaw = deduped.filter(
-    (s) =>
-      s.tag === "live-sg" ||
-      /News SG|Trends SG|CNA Singapore|Reddit r\/singapore|Google Trends SG/i.test(
-        s.source,
-      ),
-  );
-  // Live SG tab shows the broad current set (not GST/NDP-only, not heavy brand filter)
+  const geo = geoFromReport(report);
+  const liveRaw = deduped.filter((s) => isLiveRegionalSignal(s, geo));
+  // Live tab shows current trends for the brand's detected country
   const liveFeed = [...liveRaw]
     .sort(
       (a, b) =>
@@ -564,6 +568,6 @@ export async function runSocialListening(report: BrandReport): Promise<{
     fitById,
     audienceById,
     audienceFocus,
-    dataNote: `TikTok/IG ranked for ${report.name}'s audiences (${audienceFocus}). Live SG shows current Singapore trends (search, news, CNA, Reddit) — not limited to GST/National Day.`,
+    dataNote: `Market: ${geo.countryName} (${geo.countryCode}, ${geo.confidence} confidence). TikTok/IG ranked for ${report.name}'s audiences (${audienceFocus}). Live trends pulled for ${geo.countryName}.`,
   };
 }

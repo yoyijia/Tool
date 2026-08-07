@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { audienceLine } from "../lib/audience";
+import { geoFromReport } from "../lib/brandGeo";
 import { futureTrendsNote, suggestFutureTrends } from "../lib/futureTrends";
 import { runSocialListening } from "../lib/socialListening";
 
@@ -13,6 +14,7 @@ interface Props {
 type Tab = "live" | "future" | "tiktok" | "instagram" | "other";
 
 export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
+  const geo = geoFromReport(report);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<TrendSuggestion[] | null>(null);
@@ -156,7 +158,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
           [
             ["tiktok", `TikTok for you (${tiktokFeed.length})`],
             ["instagram", `Reels for you (${instagramFeed.length})`],
-            ["live", `Live SG (${liveFeed.length})`],
+            ["live", `Live ${geo.countryCode} (${liveFeed.length})`],
             ["future", `Future bets (${futureIdeas.length})`],
             ["other", `Other (${otherFeed.length})`],
           ] as const
@@ -191,7 +193,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
         <div className="trend-feed">
           <h4 className="trend-feed-title">
             {tab === "live"
-              ? `Live Singapore right now (${liveFeed.length})`
+              ? `Live ${geo.countryName} right now (${liveFeed.length})`
               : tab === "future"
                 ? "Upcoming format bets for these audiences"
                 : tab === "tiktok"

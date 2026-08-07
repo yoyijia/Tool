@@ -1,5 +1,6 @@
 import type { BrandReport } from "../types";
 import { detectAudiences } from "./audience";
+import { detectBrandGeo } from "./brandGeo";
 import { capturePage } from "./fetchPage";
 import { buildPalette } from "./palette";
 import { analyzePersonality, analyzeVoice } from "./personality";
@@ -41,6 +42,7 @@ export async function analyzeBrand(input: string): Promise<BrandReport> {
   const { dimensions, summary, keywords } = analyzeVoice(corpus);
   const audiences = detectAudiences(corpus);
   const services = detectServices(corpus);
+  const geo = detectBrandGeo(snapshot, domain);
   const palette = buildPalette(snapshot.styleColors, snapshot.themeColor);
   const socialProfiles = extractSocialProfiles(snapshot);
   const trends = identifyTrends(
@@ -63,6 +65,7 @@ export async function analyzeBrand(input: string): Promise<BrandReport> {
     keywords,
     audiences,
     services,
+    geo,
     palette,
     socialProfiles,
     trends,

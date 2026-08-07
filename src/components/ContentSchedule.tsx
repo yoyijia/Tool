@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BrandReport } from "../types";
+import { geoFromReport } from "../lib/brandGeo";
 import {
   buildMonthSchedule,
   scheduleSummary,
@@ -38,6 +39,7 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
   const [live, setLive] = useState<LiveCultureTrend[] | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const from = useMemo(() => new Date(), []);
+  const geo = geoFromReport(report);
 
   const baseSlots = useMemo(() => buildMonthSchedule(report, from), [report, from]);
 
@@ -62,30 +64,30 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not refresh live SG trends. Try again.",
+          : `Could not refresh live ${geo.countryName} trends. Try again.`,
       );
     } finally {
       setBusy(false);
     }
   }
 
-  // Auto-load full live SG trends once
+  // Auto-load live trends for the brand's detected country
   useEffect(() => {
     void refreshLive();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only refresh for this brand
-  }, [report.domain]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount when brand/market changes
+  }, [report.domain, geo.countryCode]);
 
   function copyAll() {
     const lines = [
-      `${report.name} · ${monthLabel} content schedule (SGT)`,
-      scheduleSummary(slots),
+      `${report.name} · ${monthLabel} content schedule (${geo.tzLabel} · ${geo.countryName})`,
+      scheduleSummary(slots, geo.tzLabel),
       refreshedAt
-        ? `Live trends refreshed ${new Date(refreshedAt).toLocaleString()} · ${live?.length ?? 0} items`
-        : "Live trends not refreshed yet — click Refresh live SG trends",
+        ? `Live ${geo.countryName} trends refreshed ${new Date(refreshedAt).toLocaleString()} · ${live?.length ?? 0} items`
+        : `Live trends not refreshed yet — click Refresh live ${geo.countryCode} trends`,
       "",
       ...slots.map(
         (s) =>
-          `${s.date} ${s.postAt} SGT · ${s.platform.toUpperCase()} · ${s.title}\n` +
+          `${s.date} ${s.postAt} ${s.timezone || geo.tzLabel} · ${s.platform.toUpperCase()} · ${s.title}\n` +
           `  Hook: ${s.hook}\n` +
           `  Format: ${s.format}${s.talent ? ` · Talent: ${s.talent}` : ""}\n` +
           `  When: ${s.engagementTip}\n` +
@@ -97,16 +99,20 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
 
   return (
     <fieldset className="studio-field">
-      <legend>August schedule · live trends + carousels</legend>
+      <legend>
+        Schedule · live {geo.countryName} trends + carousels
+      </legend>
       <p className="platform-tip">
-        Refresh <strong>live Singapore trends</strong> — Google Trends SG, news
-        (business / tech / entertainment / sports / health), CNA, and Reddit — not just
-        GST or National Day. Angled for <strong>{report.name}</strong>. Times in SGT.
+        Market detected: <strong>{geo.countryName}</strong> ({geo.countryCode}
+        {geo.confidence !== "high" ? ` · ${geo.confidence} confidence` : ""}).
+        Refresh live trends from Google Trends {geo.countryCode}, regional news, and local
+        sources — then generate posts for <strong>{report.name}</strong>. Times in{" "}
+        {geo.tzLabel}.
       </p>
 
       <div className="studio-actions schedule-actions">
         <p className="voice-hint">
-          {scheduleSummary(slots)}
+          {scheduleSummary(slots, geo.tzLabel)}
           {refreshedAt
             ? ` · live ${live?.length ?? 0} @ ${new Date(refreshedAt).toLocaleTimeString()}`
             : " · live trends not loaded"}
@@ -117,7 +123,9 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
           disabled={busy}
           onClick={() => void refreshLive()}
         >
-          {busy ? "Refreshing live trends…" : "Refresh live SG trends"}
+          {busy
+            ? "Refreshing live trends…"
+            : `Refresh live ${geo.countryCode} trends`}
         </button>
         <button type="button" className="copy-post" onClick={copyAll}>
           Copy full schedule

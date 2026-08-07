@@ -14,6 +14,7 @@ import {
   scriptForAudience,
   type ListeningBrief,
 } from "./audienceContent";
+import { geoFromReport } from "./brandGeo";
 import { classifyBrand } from "./brandTrendFit";
 import { servicesLine } from "./services";
 
@@ -389,6 +390,7 @@ function buildBodies(
   const accent = brandAccent(report);
   const services = servicesLine(report);
   const script = scriptForAudience(report, targetAudience);
+  const geo = geoFromReport(report);
   const vars = {
     brand,
     audience: targetAudience,
@@ -407,14 +409,16 @@ function buildBodies(
   );
   const cta = pickCta(voice, script, report, targetAudience, topic, seed + 5);
   const listenLine = listening.source
-    ? `Social listening: “${listening.trendTitle}” (${listening.source})`
-    : `Social listening playbook: “${listening.trendTitle}”`;
+    ? `Social listening (${geo.countryName}): “${listening.trendTitle}” (${listening.source})`
+    : `Regional playbook (${geo.countryName}): “${listening.trendTitle}”`;
+  const marketLine = `Market: ${geo.countryName} (${geo.countryCode}) — write for this region, not a generic global feed.`;
 
   if (platform === "linkedin") {
     const body = [
       hook,
       "",
-      `For ${targetAudience} — not a generic feed post.`,
+      `For ${targetAudience} in ${geo.countryName} — not a generic feed post.`,
+      marketLine,
       `Pain we’re solving: ${script.pain}.`,
       "",
       `Angle (from listening): ${listening.angle}`,
@@ -436,8 +440,9 @@ function buildBodies(
     const body = [
       hook,
       "",
-      `${script.formatName} for ${targetAudience}.`,
+      `${script.formatName} for ${targetAudience} · ${geo.countryName}`,
       `Topic: ${topic}`,
+      marketLine,
       "",
       `Carousel / Reel beats:`,
       ...beats.map((b, i) => `${i + 1}. ${b}`),
@@ -455,15 +460,15 @@ function buildBodies(
   if (platform === "tiktok") {
     const body = [
       `[0–1s VISUAL] Text: “${hook}”`,
-      `[1–8s] Talk to ${targetAudience}: “${topic}. Here’s the ${offer} take from ${brand}.”`,
+      `[1–8s] Talk to ${targetAudience} in ${geo.countryName}: “${topic}. Here’s the ${offer} take from ${brand}.”`,
       `[8–18s] ${beats[1] ?? script.proof}`,
       `[18–25s] ${beats[2] ?? `Show one concrete ${keyword} moment.`}`,
       `[25–30s] CTA: “${cta}”`,
       "",
       `Format: ${script.formatName}. Listening: ${listening.trendTitle}.`,
+      marketLine,
       `Voice blend: ${listening.voiceBlend}`,
       `On-screen text color cue: ${accent}`,
-      `Do not just rename the audience — every line must sound like it’s for ${targetAudience}.`,
     ].join("\n");
     return { hook, body, cta };
   }
