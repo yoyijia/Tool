@@ -37,7 +37,13 @@ export default function App() {
         err instanceof Error
           ? err.message
           : "Analysis failed. Try another site or open as a Chrome extension for full access.";
-      setError(message);
+      const blocked =
+        /could not reach|fetch failed|502|blocked|jina/i.test(message);
+      setError(
+        blocked
+          ? "That website blocked our fetch. Try another URL, or a simpler marketing homepage."
+          : message,
+      );
     } finally {
       setLoading(false);
     }

@@ -31,6 +31,56 @@ const SOCIAL_HOSTS = [
   "discord.com",
 ];
 
+/** Many sites block custom bot UAs — look like a normal browser. */
+export const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+export function browserHeaders(extra?: Record<string, string>): Record<string, string> {
+  return {
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "User-Agent": BROWSER_UA,
+    ...extra,
+  };
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** True when the body still has usable brand signals despite a non-2xx status. */
+export function looksUsableHtml(html: string): boolean {
+  if (html.length < 500) return false;
+  const blocked =
+    /cf-browser-verification|attention required|access denied|request blocked|enable javascript and cookies/i.test(
+      html,
+    ) && html.length < 12_000;
+  if (blocked) return false;
+  return /<title[\s>]|property=["']og:title|name=["']description["']|<h1[\s>]/i.test(html);
+}
+
+function urlCandidates(url: string): string[] {
+  try {
+    const u = new URL(url);
+    const hosts = new Set<string>([u.hostname]);
+    if (u.hostname.startsWith("www.")) hosts.add(u.hostname.slice(4));
+    else hosts.add(`www.${u.hostname}`);
+    return [...hosts].map((h) => {
+      const next = new URL(url);
+      next.hostname = h;
+      return next.href;
+    });
+  } catch {
+    return [url];
+  }
+}
+
 async function fetchViaExtension(url: string): Promise<string | null> {
   if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return null;
   try {
@@ -47,63 +97,109 @@ async function fetchViaExtension(url: string): Promise<string | null> {
   return null;
 }
 
-async function fetchDirect(url: string): Promise<string> {
+async function fetchUpstream(url: string): Promise<string> {
   const res = await fetch(url, {
-    headers: { Accept: "text/html,application/xhtml+xml" },
+    redirect: "follow",
+    headers: browserHeaders(),
+    signal: AbortSignal.timeout(20_000),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+  const html = await res.text();
+  if (res.ok || looksUsableHtml(html)) return html;
+  throw new Error(`HTTP ${res.status}`);
 }
 
 async function fetchViaDevProxy(url: string): Promise<string> {
   const proxied = `/api/fetch-page?url=${encodeURIComponent(url)}`;
-  const res = await fetch(proxied);
-  if (!res.ok) {
-    const detail = (await res.text()).slice(0, 180);
-    throw new Error(detail || `Proxy HTTP ${res.status}`);
-  }
-  return res.text();
+  const res = await fetch(proxied, { signal: AbortSignal.timeout(25_000) });
+  const body = await res.text();
+  if (res.ok || looksUsableHtml(body)) return body;
+  throw new Error(body.slice(0, 180) || `Proxy HTTP ${res.status}`);
 }
 
-async function fetchViaPublicProxy(url: string): Promise<string> {
-  const proxied = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-  const res = await fetch(proxied);
-  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-  return res.text();
+/** Jina reader — works when origin blocks datacenter IPs / bots. */
+async function fetchViaJina(url: string): Promise<string> {
+  const res = await fetch(`https://r.jina.ai/${url}`, {
+    headers: {
+      Accept: "text/plain",
+      "User-Agent": BROWSER_UA,
+      "X-Return-Format": "markdown",
+    },
+    signal: AbortSignal.timeout(25_000),
+  });
+  if (!res.ok) throw new Error(`Reader HTTP ${res.status}`);
+  const md = await res.text();
+  if (md.length < 80) throw new Error("Reader returned empty content");
+
+  const title = md.match(/^Title:\s*(.+)$/m)?.[1]?.trim() || "";
+  const markdownBody =
+    md.split(/Markdown Content:\s*/i).slice(1).join("Markdown Content:").trim() || md;
+  const desc = markdownBody.replace(/\s+/g, " ").trim().slice(0, 220);
+  const paras = markdownBody
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("URL Source:"))
+    .slice(0, 80)
+    .map((l) => `<p>${escapeHtml(l)}</p>`)
+    .join("\n");
+
+  return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/>
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(desc)}"/>
+<meta property="og:title" content="${escapeHtml(title)}"/>
+<meta property="og:description" content="${escapeHtml(desc)}"/>
+</head><body>
+<h1>${escapeHtml(title)}</h1>
+${paras}
+</body></html>`;
 }
 
 async function fetchHtml(url: string): Promise<string> {
+  const errors: string[] = [];
+
   // 1) Chrome extension background (CORS-free)
   const fromExt = await fetchViaExtension(url);
   if (fromExt) return fromExt;
 
-  // 2) Vite / preview local proxy (browser only)
+  const candidates = urlCandidates(url);
+
+  // 2) App proxy (browser → server.mjs / Vite)
   if (typeof window !== "undefined") {
-    try {
-      return await fetchViaDevProxy(url);
-    } catch {
-      /* continue */
+    for (const candidate of candidates) {
+      try {
+        return await fetchViaDevProxy(candidate);
+      } catch (err) {
+        errors.push(
+          `proxy ${candidate}: ${err instanceof Error ? err.message : "fail"}`,
+        );
+      }
     }
   }
 
-  // 3) Direct fetch (Node smoke tests / permissive hosts)
-  try {
-    return await fetchDirect(url);
-  } catch {
-    /* continue */
+  // 3) Direct fetch (Node smoke / permissive hosts)
+  for (const candidate of candidates) {
+    try {
+      return await fetchUpstream(candidate);
+    } catch (err) {
+      errors.push(
+        `direct ${candidate}: ${err instanceof Error ? err.message : "fail"}`,
+      );
+    }
   }
 
-  // 4) Public CORS proxy fallback (browser)
-  if (typeof window !== "undefined") {
+  // 4) Jina reader fallback (bot walls)
+  for (const candidate of candidates) {
     try {
-      return await fetchViaPublicProxy(url);
-    } catch {
-      /* continue */
+      return await fetchViaJina(candidate);
+    } catch (err) {
+      errors.push(
+        `reader ${candidate}: ${err instanceof Error ? err.message : "fail"}`,
+      );
     }
   }
 
   throw new Error(
-    `Could not reach ${url}. Load BrandVibe as a Chrome extension for full site access, or run via npm run dev.`,
+    `Could not load ${url}. The site may be blocking automated requests. Try the full URL (https://…), another domain, or the Chrome extension. (${errors.slice(0, 2).join("; ")})`,
   );
 }
 
@@ -127,7 +223,6 @@ function extractColorsFromCss(cssText: string): string[] {
     ) ?? [];
   colors.push(...hex, ...rgb, ...hsl);
 
-  // CSS variables that look like colors
   for (const match of cssText.matchAll(/--[\w-]+\s*:\s*([^;!}{]+)/g)) {
     const value = match[1]?.trim() ?? "";
     if (
@@ -150,7 +245,6 @@ function walkInlineStyles(doc: Document): string[] {
   doc.querySelectorAll("style").forEach((el) => {
     colors.push(...extractColorsFromCss(el.textContent ?? ""));
   });
-  // SVG presentation attributes
   doc.querySelectorAll("[fill], [stroke], [color]").forEach((el) => {
     for (const attr of ["fill", "stroke", "color"]) {
       const v = el.getAttribute(attr);
@@ -193,7 +287,6 @@ async function collectExternalCssColors(hrefs: string[]): Promise<string[]> {
 function readableText(doc: Document): string {
   const body = doc.body;
   if (!body) return "";
-  // Prefer textContent in Node/JSDOM; innerText in browsers
   const raw =
     (body as HTMLElement).innerText?.trim() ||
     body.textContent?.replace(/\s+/g, " ").trim() ||
@@ -270,9 +363,7 @@ export function isSocialUrl(href: string): boolean {
       /^www\./,
       "",
     );
-    return SOCIAL_HOSTS.some(
-      (s) => host === s || host.endsWith(`.${s}`),
-    );
+    return SOCIAL_HOSTS.some((s) => host === s || host.endsWith(`.${s}`));
   } catch {
     return false;
   }
