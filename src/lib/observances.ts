@@ -265,12 +265,21 @@ export function scoreObservanceFit(
     score -= 12;
   }
 
-  // Purely festive food days for hard B2B
+  // Food/drink-heavy days are usually a stretch for hard B2B
   const isB2b = /saas|api|enterprise|b2b|cloud|developer|fintech|payments/.test(corpus);
-  if (isB2b && themes.every((t) => /food|dessert|chocolate|beer|wine|hot dog|hamburger|pretzel|ice cream/.test(t))) {
-    score -= 18;
+  const foodHits = themes.filter((t) =>
+    /food|dessert|chocolate|beer|wine|hot dog|hamburger|pretzel|ice cream|coffee|tea|snack|bbq|drink|restaurant/.test(
+      t,
+    ),
+  ).length;
+  if (
+    isB2b &&
+    foodHits >= 2 &&
+    !themes.some((t) => /tech|saas|security|privacy|workplace|developer|digital/.test(t))
+  ) {
+    score -= 24;
   } else if (isB2b && themes.some((t) => /humor|joke|playful|fun/.test(t))) {
-    score += 6; // jokes can still work for B2B wit
+    score += 6; // light wit can still work for B2B
   }
 
   score = Math.max(8, Math.min(98, score));
