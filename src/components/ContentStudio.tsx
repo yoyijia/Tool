@@ -30,7 +30,6 @@ import { ContentCalendar } from "./ContentCalendar";
 import { ContentSchedule } from "./ContentSchedule";
 import { InstagramLibrary } from "./InstagramLibrary";
 import { MascotPicker } from "./MascotPicker";
-import { MascotStage } from "./MascotStage";
 import { TrendRadar } from "./TrendRadar";
 import type { TrendSuggestion } from "../types";
 
@@ -62,7 +61,7 @@ export function ContentStudio({ report, onCopy }: Props) {
   const [mascotId, setMascotId] = useState<MascotId>("orb");
   const [customMascot, setCustomMascot] = useState<HTMLImageElement | null>(null);
   const [customMascotName, setCustomMascotName] = useState<string | null>(null);
-  const [mascotPos, setMascotPos] = useState<MascotPosition>(DEFAULT_MASCOT_POS);
+  const mascotPos: MascotPosition = DEFAULT_MASCOT_POS;
   const [mascotPose, setMascotPose] = useState<MascotPose>("idle");
   const [activeTrend, setActiveTrend] = useState<TrendSuggestion | null>(null);
 
@@ -172,8 +171,7 @@ export function ContentStudio({ report, onCopy }: Props) {
     <section className="panel span-2 studio">
       <h3>Content studio</h3>
       <p className="sub">
-        Drag mascots into pose-matched feed/Reel frames, plan around services like{" "}
-        {servicesLine(report)}, then export images
+        Plan around services like {servicesLine(report)}, then export editorial images
         {report.audiences?.length
           ? ` — tuned for ${report.audiences.join(" · ")}`
           : ""}
@@ -209,19 +207,6 @@ export function ContentStudio({ report, onCopy }: Props) {
           mascotId={mascotId}
           customName={customMascotName}
           onSelect={setMascotId}
-          onCustomFile={(file) => void onCustomFile(file)}
-        />
-
-        <MascotStage
-          report={report}
-          platform={platform}
-          topic={topic}
-          mascotId={mascotId}
-          customMascot={customMascot}
-          position={mascotPos}
-          pose={mascotPose}
-          onPositionChange={setMascotPos}
-          onPoseChange={setMascotPose}
           onCustomFile={(file) => void onCustomFile(file)}
         />
 

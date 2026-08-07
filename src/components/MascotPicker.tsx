@@ -26,8 +26,7 @@ export function MascotPicker({
     <fieldset className="studio-field">
       <legend>Mascot</legend>
       <p className="platform-tip">
-        Choose a preset or upload a PNG/WebP — then drag it on the stage below onto feed
-        &amp; Reel layouts before generating images.
+        Choose a preset or upload a PNG/WebP — it’s baked into exported post images.
       </p>
       <div className="voice-grid mascot-grid">
         {MASCOT_OPTIONS.map((m) => (
