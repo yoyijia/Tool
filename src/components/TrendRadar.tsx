@@ -10,7 +10,7 @@ interface Props {
   onCopy: (text: string) => void;
 }
 
-type Tab = "future" | "tiktok" | "instagram" | "other";
+type Tab = "live" | "future" | "tiktok" | "instagram" | "other";
 
 export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const [busy, setBusy] = useState(false);
@@ -19,9 +19,10 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const [signals, setSignals] = useState<TrendSignal[] | null>(null);
   const [tiktokFeed, setTiktokFeed] = useState<TrendSignal[]>([]);
   const [instagramFeed, setInstagramFeed] = useState<TrendSignal[]>([]);
+  const [liveFeed, setLiveFeed] = useState<TrendSignal[]>([]);
   const [dataNote, setDataNote] = useState<string | null>(null);
   const [listenedAt, setListenedAt] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("future");
+  const [tab, setTab] = useState<Tab>("live");
   const [selectedTrendId, setSelectedTrendId] = useState<string | null>(null);
   const [selectedFutureId, setSelectedFutureId] = useState<string | null>(null);
 
@@ -36,10 +37,11 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       setSignals(result.signals);
       setTiktokFeed(result.tiktokFeed);
       setInstagramFeed(result.instagramFeed);
+      setLiveFeed(result.liveFeed);
       setDataNote(result.dataNote);
       setListenedAt(result.listenedAt);
-      setSelectedTrendId(result.tiktokFeed[0]?.id ?? null);
-      setTab("tiktok");
+      setSelectedTrendId(result.liveFeed[0]?.id ?? result.tiktokFeed[0]?.id ?? null);
+      setTab(result.liveFeed.length ? "live" : "tiktok");
     } catch (err) {
       setError(
         err instanceof Error
@@ -52,16 +54,23 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   }
 
   const otherFeed = useMemo(
-    () => (signals ?? []).filter((s) => s.platform === "other"),
+    () =>
+      (signals ?? []).filter(
+        (s) =>
+          s.platform === "other" &&
+          s.tag !== "live-sg" &&
+          !/News SG|Trends SG/i.test(s.source),
+      ),
     [signals],
   );
 
   const feed = useMemo(() => {
+    if (tab === "live") return liveFeed;
     if (tab === "tiktok") return tiktokFeed;
     if (tab === "instagram") return instagramFeed;
     if (tab === "other") return otherFeed;
     return [];
-  }, [tab, tiktokFeed, instagramFeed, otherFeed]);
+  }, [tab, liveFeed, tiktokFeed, instagramFeed, otherFeed]);
 
   const selectedSignal = feed.find((s) => s.id === selectedTrendId) ?? feed[0] ?? null;
 
@@ -91,8 +100,8 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       <div className="studio-actions">
         <p className="voice-hint">
           {listenedAt
-            ? `Live roundups loaded ${new Date(listenedAt).toLocaleTimeString()} · TT ${tiktokFeed.length} · IG ${instagramFeed.length}`
-            : `${futureIdeas.length} future bets ready · load live roundups anytime`}
+            ? `Updated ${new Date(listenedAt).toLocaleTimeString()} · Live ${liveFeed.length} · TT ${tiktokFeed.length} · IG ${instagramFeed.length}`
+            : `${futureIdeas.length} future bets ready · load live SG + TikTok/IG anytime`}
         </p>
         <button
           type="button"
@@ -100,7 +109,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
           disabled={busy}
           onClick={() => void listen()}
         >
-          {busy ? "Loading trend roundups…" : "Load live TikTok & IG roundups"}
+          {busy ? "Refreshing…" : "Refresh live SG + TikTok/IG"}
         </button>
       </div>
 
@@ -117,9 +126,10 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       <div className="platform-row" style={{ marginTop: 12 }}>
         {(
           [
+            ["live", `Live SG (${liveFeed.length})`],
             ["future", `Future bets (${futureIdeas.length})`],
-            ["tiktok", `TikTok now (${tiktokFeed.length})`],
-            ["instagram", `Instagram now (${instagramFeed.length})`],
+            ["tiktok", `TikTok roundups (${tiktokFeed.length})`],
+            ["instagram", `IG roundups (${instagramFeed.length})`],
             ["other", `Search / calendar (${otherFeed.length})`],
           ] as const
         ).map(([id, label]) => (
@@ -133,11 +143,13 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                 setSelectedFutureId(futureIdeas[0]?.id ?? null);
               } else {
                 const next =
-                  id === "tiktok"
-                    ? tiktokFeed[0]
-                    : id === "instagram"
-                      ? instagramFeed[0]
-                      : otherFeed[0];
+                  id === "live"
+                    ? liveFeed[0]
+                    : id === "tiktok"
+                      ? tiktokFeed[0]
+                      : id === "instagram"
+                        ? instagramFeed[0]
+                        : otherFeed[0];
                 setSelectedTrendId(next?.id ?? null);
               }
             }}
@@ -150,13 +162,15 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       <div className="trend-split">
         <div className="trend-feed">
           <h4 className="trend-feed-title">
-            {tab === "future"
-              ? "Upcoming TikTok / Instagram format bets"
-              : tab === "tiktok"
-                ? "TikTok trends (dated roundups)"
-                : tab === "instagram"
-                  ? "Instagram Reels trends (dated roundups)"
-                  : "Not TikTok/IG — search & calendar only"}
+            {tab === "live"
+              ? "Live Singapore · news & search (GST, Spider-Man, …)"
+              : tab === "future"
+                ? "Upcoming TikTok / Instagram format bets"
+                : tab === "tiktok"
+                  ? "TikTok trends (dated roundups)"
+                  : tab === "instagram"
+                    ? "Instagram Reels trends (dated roundups)"
+                    : "Not TikTok/IG — search & calendar only"}
           </h4>
           <div className="trend-feed-list">
             {tab === "future"
@@ -196,7 +210,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                 ))}
             {tab !== "future" && feed.length === 0 && (
               <p className="empty-social">
-                Load live roundups, or stay on Future bets for healthcare + marketer plays.
+                {tab === "live"
+                  ? "Hit Refresh to pull GST vouchers, Spider-Man: Brand New Day, and other SG spikes."
+                  : "Load roundups, or open Live SG / Future bets."}
               </p>
             )}
           </div>

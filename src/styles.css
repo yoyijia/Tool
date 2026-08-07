@@ -1715,6 +1715,37 @@ textarea {
   background: var(--warn);
 }
 
+.schedule-kind.kind-trend {
+  background: #5ec8ff;
+  color: #07110d;
+}
+
+.schedule-card.live-trend {
+  border-color: rgba(94, 200, 255, 0.35);
+}
+
+.live-trend-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.live-pill {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #5ec8ff;
+  color: #07110d;
+}
+
+.schedule-actions {
+  flex-wrap: wrap;
+}
+
 .schedule-card h4 {
   margin: 0 0 4px;
   font-family: var(--font-display);

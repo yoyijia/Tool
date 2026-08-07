@@ -1,5 +1,6 @@
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { activeCalendarMoments } from "./calendarMoments";
+import { fetchLiveCultureTrends, liveTrendsToSignals } from "./liveCulture";
 
 const LATER_TIKTOK = "https://later.com/blog/tiktok-trends/";
 const LATER_INSTAGRAM = "https://later.com/blog/instagram-reels-trends/";
@@ -166,15 +167,18 @@ function parseRssTitles(xml: string, limit = 10): { title: string; link?: string
     .filter((i) => i.title && !/^Google News$/i.test(i.title));
 }
 
-/** Pull TikTok + Instagram trends from curated platform roundups (dated), not generic news. */
-export async function listenToTrends(): Promise<TrendSignal[]> {
+/** Pull TikTok + Instagram roundups plus live SG culture/search trends. */
+export async function listenToTrends(report?: BrandReport): Promise<TrendSignal[]> {
   const signals: TrendSignal[] = [];
 
-  const [ttHtml, igHtml, siHtml, searchXml] = await Promise.all([
+  const [ttHtml, igHtml, siHtml, searchSgXml, liveCulture] = await Promise.all([
     fetchText(LATER_TIKTOK).catch(() => ""),
     fetchText(LATER_INSTAGRAM).catch(() => ""),
     fetchText(SOCIALINSIDER_TIKTOK).catch(() => ""),
-    fetchText("https://trends.google.com/trending/rss?geo=US").catch(() => ""),
+    fetchText("https://trends.google.com/trending/rss?geo=SG").catch(() => ""),
+    report
+      ? fetchLiveCultureTrends(report).catch(() => [])
+      : Promise.resolve([]),
   ]);
 
   const ttLater = ttHtml ? parseLaterTrends(ttHtml, LATER_TIKTOK) : [];
@@ -217,18 +221,25 @@ export async function listenToTrends(): Promise<TrendSignal[]> {
     });
   });
 
-  // Search spikes stay clearly labeled as Search — not TikTok/IG
-  if (searchXml) {
-    parseRssTitles(searchXml, 8).forEach((item, i) => {
+  // Live SG culture (GST vouchers, Spider-Man Brand New Day, NDP, …)
+  liveTrendsToSignals(liveCulture).forEach((s) => {
+    if (isSensitiveTopic(s.title)) return;
+    signals.push(s);
+  });
+
+  // SG search spikes — clearly labeled
+  if (searchSgXml) {
+    parseRssTitles(searchSgXml, 8).forEach((item, i) => {
       if (isSensitiveTopic(item.title)) return;
+      if (liveCulture.some((l) => l.label.toLowerCase() === item.title.toLowerCase())) return;
       signals.push({
         id: slugId("search", item.title, i),
         title: item.title,
         category: "search",
         platform: "other",
-        source: "Google Trends (search, not TikTok/IG)",
+        source: "Google Trends SG (search)",
         heat: Math.max(40, 85 - i * 5),
-        summary: `People are searching for “${item.title}” — useful context, not a platform trend list.`,
+        summary: `Singapore is searching for “${item.title}” right now.`,
         url: item.link,
       });
     });
@@ -246,7 +257,7 @@ export async function listenToTrends(): Promise<TrendSignal[]> {
     });
   });
 
-  if (!signals.some((s) => s.platform === "tiktok")) {
+  if (!signals.some((s) => s.platform === "tiktok") && !liveCulture.length) {
     throw new Error(
       "Could not load TikTok trend roundups. Check network / proxy and try again.",
     );
@@ -295,6 +306,11 @@ function scoreFit(report: BrandReport, signal: TrendSignal): {
   let score = 48;
   let reason = `Solid creative prompt for ${report.name} if adapted carefully.`;
 
+  if (signal.tag === "live-sg" || /News SG|Trends SG/i.test(signal.source)) {
+    score += 24;
+    reason = "Live Singapore news/search trend — timely if you post soon.";
+    if (/gst|voucher|spider|ndp/i.test(text)) score += 8;
+  }
   if (signal.platform === "tiktok") {
     score += 22;
     reason = "From a dated TikTok trend roundup — higher confidence than generic news.";
@@ -364,6 +380,15 @@ function buildSuggestion(
       `Save this if you’re into ${title} + ${brand}.`,
     ];
     topicPrompt = `Use the Instagram Reels trend “${title}” (${signal.source}) with ${brand}'s ${report.archetype} voice.`;
+  } else if (signal.tag === "live-sg" || /News SG|Trends SG/i.test(signal.source)) {
+    headline = `Live SG · ${title}`;
+    angle = `${blend} ${signal.summary}`;
+    hooks = [
+      `Everyone’s on “${title}” — ${brand}'s take:`,
+      `Singapore right now: ${title}. Here’s the useful angle.`,
+      `${title} → one tip for ${report.audiences?.[0] ?? "your audience"}.`,
+    ];
+    topicPrompt = `Create a timely post on live Singapore trend “${title}” for ${brand}. ${signal.summary} Voice: ${trait}. Keep it brand-safe and useful.`;
   } else if (signal.category === "festival" || signal.source === "Cultural calendar") {
     headline = `${title} for ${brand}`;
     angle = blend;
@@ -425,19 +450,24 @@ export async function runSocialListening(report: BrandReport): Promise<{
   listenedAt: string;
   tiktokFeed: TrendSignal[];
   instagramFeed: TrendSignal[];
+  liveFeed: TrendSignal[];
   dataNote: string;
 }> {
-  const signals = await listenToTrends();
+  const signals = await listenToTrends(report);
   const suggestions = suggestFromTrends(report, signals);
   const tiktokFeed = signals.filter((s) => s.platform === "tiktok");
   const instagramFeed = signals.filter((s) => s.platform === "instagram");
+  const liveFeed = signals.filter(
+    (s) => s.tag === "live-sg" || s.source.includes("News SG") || s.source.includes("Trends SG"),
+  );
   return {
     signals,
     suggestions,
     listenedAt: new Date().toISOString(),
     tiktokFeed,
     instagramFeed,
+    liveFeed,
     dataNote:
-      "These are named trends from dated Later.com TikTok / Instagram Reels roundups (with Socialinsider as TikTok backup) — not live Creative Center charts or in-app For You rankings. Official TikTok/IG trend APIs are not publicly available; each card shows its published update date.",
+      "Live SG tab refreshes Google News/Trends (GST vouchers, Spider-Man: Brand New Day, NDP, search spikes). TikTok/IG tabs use dated Later roundups — not in-app Creative Center charts.",
   };
 }

@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BrandReport } from "../types";
 import {
   buildMonthSchedule,
   scheduleSummary,
   type ScheduleSlot,
 } from "../lib/contentSchedule";
+import {
+  fetchLiveCultureTrends,
+  mergeLiveTrendsIntoSchedule,
+  type LiveCultureTrend,
+} from "../lib/liveCulture";
 
 interface Props {
   report: BrandReport;
@@ -21,7 +26,7 @@ function kindLabel(kind: ScheduleSlot["kind"]): string {
     case "reel":
       return "Reel";
     case "trend":
-      return "Trend";
+      return "Live";
     default:
       return "Carousel";
   }
@@ -29,11 +34,20 @@ function kindLabel(kind: ScheduleSlot["kind"]): string {
 
 export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
   const [officeDog, setOfficeDog] = useState("Gucci");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [live, setLive] = useState<LiveCultureTrend[] | null>(null);
+  const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const from = useMemo(() => new Date(), []);
 
-  const slots = useMemo(
+  const baseSlots = useMemo(
     () => buildMonthSchedule(report, from, { officeDogName: officeDog.trim() || "Gucci" }),
     [report, from, officeDog],
+  );
+
+  const slots = useMemo(
+    () => (live?.length ? mergeLiveTrendsIntoSchedule(baseSlots, live, report) : baseSlots),
+    [baseSlots, live, report],
   );
 
   const monthLabel = from.toLocaleDateString(undefined, {
@@ -41,10 +55,37 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
     year: "numeric",
   });
 
+  async function refreshLive() {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await fetchLiveCultureTrends(report);
+      setLive(next);
+      setRefreshedAt(new Date().toISOString());
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not refresh live SG trends. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Auto-load live SG trends once so GST / Spider-Man appear without an extra click
+  useEffect(() => {
+    void refreshLive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only refresh for this brand
+  }, [report.domain]);
+
   function copyAll() {
     const lines = [
       `${report.name} · ${monthLabel} content schedule (SGT)`,
       scheduleSummary(slots),
+      refreshedAt
+        ? `Live trends refreshed ${new Date(refreshedAt).toLocaleString()} · ${live?.length ?? 0} items`
+        : "Live trends not refreshed yet — click Refresh live SG trends",
       "",
       ...slots.map(
         (s) =>
@@ -60,15 +101,14 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
 
   return (
     <fieldset className="studio-field">
-      <legend>August schedule · trends + carousels</legend>
+      <legend>August schedule · live trends + carousels</legend>
       <p className="platform-tip">
-        From today through end of {monthLabel}: moment/trend days when they exist, otherwise
-        service carousels. <strong>Dog Day (26 Aug)</strong> stars{" "}
-        <strong>{officeDog || "Gucci"}</strong>, the office dog — timed for peak IG + TikTok
-        engagement (SGT).
+        Refresh <strong>live Singapore trends</strong> (GST Vouchers, Spider-Man: Brand New
+        Day, NDP, search spikes) into this calendar. Dog Day (26 Aug) still stars{" "}
+        <strong>{officeDog || "Gucci"}</strong>. Times in SGT for peak engagement.
       </p>
 
-      <div className="studio-actions">
+      <div className="studio-actions schedule-actions">
         <label className="dog-name-field">
           Office dog
           <input
@@ -78,17 +118,60 @@ export function ContentSchedule({ report, onUseSlot, onCopy }: Props) {
             aria-label="Office dog name"
           />
         </label>
-        <p className="voice-hint">{scheduleSummary(slots)}</p>
-        <button type="button" className="generate-btn secondary-btn" onClick={copyAll}>
+        <p className="voice-hint">
+          {scheduleSummary(slots)}
+          {refreshedAt
+            ? ` · live ${live?.length ?? 0} @ ${new Date(refreshedAt).toLocaleTimeString()}`
+            : " · live trends not loaded"}
+        </p>
+        <button
+          type="button"
+          className="generate-btn secondary-btn"
+          disabled={busy}
+          onClick={() => void refreshLive()}
+        >
+          {busy ? "Refreshing live trends…" : "Refresh live SG trends"}
+        </button>
+        <button type="button" className="copy-post" onClick={copyAll}>
           Copy full schedule
         </button>
       </div>
+
+      {error && (
+        <div className="error" style={{ marginTop: 8 }}>
+          {error}
+        </div>
+      )}
+
+      {live && live.length > 0 && (
+        <div className="live-trend-strip">
+          <span className="live-pill">LIVE</span>
+          {live.slice(0, 6).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className="chip-btn"
+              title={t.summary}
+              onClick={() =>
+                onUseSlot(
+                  t.topicPrompt,
+                  mergeLiveTrendsIntoSchedule(baseSlots, [t], report).find(
+                    (s) => s.kind === "trend",
+                  ) ?? slots[0]!,
+                )
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="schedule-list">
         {slots.map((s) => (
           <article
             key={s.id}
-            className={`schedule-card${s.kind === "spotlight" ? " spotlight" : ""}`}
+            className={`schedule-card${s.kind === "spotlight" ? " spotlight" : ""}${s.kind === "trend" ? " live-trend" : ""}`}
           >
             <div className="schedule-card-top">
               <div>
