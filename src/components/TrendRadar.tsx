@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BrandReport, TrendSignal, TrendSuggestion } from "../types";
 import { audienceLine } from "../lib/audience";
-import { geoFromReport } from "../lib/brandGeo";
+import { geoFromReport, isLiveRegionalSignal } from "../lib/brandGeo";
+import { adaptTrendForBrand, scoreBrandTrendFit } from "../lib/brandTrendFit";
 import { futureTrendsNote, suggestFutureTrends } from "../lib/futureTrends";
 import { runSocialListening } from "../lib/socialListening";
 
@@ -12,6 +13,48 @@ interface Props {
 }
 
 type Tab = "live" | "future" | "tiktok" | "instagram" | "other";
+
+function briefFromSignal(
+  report: BrandReport,
+  signal: TrendSignal,
+): TrendSuggestion {
+  const geo = geoFromReport(report);
+  const { score, reason, targetAudience } = scoreBrandTrendFit(report, signal);
+  const adapted = adaptTrendForBrand(report, signal);
+  const audience = adapted.targetAudience || targetAudience;
+  const platformLabel =
+    signal.platform === "tiktok"
+      ? "TikTok"
+      : signal.platform === "instagram"
+        ? "Instagram"
+        : isLiveRegionalSignal(signal, geo)
+          ? `Live ${geo.countryCode}`
+          : "Moment";
+  const platforms =
+    signal.platform === "tiktok"
+      ? ["TikTok", "Instagram Reels"]
+      : signal.platform === "instagram"
+        ? ["Instagram Reels", "TikTok"]
+        : ["LinkedIn", "Instagram", "TikTok"];
+
+  return {
+    id: `brief-${signal.id}`,
+    trendId: signal.id,
+    trendTitle: signal.title,
+    category: signal.category,
+    platform: signal.platform,
+    headline: `${platformLabel} · ${signal.title} → ${audience}`,
+    angle: adapted.angle,
+    platforms,
+    hookIdeas: adapted.hooks,
+    topicPrompt: adapted.topicPrompt,
+    fitScore: score,
+    fitReason: reason,
+    timing: signal.heat >= 85 ? "now" : signal.heat >= 65 ? "this_week" : "seasonal",
+    voiceBlend: adapted.voiceBlend,
+    targetAudience: audience,
+  };
+}
 
 export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const geo = geoFromReport(report);
@@ -27,7 +70,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const [audienceFocus, setAudienceFocus] = useState(audienceLine(report));
   const [dataNote, setDataNote] = useState<string | null>(null);
   const [listenedAt, setListenedAt] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("tiktok");
+  const [tab, setTab] = useState<Tab>("live");
   const [selectedTrendId, setSelectedTrendId] = useState<string | null>(null);
   const [selectedFutureId, setSelectedFutureId] = useState<string | null>(null);
 
@@ -48,23 +91,30 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
       setAudienceFocus(result.audienceFocus);
       setDataNote(result.dataNote);
       setListenedAt(result.listenedAt);
-      const best =
-        result.suggestions[0]?.trendId ||
-        result.tiktokFeed[0]?.id ||
-        result.instagramFeed[0]?.id ||
-        result.liveFeed[0]?.id ||
-        null;
-      setSelectedTrendId(best);
-      const bestSug = result.suggestions[0];
-      setTab(
-        bestSug?.platform === "instagram"
+
+      // Prefer a feed that actually has items (Live often has content when TT/IG are empty)
+      const nextTab: Tab = result.tiktokFeed.length
+        ? "tiktok"
+        : result.instagramFeed.length
           ? "instagram"
-          : bestSug?.platform === "tiktok" || result.tiktokFeed.length
-            ? "tiktok"
-            : result.liveFeed.length
-              ? "live"
-              : "future",
-      );
+          : result.liveFeed.length
+            ? "live"
+            : futureIdeas.length
+              ? "future"
+              : "other";
+      setTab(nextTab);
+      const seed =
+        nextTab === "tiktok"
+          ? result.tiktokFeed[0]
+          : nextTab === "instagram"
+            ? result.instagramFeed[0]
+            : nextTab === "live"
+              ? result.liveFeed[0]
+              : null;
+      setSelectedTrendId(seed?.id ?? result.suggestions[0]?.trendId ?? null);
+      if (nextTab === "future") {
+        setSelectedFutureId(futureIdeas[0]?.id ?? null);
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -85,12 +135,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
   const otherFeed = useMemo(
     () =>
       (signals ?? []).filter(
-        (s) =>
-          s.platform === "other" &&
-          s.tag !== "live-sg" &&
-          !/News SG|Trends SG/i.test(s.source),
+        (s) => s.platform === "other" && !isLiveRegionalSignal(s, geo),
       ),
-    [signals],
+    [signals, geo],
   );
 
   const feed = useMemo(() => {
@@ -101,16 +148,29 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
     return [];
   }, [tab, liveFeed, tiktokFeed, instagramFeed, otherFeed]);
 
-  const selectedSignal = feed.find((s) => s.id === selectedTrendId) ?? feed[0] ?? null;
+  const selectedSignal =
+    feed.find((s) => s.id === selectedTrendId) ?? feed[0] ?? null;
+
+  // Keep selection in sync when the active feed changes
+  useEffect(() => {
+    if (tab === "future") return;
+    if (!feed.length) {
+      setSelectedTrendId(null);
+      return;
+    }
+    if (!selectedTrendId || !feed.some((s) => s.id === selectedTrendId)) {
+      setSelectedTrendId(feed[0]!.id);
+    }
+  }, [tab, feed, selectedTrendId]);
 
   const blendedLive = useMemo(() => {
-    if (!suggestions || !selectedSignal) return null;
-    return (
-      suggestions.find((s) => s.trendId === selectedSignal.id) ||
-      suggestions.find((s) => s.trendTitle === selectedSignal.title) ||
-      null
-    );
-  }, [suggestions, selectedSignal]);
+    if (!selectedSignal) return null;
+    const fromListening =
+      suggestions?.find((s) => s.trendId === selectedSignal.id) ||
+      suggestions?.find((s) => s.trendTitle === selectedSignal.title);
+    // Always show a brief for the selected item — even low-fit live trends
+    return fromListening ?? briefFromSignal(report, selectedSignal);
+  }, [suggestions, selectedSignal, report]);
 
   const selectedFuture =
     futureIdeas.find((f) => f.id === selectedFutureId) ?? futureIdeas[0] ?? null;
@@ -121,8 +181,9 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
     <fieldset className="studio-field">
       <legend>Trends · matched to audiences</legend>
       <p className="platform-tip">
-        For <strong>{report.name}</strong>, trends are filtered and rewritten for{" "}
-        <strong>{audienceFocus}</strong> — not a one-size viral list.
+        For <strong>{report.name}</strong> in <strong>{geo.countryName}</strong>, trends are
+        filtered and rewritten for <strong>{audienceFocus}</strong> — not a one-size viral
+        list. Tap any trend to open its brief.
       </p>
 
       <div className="studio-actions">
@@ -252,7 +313,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
               audienceFocus}
           </h4>
           {activeBlend ? (
-            <article className="trend-sug-card blend-card">
+            <article className="trend-sug-card blend-card" key={activeBlend.id}>
               <div className="trend-sug-top">
                 <span className="trend-cat">
                   {tab === "future" ? "FUTURE BET" : activeBlend.platform.toUpperCase()} ·{" "}
@@ -279,6 +340,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                   <span key={p}>{p}</span>
                 ))}
                 <span>{activeBlend.targetAudience || audienceFocus}</span>
+                {tab === "live" && <span>{geo.countryName}</span>}
               </div>
               <ul className="engage-tips">
                 {activeBlend.hookIdeas.slice(0, 3).map((h) => (
@@ -301,6 +363,7 @@ export function TrendRadar({ report, onUseSuggestion, onCopy }: Props) {
                       [
                         `${tab === "future" ? "Future trend" : "Trend"}: ${activeBlend.trendTitle}`,
                         `Brand: ${report.name} · ${report.archetype}`,
+                        `Market: ${geo.countryName}`,
                         `Target audience: ${activeBlend.targetAudience || audienceFocus}`,
                         activeBlend.voiceBlend,
                         activeBlend.angle,
