@@ -1,0 +1,31 @@
+{
+  "name": "brandvibe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketing intelligence extension — extract brand personality, voice, color palette, and social trends from any website.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "start": "node server.mjs",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx scripts/smoke-analyze.ts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.23.7",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.6"
+  }
+}
