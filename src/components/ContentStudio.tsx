@@ -22,6 +22,7 @@ import {
   platformTip,
 } from "../lib/contentGen";
 import { exampleIdeas, scoreIdea, type IdeaFitResult } from "../lib/ideaFit";
+import { gatherBrandIntel, intelDigest } from "../lib/brandIntel";
 import {
   DEFAULT_MASCOT_POS,
   PLATFORM_IMAGE_SPECS,
@@ -74,6 +75,23 @@ export function ContentStudio({ report, onCopy }: Props) {
   const [ideaResult, setIdeaResult] = useState<IdeaFitResult | null>(null);
   const [ideaBusy, setIdeaBusy] = useState(false);
   const [showAllExamples, setShowAllExamples] = useState(false);
+  const [factBase, setFactBase] = useState<string | null>(null);
+
+  // Sourced brand intel keeps drafts grounded in real coverage
+  useEffect(() => {
+    let cancelled = false;
+    setFactBase(null);
+    gatherBrandIntel(report)
+      .then((intel) => {
+        if (!cancelled) setFactBase(intelDigest(intel));
+      })
+      .catch(() => {
+        if (!cancelled) setFactBase(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [report.domain, report.name]);
 
   function applyTopic(next: string, alsoPose = true) {
     setTopic(next);
@@ -171,6 +189,7 @@ export function ContentStudio({ report, onCopy }: Props) {
         platform,
         topic,
         targetAudience: activeAudience,
+        factBase: factBase ?? undefined,
         listening: activeTrend
           ? {
               trendTitle: activeTrend.trendTitle,

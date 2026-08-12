@@ -1,5 +1,6 @@
 import type { BrandReport, ColorSwatch } from "../types";
 import { ContentStudio } from "./ContentStudio";
+import { SocialIntel } from "./SocialIntel";
 
 interface Props {
   report: BrandReport;
@@ -87,6 +88,8 @@ export function ReportView({ report, onCopy }: Props) {
           </div>
         )}
       </section>
+
+      <SocialIntel report={report} onCopy={onCopy} />
 
       <ContentStudio report={report} onCopy={onCopy} />
 

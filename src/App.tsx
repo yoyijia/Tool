@@ -22,6 +22,7 @@ const LOADING_STEPS = [
 
 const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "intel", label: "Intelligence" },
   { id: "create", label: "Create posts" },
   { id: "schedule", label: "Schedule" },
   { id: "trends", label: "Trends" },

@@ -542,6 +542,9 @@ export function generateSocialContent(
     );
     const hashtags = hashtagPack(report, topic, seed + variant, audience);
     const tips = engagementTips(platform, voice, script.tip, listening);
+    if (brief.factBase) {
+      tips.push(`Grounding (sourced): ${brief.factBase.slice(0, 220)}`);
+    }
     if (brief.referenceId) {
       tips.unshift(
         `Reference ${brief.referenceId}${brief.referenceUrl ? ` → ${brief.referenceUrl}` : ""} when briefing design or recycling creative.`,

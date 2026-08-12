@@ -152,6 +152,8 @@ export interface ContentBrief {
     fitReason: string;
     source?: string;
   };
+  /** Sourced brand facts/coverage digest — keeps drafts accurate, not invented. */
+  factBase?: string;
   referenceId?: string;
   referenceUrl?: string;
   referenceCaption?: string;
